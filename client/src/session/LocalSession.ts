@@ -5,6 +5,7 @@ import type { Command, EntityId, GameEvent } from '@shared/sim/types';
 import { deriveStats, type SaveData } from '@shared/sim/save';
 import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
+import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -16,6 +17,10 @@ export interface Session {
   /** 직전 틱의 내 위치 (보간용) */
   prevPos(): { x: number; y: number };
   update(realDt: number, readCommand: () => Command): GameEvent[];
+  /** 메뉴 행동 (상점, 퀘스트, 수업 등) */
+  act(action: MenuAction): ActionResult;
+  /** 게임 안 시계 (테스트용 시간 당기기 포함) */
+  nowMs(): number;
 }
 
 export class LocalSession implements Session {
@@ -36,10 +41,30 @@ export class LocalSession implements Session {
   private enter(map: MapId, x: number, keep?: { hp: number; mp: number }) {
     const stats = deriveStats(this.save);
     this.world = new World(map);
-    const p = this.world.addPlayer(this.playerId, this.save.name, x, stats, keep?.hp, keep?.mp);
+    const p = this.world.addPlayer(this.playerId, this.save.name, x, stats, this.save.inventory, keep?.hp, keep?.mp);
     this.prev = { x: p.x, y: p.y };
     this.save.map = map;
     void this.store.save(this.save);
+  }
+
+  nowMs() { return Date.now() + this.save.timeOffset; }
+
+  act(action: MenuAction): ActionResult {
+    const r = applyAction(this.save, action, this.nowMs());
+    if (r.ok) {
+      this.refreshStats(r.fullHeal);
+      void this.store.save(this.save);
+    }
+    return r;
+  }
+
+  /** 레벨·능력치가 바뀌면 최대 HP 등 다시 계산 */
+  refreshStats(fullHeal = false) {
+    const p = this.me();
+    p.stats = deriveStats(this.save);
+    if (fullHeal) { p.hp = p.stats.maxHp; p.mp = p.stats.maxMp; }
+    p.hp = Math.min(p.hp, p.stats.maxHp);
+    p.mp = Math.min(p.mp, p.stats.maxMp);
   }
 
   update(realDt: number, readCommand: () => Command): GameEvent[] {

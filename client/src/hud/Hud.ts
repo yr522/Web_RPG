@@ -3,6 +3,7 @@
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
+import { QUESTS } from '@shared/data/quests';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 
@@ -244,10 +245,26 @@ export class Hud {
     this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(save.inventory.hp));
     this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(save.inventory.mp));
 
-    const ti = timeInfo(Date.now());
+    const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
     const info = `${s.world.map.name}　${PHASES[ti.phase].icon} ${PHASES[ti.phase].name} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}　💰 ${save.gold} G　Lv ${save.level}`;
     this.set('info', this.els.info, 'text', info);
+
+    // 퀘스트 알림: 진행 중인 퀘스트를 위에서부터
+    const active = QUESTS.filter(q => save.quests[q.id]?.active);
+    const qEls = this.els.quests.children;
+    for (let i = 0; i < qEls.length; i++) {
+      const q = active[i], st = q && save.quests[q.id];
+      const done = !!q && st!.count >= q.need;
+      const txt = q ? `${q.name} ${Math.min(st!.count, q.need)}/${q.need}${done ? ' ✔ 교수님께!' : ''}` : '퀘스트 없음';
+      if (this.cache['q' + i] !== txt) {
+        this.cache['q' + i] = txt;
+        const e = qEls[i] as HTMLElement;
+        e.firstElementChild!.textContent = txt;
+        e.classList.toggle('empty', !q);
+        e.classList.toggle('done', done);
+      }
+    }
 
     for (const k of SLOT_KEYS) {
       const v = this.slotView(s, k), el = this.slotEls.get(k)!;

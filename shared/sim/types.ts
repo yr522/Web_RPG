@@ -26,4 +26,8 @@ export const emptyCommand = (): Command => ({
 export type GameEvent =
   | { type: 'portal'; playerId: EntityId; to: MapId; toX: number }
   | { type: 'mapEnter'; playerId: EntityId; map: MapId }
-  | { type: 'notice'; playerId: EntityId; text: string };
+  | { type: 'notice'; playerId: EntityId; text: string }
+  /** NPC 앞에서 ↑ */
+  | { type: 'interact'; playerId: EntityId; npc: 'prof' | 'shop' }
+  /** 머리 위에 떠오르는 글자 (피해, 회복 등) */
+  | { type: 'float'; x: number; y: number; text: string; color: string; size?: number };

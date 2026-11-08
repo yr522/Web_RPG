@@ -6,6 +6,7 @@ import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette } from './palette';
+import { professorHasNews } from '@shared/rules/progress';
 import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
@@ -14,7 +15,7 @@ const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
-export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean }
+export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: 'prof' | 'shop') => void }
 
 export class GameScene extends Phaser.Scene {
   private deps!: SceneDeps;
@@ -25,6 +26,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private nameTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
+  private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
+  private profMark: Phaser.GameObjects.Text | null = null;
   private camX = 0;
   private fade = 1;
   private viewW = 960;
@@ -106,8 +109,22 @@ export class GameScene extends Phaser.Scene {
     for (const pt of map.portals) {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
     }
+    this.profMark = null;
     for (const n of map.npcs) {
       const x = n.x, y = GROUND_Y;
+      // 터치·클릭으로 대화
+      const zone = this.add.zone(x, y - 55, n.id === 'shop' ? 132 : 80, 125).setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => {
+        if (this.deps.input.blocked) return;
+        const me = this.deps.session.me();
+        if (Math.abs(me.x + me.w / 2 - x) < 280) this.deps.openNpc(n.id);
+        else this.deps.hud.toast('더 가까이 가자');
+      });
+      this.mapLayer.add(zone);
+      if (n.id === 'prof') {
+        this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
+        this.mapLayer.add(this.profMark);
+      }
       if (n.id === 'shop') {
         g.fillStyle(0x6b4a2a).fillRect(x - 60, y - 46, 120, 46);
         g.fillStyle(0x8a6438).fillRect(x - 64, y - 50, 128, 8);
@@ -173,6 +190,8 @@ export class GameScene extends Phaser.Scene {
     for (const ev of events) {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
+      if (ev.type === 'interact') this.deps.openNpc(ev.npc);
+      if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size);
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
@@ -181,7 +200,7 @@ export class GameScene extends Phaser.Scene {
     this.camX += (target - this.camX) * Math.min(1, dt * 6);
     this.cameras.main.setScroll(Math.round(this.camX * this.zoom) / this.zoom, 0);
 
-    const pal = palette(Date.now());
+    const pal = palette(session.nowMs());
     this.drawBackground(pal);
     this.drawPortals();
 
@@ -191,8 +210,15 @@ export class GameScene extends Phaser.Scene {
     const portal = session.world.portalNear(me);
     const npc = session.world.map.npcs.find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
     if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
-    else if (npc) this.showBubble(npc.x, GROUND_Y - 122, npc.id === 'shop' ? '상점 (준비 중)' : '대화 (준비 중)');
+    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
     else this.bubble.setVisible(false);
+    if (this.bubble.visible && input.blocked) this.bubble.setVisible(false);
+
+    if (this.profMark) {
+      const news = professorHasNews(session.save, session.nowMs());
+      this.profMark.setVisible(news).setY(GROUND_Y - 106 + Math.sin(this.time.now / 200) * 3);
+    }
+    this.updateFloats(dt);
 
     this.fade = Math.max(0, this.fade - dt * 2.5);
     this.overlay.clear();
@@ -200,6 +226,20 @@ export class GameScene extends Phaser.Scene {
     if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
+  }
+
+  private addFloat(x: number, y: number, text: string, color: string, size = 18) {
+    const t = this.text(text, size, color).setOrigin(0.5, 1).setPosition(x + (Math.random() - 0.5) * 14, y).setDepth(9);
+    this.floats.push({ t, age: 0, life: 0.9 });
+  }
+
+  private updateFloats(dt: number) {
+    for (const f of this.floats) {
+      f.age += dt;
+      f.t.y -= 40 * dt;
+      f.t.setAlpha(f.age > f.life * 0.6 ? 1 - (f.age - f.life * 0.6) / (f.life * 0.4) : 1);
+    }
+    this.floats = this.floats.filter(f => { if (f.age < f.life) return true; f.t.destroy(); return false; });
   }
 
   private showBubble(x: number, y: number, s: string) {

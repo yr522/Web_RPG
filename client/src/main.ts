@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import './style.css';
 import { LocalStore } from '@shared/store/Store';
-import { newSave } from '@shared/sim/save';
+import { newSave, normalizeSave } from '@shared/sim/save';
 import { LocalSession } from './session/LocalSession';
 import { Input } from './input/Input';
 import { Hud, type UiMode } from './hud/Hud';
 import { GameScene, VIEW_H } from './scenes/GameScene';
+import { DialogHost } from './ui/Dialog';
+import { NpcDialog } from './ui/NpcDialog';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -41,12 +43,17 @@ async function boot() {
   if (params.has('reset')) await store.clear();
   // 캐릭터 생성 화면은 다음 단계. 지금은 테스트용 전사 캐릭터로 시작.
   let save = await store.load();
-  if (!save) { save = newSave('견습생', 'warrior', 'M'); await store.save(save); }
+  save = save ? normalizeSave(save) : newSave('견습생', 'warrior', 'M');
+  await store.save(save);
 
   const session = new LocalSession(save, store);
   if (import.meta.env.DEV) Object.assign(window, { __session: session });
   const input = new Input();
   const hud = new Hud(input, uiMode);
+  const dialogs = new DialogHost();
+  dialogs.onChange(open => { input.blocked = open; });
+  const npcDialog = new NpcDialog(dialogs, session, hud);
+  const openNpc = (id: 'prof' | 'shop') => (id === 'shop' ? npcDialog.openShop() : npcDialog.openProfessor());
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -70,10 +77,10 @@ async function boot() {
     height: layout.height,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true, roundPixels: false },
-    input: { keyboard: false },
+    input: { keyboard: false, mouse: true, touch: true },
     banner: false,
   });
-  game.scene.add('game', GameScene, true, { session, input, hud, isTouch });
+  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc });
 
   addEventListener('resize', () => {
     const l = canvasLayout();
