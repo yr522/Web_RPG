@@ -14,8 +14,17 @@ const uiMode: UiMode = params.get('ui') === 'mobile' ? 'mobile' : params.get('ui
 
 /** 월드 화면 폭: 높이 VIEW_H 기준, 화면 비율에 맞춰 720~1280 */
 const viewWidth = () => Math.round(Math.max(720, Math.min(1280, (VIEW_H * innerWidth) / innerHeight)));
-/** 선명하게 그리기 위한 렌더 배율 (1~2) */
-const renderScale = () => Math.max(1, Math.min(2, Math.round((innerHeight * (devicePixelRatio || 1)) / VIEW_H)));
+/**
+ * 캔버스 픽셀 크기를 실제 화면 픽셀(CSS 크기 × devicePixelRatio)과 똑같이 맞춘다.
+ * 브라우저가 캔버스를 늘리거나 줄이지 않으므로 게임 안 글자가 뭉개지지 않는다.
+ * zoom = 월드 1px 이 화면 몇 픽셀인지 (예: 1366×768 노트북 ≈ 1.24)
+ */
+function canvasLayout() {
+  const vw = viewWidth();
+  const cssH = Math.min(innerHeight, (innerWidth * VIEW_H) / vw);
+  const zoom = (cssH * Math.min(devicePixelRatio || 1, 3)) / VIEW_H;
+  return { width: Math.round(vw * zoom), height: Math.round(VIEW_H * zoom), zoom };
+}
 
 async function boot() {
   // 폰트가 늦게 뜨면 Phaser 글자가 기본 폰트로 그려지므로 먼저 불러온다
@@ -52,23 +61,23 @@ async function boot() {
     if (code === 'Escape') hud.onMenu('menu');
   };
 
-  const s = renderScale();
+  const layout = canvasLayout();
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
     backgroundColor: '#000000',
-    width: viewWidth() * s,
-    height: VIEW_H * s,
+    width: layout.width,
+    height: layout.height,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true, roundPixels: false },
     input: { keyboard: false },
     banner: false,
   });
-  game.scene.add('game', GameScene, true, { session, input, hud, renderScale, isTouch });
+  game.scene.add('game', GameScene, true, { session, input, hud, isTouch });
 
   addEventListener('resize', () => {
-    const sc = renderScale();
-    game.scale.setGameSize(viewWidth() * sc, VIEW_H * sc);
+    const l = canvasLayout();
+    game.scale.setGameSize(l.width, l.height);
   });
 }
 

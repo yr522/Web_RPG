@@ -14,7 +14,7 @@ const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
-export interface SceneDeps { session: Session; input: Input; hud: Hud; renderScale: () => number; isTouch: boolean }
+export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean }
 
 export class GameScene extends Phaser.Scene {
   private deps!: SceneDeps;
@@ -28,6 +28,7 @@ export class GameScene extends Phaser.Scene {
   private camX = 0;
   private fade = 1;
   private viewW = 960;
+  private zoom = 1;
 
   constructor() { super('game'); }
 
@@ -39,6 +40,7 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.textures.get('fighter').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
     this.fx = this.add.graphics().setDepth(2);
@@ -46,7 +48,7 @@ export class GameScene extends Phaser.Scene {
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
-    }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.deps.renderScale());
+    }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
     this.overlay = this.add.graphics().setScrollFactor(0).setDepth(10);
 
     this.scale.on('resize', () => this.applyView());
@@ -57,15 +59,25 @@ export class GameScene extends Phaser.Scene {
 
   private text(s: string, size: number, color: string) {
     return this.add.text(0, 0, s, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 3 })
-      .setResolution(this.deps.renderScale());
+      .setResolution(this.zoom);
   }
 
   /** 렌더 배율에 맞춰 카메라 확대. 월드 좌표는 항상 높이 540 기준. */
   private applyView() {
-    const s = this.deps.renderScale(), cam = this.cameras.main;
+    const cam = this.cameras.main;
+    this.zoom = this.scale.height / VIEW_H;
     cam.setOrigin(0, 0);
-    cam.setZoom(s);
-    this.viewW = this.scale.width / s;
+    cam.setZoom(this.zoom);
+    cam.setRoundPixels(true);
+    this.viewW = this.scale.width / this.zoom;
+    // 글자는 화면 배율만큼 크게 그려야 선명하다
+    const fix = (list: Phaser.GameObjects.GameObject[]) => {
+      for (const o of list) {
+        if (o instanceof Phaser.GameObjects.Text) o.setResolution(this.zoom);
+        else if (o instanceof Phaser.GameObjects.Container) fix(o.list);
+      }
+    };
+    fix(this.children.list);
   }
 
   /** 맵이 바뀔 때마다 맵의 고정된 부분을 새로 만든다 */
@@ -167,7 +179,7 @@ export class GameScene extends Phaser.Scene {
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
     const target = this.cameraTarget(px + me.w / 2, me.face);
     this.camX += (target - this.camX) * Math.min(1, dt * 6);
-    this.cameras.main.setScroll(Math.round(this.camX * 100) / 100, 0);
+    this.cameras.main.setScroll(Math.round(this.camX * this.zoom) / this.zoom, 0);
 
     const pal = palette(Date.now());
     this.drawBackground(pal);
