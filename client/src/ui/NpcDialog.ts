@@ -12,8 +12,8 @@ import { DialogHost, el, esc } from './Dialog';
 import profMagePortrait from '../../../assets/temp/magician_professer_portrait.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 
-/** 포트레이트가 아직 없는 NPC는 아이콘으로 대신 */
-const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: profMagePortrait, archer: null };
+/** 교수님 포트레이트 (임시로 모든 학과 교수님이 같은 그림). 학과별 그림이 생기면 여기만 바꾸면 된다 */
+const PROF_PORTRAIT: Record<string, string | null> = { warrior: profMagePortrait, mage: profMagePortrait, archer: profMagePortrait };
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
