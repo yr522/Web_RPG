@@ -5,17 +5,17 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '../data
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION } from '../data/items';
 import { QUESTS } from '../data/quests';
-import { SLIME } from '../data/monsters';
+import { SLIME, SLIME_AI, COIN } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, learned, skillLevel } from '../rules/progress';
-import type { Enemy, Hitbox, PlayerState } from './entities';
+import type { Coin, Enemy, Hitbox, PlayerState } from './entities';
 import type { HitboxSpec, SkillWorld } from './skills/types';
 import { WARRIOR_CAN, WARRIOR_START, WARRIOR_WALK_ACTIONS } from './skills/warrior';
 import { mulberry32, type Rng } from './rng';
 
-export type { PlayerState, Enemy } from './entities';
+export type { PlayerState, Enemy, Coin } from './entities';
 export const TICK = 1 / 60;
 
 const cx = (o: { x: number; w: number }) => o.x + o.w / 2;
@@ -35,6 +35,7 @@ export class World implements SkillWorld {
   readonly solids: Solid[];
   readonly players = new Map<EntityId, PlayerState>();
   readonly enemies: Enemy[] = [];
+  coins: Coin[] = [];
   hitboxes: Hitbox[] = [];
   time = 0;
   readonly rng: Rng;
@@ -88,6 +89,7 @@ export class World implements SkillWorld {
       elem, elemental: !!elem, maxHp: def.hp, hp: def.hp,
       dir: this.rng() < 0.5 ? -1 : 1, turnT: 1 + this.rng() * 2, hopT: this.rng() * 2, stun: 0, record: null,
       dead: false, deadT: 0, spawnX: x, spawnY: sy, speed: 40 + this.rng() * 20, leap: 'none', leapT: 0,
+      leapCd: this.range(SLIME_AI.leapEvery),
     };
     this.enemies.push(e);
   }
@@ -100,6 +102,7 @@ export class World implements SkillWorld {
     for (const p of this.players.values()) this.stepPlayer(p, commands.get(p.id) ?? emptyCommand(), dt);
     this.stepEnemies(dt);
     this.stepHitboxes(dt);
+    this.stepCoins(dt);
     const out = this.events;
     this.events = [];
     return out;
@@ -329,6 +332,8 @@ export class World implements SkillWorld {
       this.fx({ kind: 'ring', x: cx(p), y: cy(p), color: '#ffe066', r0: 10, r1: 120, life: 0.6 });
     }
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
+    const [g0, g1] = e.elemental ? SLIME.elemental.gold : SLIME.normal.gold;
+    this.dropGold(cx(e), cy(e), g0 + Math.floor(this.rng() * (g1 - g0 + 1)));
     for (const q of QUESTS) {
       const st = s.quests[q.id];
       if (st?.active && st.count < q.need && (q.target === 'elemental') === e.elemental) {
@@ -346,29 +351,83 @@ export class World implements SkillWorld {
         e.deadT += dt;
         // 5초 뒤, 근처에 플레이어가 없으면 다시 나타남
         if (e.deadT > 5 && players.every(p => Math.abs(cx(p) - e.spawnX) > 320)) {
-          e.dead = false; e.hp = e.maxHp; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none';
+          e.dead = false; e.hp = e.maxHp; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none'; e.leapCd = this.range(SLIME_AI.leapEvery);
         }
         continue;
       }
       const target = this.nearestPlayer(e);
+      e.leapCd -= dt;
       if (e.stun > 0) {
         e.stun -= dt;
+        e.leap = 'none';
         if (e.onGround) e.vx *= 1 - 6 * dt;
+      } else if (e.leap === 'crouch') {
+        // 웅크림(예고): 멈춰서 잠깐 기다렸다가 뛰어듦
+        e.vx = 0;
+        e.leapT -= dt;
+        if (e.leapT <= 0) {
+          e.leap = 'leap';
+          e.vy = SLIME_AI.leapVy * (0.9 + this.rng() * 0.2);
+          e.vx = e.dir * SLIME_AI.leapVx;
+          e.onGround = false;
+        }
+      } else if (e.leap === 'leap') {
+        // 공중: 방향 유지, 땅에 닿으면 끝
+        if (e.onGround) { e.leap = 'none'; e.leapCd = this.range(SLIME_AI.leapEvery); e.hopT = this.range(SLIME_AI.hopEvery); }
       } else {
         const dx = target ? cx(target) - cx(e) : 9999, dy = target ? cy(target) - cy(e) : 9999;
-        if (Math.abs(dx) < 260 && Math.abs(dy) < 110) { e.dir = dx >= 0 ? 1 : -1; e.vx = e.dir * e.speed * 1.7; }
+        const chasing = Math.abs(dx) < SLIME_AI.sight && Math.abs(dy) < 110;
+        if (chasing) { e.dir = dx >= 0 ? 1 : -1; e.vx = e.dir * e.speed * 1.7; }
         else {
           e.turnT -= dt;
           if (e.turnT < 0) { e.dir = e.dir > 0 ? -1 : 1; e.turnT = 1.5 + this.rng() * 2.5; }
           e.vx = e.dir * e.speed;
         }
-        e.hopT -= dt;
-        if (e.onGround && e.hopT < 0) { e.vy = -260 - this.rng() * 120; e.hopT = 1 + this.rng() * 2; }
+        if (e.onGround && chasing && e.leapCd <= 0) {
+          // 쫓아오다가 가끔 웅크렸다 크게 점프
+          if (this.rng() < SLIME_AI.leapChance) { e.leap = 'crouch'; e.leapT = SLIME_AI.crouchTime; e.vx = 0; }
+          else e.leapCd = this.range(SLIME_AI.leapEvery) * 0.5;
+        } else {
+          e.hopT -= dt;
+          if (e.onGround && e.hopT < 0) { e.vy = -this.range(SLIME_AI.hopPower); e.hopT = this.range(SLIME_AI.hopEvery); }
+        }
       }
       stepBody(e, dt, this.solids, this.map.width);
       if (e.x <= 0) e.dir = 1;
       if (e.x >= this.map.width - e.w) e.dir = -1;
     }
+  }
+
+  private range([a, b]: readonly [number, number]) { return a + this.rng() * (b - a); }
+
+  // ===================== 골드 =====================
+  /** 큰 금액은 동전 2개로 나눠 튀어나옴 */
+  private dropGold(x: number, y: number, amt: number) {
+    const n = amt >= 12 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = i === n - 1 ? amt - Math.floor(amt / n) * (n - 1) : Math.floor(amt / n);
+      this.coins.push({
+        id: `c${this.nextId++}`, x: x - COIN.size / 2, y: y - COIN.size / 2, w: COIN.size, h: COIN.size,
+        vx: (this.rng() - 0.5) * 160, vy: -380 - this.rng() * 120, onGround: false, drop: 0, plat: null, amt: a, t: 0,
+      });
+    }
+  }
+
+  private stepCoins(dt: number) {
+    const players = [...this.players.values()];
+    this.coins = this.coins.filter(c => {
+      c.t += dt;
+      stepBody(c, dt, this.solids, this.map.width);
+      if (c.onGround) c.vx *= 1 - 8 * dt;
+      // 캐릭터 몸이 닿아야 획득 (자동 줍기 없음)
+      const p = players.find(pl => overlaps(pl, c));
+      if (p) {
+        p.data.gold += c.amt;
+        this.float(cx(c), c.y - 6, `+${c.amt} G`, '#ffd84a', 15, 0.8);
+        return false;
+      }
+      return c.t < COIN.life;
+    });
   }
 
   private nearestPlayer(e: Enemy) {

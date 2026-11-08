@@ -12,6 +12,8 @@ import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
+import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
+import { COIN } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 export const VIEW_H = 620;
@@ -40,6 +42,8 @@ export class GameScene extends Phaser.Scene {
   private combat!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
+  private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private coinG!: Phaser.GameObjects.Graphics;
   private fade = 1;
   private viewW = 960;
   private zoom = 1;
@@ -50,15 +54,19 @@ export class GameScene extends Phaser.Scene {
 
   preload() {
     this.load.image('fighter', fighterUrl);
+    // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
+    this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
     this.textures.get('fighter').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.makeGraySlime();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
     this.fx = this.add.graphics().setDepth(2);
     this.combat = this.add.graphics().setDepth(4);
+    this.coinG = this.add.graphics().setDepth(4.5);
     this.fxG = this.add.graphics().setDepth(6);
     this.player = this.add.image(0, 0, 'fighter').setOrigin(0.5, 1).setScale(1.25).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
@@ -101,6 +109,8 @@ export class GameScene extends Phaser.Scene {
     this.mapLayer.removeAll(true);
     for (const t of this.enemyLabels.values()) t.destroy();
     this.enemyLabels.clear();
+    for (const sp of this.enemySprites.values()) sp.destroy();
+    this.enemySprites.clear();
     this.flash.clear();
     this.fxList = [];
     const { world, save } = this.deps.session, map = world.map;
@@ -280,12 +290,25 @@ export class GameScene extends Phaser.Scene {
       if (e.dead && e.deadT > 0.35) { label?.setVisible(false); continue; }
       alive.add(e.id);
       const alpha = e.dead ? 1 - e.deadT / 0.35 : 1;
-      const col = fl > 0 ? 0xffffff : e.elem ? hex(ELEMENTS[e.elem].color) : 0x8fb39a;
-      g.fillStyle(col, alpha).slice(e.x + e.w / 2, e.y + e.h - 2, e.w / 2, Math.PI, 0).fillPath();
-      g.fillRect(e.x, e.y + e.h - 3, e.w, 3);
-      g.fillStyle(0x111111, alpha);
-      const ex = e.dir > 0 ? 6 : -6;
-      g.fillRect(e.x + e.w / 2 - 7 + ex, e.y + 10, 4, 6).fillRect(e.x + e.w / 2 + 3 + ex, e.y + 10, 4, 6);
+      let sp = this.enemySprites.get(e.id);
+      if (!sp) {
+        // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
+        sp = this.add.sprite(0, 0, e.elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+        if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+        this.enemySprites.set(e.id, sp);
+      }
+      // 프레임 (유저 지정): 0 = 기본, 1 = 이동(0과 번갈아), 2 = 점프 준비 자세
+      let frame = 0;
+      if (e.leap === 'crouch') frame = 2;
+      else if (e.onGround && e.stun <= 0 && Math.abs(e.vx) > 1) frame = Math.floor(this.time.now / 1000 * 6 + e.spawnX) % 2;
+      // 웅크릴 때 부들부들 떨림 (점프 예고)
+      const shiver = e.leap === 'crouch' ? Math.sin(this.time.now / 25) * 1.5 : 0;
+      sp.setFrame(frame).setVisible(true).setAlpha(alpha)
+        .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
+        .setFlipX(e.dir > 0);
+      if (fl > 0) sp.setTintFill(0xffffff);
+      else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+      else sp.clearTint();
       if (!label) {
         label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
         this.enemyLabels.set(e.id, label);
@@ -302,6 +325,18 @@ export class GameScene extends Phaser.Scene {
       }
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
+    for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
+
+    // 골드: 빙글빙글 도는 동전, 사라지기 5초 전부터 깜빡임
+    const cg = this.coinG;
+    cg.clear();
+    for (const c of world.coins) {
+      if (c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2) continue;
+      const spin = Math.abs(Math.cos(this.time.now / 250 + c.x));
+      const rx = 7 * (0.35 + 0.65 * spin);
+      cg.fillStyle(0xffd84a).fillEllipse(c.x + 7, c.y + 7, rx * 2, 14);
+      cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
+    }
 
     // 질풍참 조준: 부채꼴 + 점선
     const me = this.deps.session.me(), a = me.action;
@@ -321,6 +356,26 @@ export class GameScene extends Phaser.Scene {
       const el = me.data.learned.cheonbung;
       g.fillStyle(el ? hex(ELEMENTS[el].color) : 0xffffff, 0.3).fillCircle(me.x + me.w / 2, me.y + me.h / 2, 34);
     }
+  }
+
+  /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
+  private makeGraySlime() {
+    const src = this.textures.get('slime').getSourceImage() as HTMLImageElement;
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(src, 0, 0);
+    const img = ctx.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+      const v = Math.min(255, l * 1.9);
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = this.textures.addCanvas('slime_gray', c)!;
+    for (let f = 0; f < 3; f++) tex.add(f, 0, f * 32, 0, 32, 32);
+    tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /** 검기·원 퍼짐·잔상 */

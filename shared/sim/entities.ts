@@ -71,6 +71,17 @@ export interface Enemy extends Body {
   /** 큰 점프 패턴: 'none' → 'crouch'(웅크림) → 'leap'(점프) */
   leap: 'none' | 'crouch' | 'leap';
   leapT: number;
+  /** 다음 큰 점프까지 */
+  leapCd: number;
+}
+
+export interface Coin {
+  id: EntityId;
+  x: number; y: number; w: number; h: number;
+  vx: number; vy: number;
+  onGround: boolean; drop: number; plat: import('./physics').Solid | null;
+  amt: number;
+  t: number;
 }
 
 export interface Hitbox {
