@@ -24,7 +24,7 @@ const MENU = [
 ] as const;
 export type MenuId = (typeof MENU)[number]['id'];
 
-interface SlotView { slot: SlotKey; name: string; sub: string; color: string; locked: boolean; empty: boolean; cd: number }
+interface SlotView { slot: SlotKey; name: string; sub: string; color: string; locked: boolean; empty: boolean; cd: number; ready?: boolean }
 
 export class Hud {
   readonly root = h('div');
@@ -188,9 +188,10 @@ export class Hud {
   }
 
   /** 맵 이름 같은 큰 글씨 */
-  showBanner(text: string) {
+  showBanner(text: string, color = '#ffffff') {
     const b = this.els.banner;
     b.textContent = text;
+    b.style.color = color;
     b.classList.remove('show');
     void b.offsetWidth;
     b.classList.add('show');
@@ -226,7 +227,12 @@ export class Hud {
     if (!learned) return { slot: k, name, sub: `Lv${UNLOCK_LEVELS[i]}`, color: '', locked: true, empty: false, cd: 0 };
     const el = save.learned[id];
     const e = el ? ELEMENTS[el] : NO_ELEMENT;
-    return { slot: k, name, sub: `${e.name} Lv${save.skillLevels[id] ?? 1}`, color: e.color, locked: false, empty: false, cd: 0 };
+    const me = s.me();
+    let cd = sk.cd ? Math.min(1, (me.cd[id] ?? 0) / sk.cd) : 0;
+    // 천붕: 질풍참 직후에만 쓸 수 있음
+    if (id === 'cheonbung') cd = me.cbWindow > 0 ? 0 : 1;
+    const remain = me.cd[id] ?? 0;
+    return { slot: k, name, sub: remain > 0 ? remain.toFixed(1) : `${e.name} Lv${save.skillLevels[id] ?? 1}`, color: e.color, locked: false, empty: false, cd, ready: id === 'cheonbung' && me.cbWindow > 0 };
   }
 
   update(s: Session) {
@@ -268,13 +274,14 @@ export class Hud {
 
     for (const k of SLOT_KEYS) {
       const v = this.slotView(s, k), el = this.slotEls.get(k)!;
-      const sig = `${v.name}|${v.sub}|${v.color}|${v.locked}|${v.empty}`;
+      const sig = `${v.name}|${v.sub}|${v.color}|${v.locked}|${v.empty}|${v.ready}`;
       if (this.cache['slot' + k] !== sig) {
         this.cache['slot' + k] = sig;
         el.querySelector('.name')!.textContent = v.name;
         el.querySelector('small')!.textContent = v.sub;
         el.classList.toggle('locked', v.locked);
         el.classList.toggle('empty', v.empty);
+        el.classList.toggle('ready', !!v.ready);
         el.style.setProperty('--ec', v.color || 'transparent');
       }
       this.set('cd' + k, el.querySelector<HTMLElement>('.cd')!, 'height', `${v.cd * 100}%`);

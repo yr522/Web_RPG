@@ -239,3 +239,19 @@ html, body {
   .opt { padding: 6px 10px; font-size: 13px; }
 }
 .quest.done { background: rgba(60, 130, 70, .85); }
+.slot.ready, .mbtn.ready { box-shadow: 0 0 16px 4px var(--ec); }
+.dlg-overlay:has(.win) { align-items: center; }
+.win {
+  position: relative; width: min(600px, 94vw); max-height: 90vh; overflow: auto; box-sizing: border-box;
+  background: rgba(22, 22, 48, .97); border: 2px solid #5a5a8e; border-radius: 14px; padding: 16px 20px; animation: dlgIn .18s ease;
+}
+.win h2 { margin: 0 0 4px; font-family: var(--title); font-size: 20px; }
+.win h3 { margin: 14px 0 6px; font-size: 15px; color: #c8c0ff; }
+.win-body { font-size: 14px; line-height: 1.5; }
+.pts { color: #ffe066; }
+.stat { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+.stat b { width: 52px; }
+.stat .v { width: 30px; text-align: right; font-weight: 700; }
+.stat .d { flex: 1; color: #aab; font-size: 12px; }
+.plus { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #6a6; background: #2f5a2f; color: #fff; font-size: 18px; cursor: pointer; }
+.plus:disabled { opacity: .3; cursor: default; }

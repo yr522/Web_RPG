@@ -7,6 +7,10 @@ import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette } from './palette';
 import { professorHasNews } from '@shared/rules/progress';
+import { ELEMENTS } from '@shared/data/elements';
+import type { Fx } from '@shared/sim/types';
+
+const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
@@ -29,6 +33,13 @@ export class GameScene extends Phaser.Scene {
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
   private profMark: Phaser.GameObjects.Text | null = null;
   private camX = 0;
+  private hitstop = 0;
+  private shake = 0;
+  private flash = new Map<string, number>();
+  private fxList: { f: Fx; t: number }[] = [];
+  private combat!: Phaser.GameObjects.Graphics;
+  private fxG!: Phaser.GameObjects.Graphics;
+  private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private fade = 1;
   private viewW = 960;
   private zoom = 1;
@@ -47,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
     this.fx = this.add.graphics().setDepth(2);
+    this.combat = this.add.graphics().setDepth(4);
+    this.fxG = this.add.graphics().setDepth(6);
     this.player = this.add.image(0, 0, 'fighter').setOrigin(0.5, 1).setScale(1.25).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
@@ -86,6 +99,10 @@ export class GameScene extends Phaser.Scene {
   /** 맵이 바뀔 때마다 맵의 고정된 부분을 새로 만든다 */
   private buildMap() {
     this.mapLayer.removeAll(true);
+    for (const t of this.enemyLabels.values()) t.destroy();
+    this.enemyLabels.clear();
+    this.flash.clear();
+    this.fxList = [];
     const { world, save } = this.deps.session, map = world.map;
     const g = this.add.graphics();
     this.mapLayer.add(g);
@@ -186,25 +203,43 @@ export class GameScene extends Phaser.Scene {
     const nowMs = performance.now();
     const dt = Math.min(0.25, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
-    const events = session.update(dt, () => input.readCommand());
+    // 타격감: 맞는 순간 아주 잠깐 멈칫(hitstop)
+    const events = this.hitstop > 0 ? [] : session.update(dt, () => input.readCommand());
+    this.hitstop = Math.max(0, this.hitstop - dt);
     for (const ev of events) {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
       if (ev.type === 'interact') this.deps.openNpc(ev.npc);
-      if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size);
+      if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
+      if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
+      if (ev.type === 'fx') this.fxList.push({ f: ev.fx, t: 0 });
+      if (ev.type === 'hit') {
+        this.flash.set(ev.enemyId, 0.1);
+        this.hitstop = Math.max(this.hitstop, ev.reaction ? 0.08 : ev.heavy ? 0.045 : 0.02);
+        if (ev.reaction) this.shake = Math.max(this.shake, 7);
+      }
+      if (ev.type === 'died') this.shake = 0;
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
     const target = this.cameraTarget(px + me.w / 2, me.face);
     this.camX += (target - this.camX) * Math.min(1, dt * 6);
-    this.cameras.main.setScroll(Math.round(this.camX * this.zoom) / this.zoom, 0);
+    this.shake = Math.max(0, this.shake - 30 * dt);
+    const sx = (Math.random() - 0.5) * this.shake, sy = (Math.random() - 0.5) * this.shake;
+    this.cameras.main.setScroll(Math.round((this.camX + sx) * this.zoom) / this.zoom, Math.round(sy * this.zoom) / this.zoom);
 
     const pal = palette(session.nowMs());
     this.drawBackground(pal);
     this.drawPortals();
+    this.drawEnemies(dt);
+    this.drawFx(dt);
 
-    this.player.setPosition(px + me.w / 2, py + me.h).setFlipX(me.face < 0);
+    // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
+    const act = me.action?.name;
+    const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
+    this.player.setPosition(px + me.w / 2 + lunge, py + me.h).setFlipX(me.face < 0);
+    this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
     const portal = session.world.portalNear(me);
@@ -228,9 +263,88 @@ export class GameScene extends Phaser.Scene {
     hud.update(session);
   }
 
-  private addFloat(x: number, y: number, text: string, color: string, size = 18) {
+  private addFloat(x: number, y: number, text: string, color: string, size = 18, life = 0.9) {
     const t = this.text(text, size, color).setOrigin(0.5, 1).setPosition(x + (Math.random() - 0.5) * 14, y).setDepth(9);
-    this.floats.push({ t, age: 0, life: 0.9 });
+    this.floats.push({ t, age: 0, life });
+  }
+
+  /** 몬스터 (3단계에서 스프라이트로 교체) + 내 조준 표시 */
+  private drawEnemies(dt: number) {
+    const g = this.combat, world = this.deps.session.world;
+    g.clear();
+    const alive = new Set<string>();
+    for (const e of world.enemies) {
+      const fl = Math.max(0, (this.flash.get(e.id) ?? 0) - dt);
+      this.flash.set(e.id, fl);
+      let label = this.enemyLabels.get(e.id);
+      if (e.dead && e.deadT > 0.35) { label?.setVisible(false); continue; }
+      alive.add(e.id);
+      const alpha = e.dead ? 1 - e.deadT / 0.35 : 1;
+      const col = fl > 0 ? 0xffffff : e.elem ? hex(ELEMENTS[e.elem].color) : 0x8fb39a;
+      g.fillStyle(col, alpha).slice(e.x + e.w / 2, e.y + e.h - 2, e.w / 2, Math.PI, 0).fillPath();
+      g.fillRect(e.x, e.y + e.h - 3, e.w, 3);
+      g.fillStyle(0x111111, alpha);
+      const ex = e.dir > 0 ? 6 : -6;
+      g.fillRect(e.x + e.w / 2 - 7 + ex, e.y + 10, 4, 6).fillRect(e.x + e.w / 2 + 3 + ex, e.y + 10, 4, 6);
+      if (!label) {
+        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+        this.enemyLabels.set(e.id, label);
+      }
+      label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
+      if (e.hp < e.maxHp && !e.dead) {
+        g.fillStyle(0x000000, 0.6).fillRect(e.x, e.y - 10, e.w, 5);
+        g.fillStyle(0xff5050).fillRect(e.x, e.y - 10, e.w * Math.max(0, e.hp / e.maxHp), 5);
+      }
+      // 마지막으로 맞은 원소 (원소 반응 힌트)
+      if (e.record && !e.dead) {
+        g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
+        g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
+      }
+    }
+    for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
+
+    // 질풍참 조준: 부채꼴 + 점선
+    const me = this.deps.session.me(), a = me.action;
+    if (a?.name === 'aim' && a.skill) {
+      const el = me.data.learned[a.skill], col = el ? hex(ELEMENTS[el].color) : 0xdddddd;
+      const ox = me.x + me.w / 2, oy = me.y + me.h / 2, R = 220, m = a.maxAng ?? 0.75;
+      const base = me.face > 0 ? 0 : Math.PI;
+      g.fillStyle(col, 0.14).slice(ox, oy, R, base - m, base + m).fillPath();
+      const ang = me.face > 0 ? a.ang ?? 0 : Math.PI - (a.ang ?? 0);
+      g.lineStyle(4, col, 0.9);
+      for (let d = 0; d < R; d += 16) {
+        g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * Math.min(R, d + 10), oy + Math.sin(ang) * Math.min(R, d + 10));
+      }
+    }
+    // 천붕 준비: 몸 주위 원
+    if (me.cbWindow > 0 && me.data.learned.cheonbung !== undefined) {
+      const el = me.data.learned.cheonbung;
+      g.fillStyle(el ? hex(ELEMENTS[el].color) : 0xffffff, 0.3).fillCircle(me.x + me.w / 2, me.y + me.h / 2, 34);
+    }
+  }
+
+  /** 검기·원 퍼짐·잔상 */
+  private drawFx(dt: number) {
+    const g = this.fxG;
+    g.clear();
+    for (const o of this.fxList) {
+      o.t += dt;
+      const f = o.f, p = Math.min(1, o.t / f.life), al = 1 - p;
+      if (f.kind === 'arc') {
+        const lo = Math.min(f.a0, f.a1), hi = Math.max(f.a0, f.a1);
+        // 왼쪽을 볼 때는 좌우 반전
+        const s0 = f.face > 0 ? lo : Math.PI - hi, s1 = f.face > 0 ? hi : Math.PI - lo;
+        g.lineStyle(f.w * (1 - p * 0.5), hex(f.color), al).beginPath().arc(f.x, f.y, f.r, s0, s1).strokePath();
+        g.lineStyle(2, 0xffffff, al).beginPath().arc(f.x, f.y, f.r - 3, s0, s1).strokePath();
+      } else if (f.kind === 'line') {
+        g.lineStyle(f.w, hex(f.color), al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+      } else if (f.kind === 'ring') {
+        g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
+      } else if (f.kind === 'ghost') {
+        g.fillStyle(hex(f.color), 0.45 * al).fillRect(f.x, f.y + 8, f.w, f.h - 8);
+      }
+    }
+    this.fxList = this.fxList.filter(o => o.t < o.f.life);
   }
 
   private updateFloats(dt: number) {

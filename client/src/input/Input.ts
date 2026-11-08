@@ -25,7 +25,7 @@ export class Input {
     addEventListener('keydown', e => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       const a = KEYMAP[e.code];
-      if (this._blocked) return;
+      if (this._blocked) { if (e.code === 'KeyC' && !e.repeat) this.onHotkey(e.code); return; }
       if (a) {
         e.preventDefault();
         if (!e.repeat) this.set(a, true);
@@ -69,6 +69,7 @@ export class Input {
     c.jumpPressed = p.has('jump');
     c.upPressed = p.has('up');
     c.skillPressed = SLOT_KEYS.filter(k => p.has(`skill${k}`));
+    c.skillHeld = SLOT_KEYS.filter(k => h.has(`skill${k}`));
     if (p.has('potionHp')) c.potionPressed.push('hp');
     if (p.has('potionMp')) c.potionPressed.push('mp');
     p.clear();

@@ -8,6 +8,7 @@ import { Hud, type UiMode } from './hud/Hud';
 import { GameScene, VIEW_H } from './scenes/GameScene';
 import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
+import { CharWindow } from './ui/CharWindow';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -53,6 +54,7 @@ async function boot() {
   const dialogs = new DialogHost();
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
+  const charWindow = new CharWindow(dialogs, session, hud);
   const openNpc = (id: 'prof' | 'shop') => (id === 'shop' ? npcDialog.openShop() : npcDialog.openProfessor());
 
   const toggleFullscreen = () => {
@@ -61,7 +63,9 @@ async function boot() {
   };
   hud.onMenu = id => {
     if (id === 'full') toggleFullscreen();
-    else hud.toast({ char: '캐릭터 창은 준비 중이에요', home: '귀환은 준비 중이에요', menu: '메뉴는 준비 중이에요' }[id]);
+    else if (id === 'char') charWindow.toggle();
+    else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
+    else hud.toast('메뉴는 준비 중이에요');
   };
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
