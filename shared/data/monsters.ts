@@ -10,6 +10,8 @@ export const SLIME = {
 export const SLIME_AI = {
   /** 플레이어를 알아채는 거리 */
   sight: 260,
+  /** 쫓을 때 플레이어와 가로 거리가 이 안이면 방향 유지 + 멈춤 */
+  chaseDeadZone: 8,
   /** 가끔 하는 작은 폴짝 (돌아다닐 때) */
   hopEvery: [3, 6] as const,
   hopPower: [220, 300] as const,
