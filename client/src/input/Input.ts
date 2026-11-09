@@ -25,6 +25,7 @@ export class Input {
     addEventListener('keydown', e => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       const a = KEYMAP[e.code];
+      if (this._blocked) { if (e.code === 'KeyC' && !e.repeat) this.onHotkey(e.code); return; }
       if (a) {
         e.preventDefault();
         if (!e.repeat) this.set(a, true);
@@ -42,12 +43,21 @@ export class Input {
   }
 
   set(a: Action, down: boolean) {
+    if (down && this._blocked) return;
     if (down === this.held.has(a)) return;
     if (down) { this.held.add(a); this.pressed.add(a); } else this.held.delete(a);
     this.onChange(a, down);
   }
 
   isHeld(a: Action) { return this.held.has(a); }
+
+  private _blocked = false;
+  /** 창이 열려 있는 동안 게임 입력을 막는다 */
+  set blocked(v: boolean) {
+    this._blocked = v;
+    if (v) { for (const a of [...this.held]) this.set(a, false); this.pressed.clear(); }
+  }
+  get blocked() { return this._blocked; }
 
   /** 틱마다 한 번 호출 */
   readCommand(): Command {
@@ -59,6 +69,7 @@ export class Input {
     c.jumpPressed = p.has('jump');
     c.upPressed = p.has('up');
     c.skillPressed = SLOT_KEYS.filter(k => p.has(`skill${k}`));
+    c.skillHeld = SLOT_KEYS.filter(k => h.has(`skill${k}`));
     if (p.has('potionHp')) c.potionPressed.push('hp');
     if (p.has('potionMp')) c.potionPressed.push('mp');
     p.clear();

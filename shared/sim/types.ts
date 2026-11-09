@@ -16,14 +16,34 @@ export interface Command {
   upPressed: boolean;
   /** 이번 틱에 새로 누른 스킬 슬롯 */
   skillPressed: SlotKey[];
+  /** 지금 누르고 있는 스킬 슬롯 (꾹 누르기·연타용) */
+  skillHeld: SlotKey[];
   potionPressed: ('hp' | 'mp')[];
 }
 
 export const emptyCommand = (): Command => ({
-  move: 0, up: false, down: false, jumpPressed: false, upPressed: false, skillPressed: [], potionPressed: [],
+  move: 0, up: false, down: false, jumpPressed: false, upPressed: false, skillPressed: [], skillHeld: [], potionPressed: [],
 });
 
 export type GameEvent =
   | { type: 'portal'; playerId: EntityId; to: MapId; toX: number }
   | { type: 'mapEnter'; playerId: EntityId; map: MapId }
-  | { type: 'notice'; playerId: EntityId; text: string };
+  | { type: 'notice'; playerId: EntityId; text: string }
+  /** NPC 앞에서 ↑ */
+  | { type: 'interact'; playerId: EntityId; npc: 'prof' | 'shop' }
+  /** 머리 위에 떠오르는 글자 (피해, 회복 등) */
+  | { type: 'float'; x: number; y: number; text: string; color: string; size?: number; life?: number }
+  /** 화면 가운데 큰 글씨 */
+  | { type: 'banner'; playerId: EntityId; text: string; color?: string }
+  /** 몬스터가 맞음 (화면 흔들림·멈칫·번쩍임용) */
+  | { type: 'hit'; enemyId: EntityId; heavy: boolean; reaction: boolean }
+  /** 이펙트 (검기, 원 퍼짐 등) */
+  | { type: 'fx'; fx: Fx }
+  | { type: 'died'; playerId: EntityId }
+  | { type: 'kill'; playerId: EntityId; enemyId: EntityId };
+
+export type Fx =
+  | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
+  | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
+  | { kind: 'ring'; x: number; y: number; color: string; r0: number; r1: number; life: number }
+  | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number };

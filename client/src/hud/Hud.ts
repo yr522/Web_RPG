@@ -3,6 +3,7 @@
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
+import { QUESTS } from '@shared/data/quests';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 
@@ -23,7 +24,7 @@ const MENU = [
 ] as const;
 export type MenuId = (typeof MENU)[number]['id'];
 
-interface SlotView { slot: SlotKey; name: string; sub: string; color: string; locked: boolean; empty: boolean; cd: number }
+interface SlotView { slot: SlotKey; name: string; sub: string; color: string; locked: boolean; empty: boolean; cd: number; ready?: boolean }
 
 export class Hud {
   readonly root = h('div');
@@ -187,9 +188,10 @@ export class Hud {
   }
 
   /** 맵 이름 같은 큰 글씨 */
-  showBanner(text: string) {
+  showBanner(text: string, color = '#ffffff') {
     const b = this.els.banner;
     b.textContent = text;
+    b.style.color = color;
     b.classList.remove('show');
     void b.offsetWidth;
     b.classList.add('show');
@@ -225,7 +227,12 @@ export class Hud {
     if (!learned) return { slot: k, name, sub: `Lv${UNLOCK_LEVELS[i]}`, color: '', locked: true, empty: false, cd: 0 };
     const el = save.learned[id];
     const e = el ? ELEMENTS[el] : NO_ELEMENT;
-    return { slot: k, name, sub: `${e.name} Lv${save.skillLevels[id] ?? 1}`, color: e.color, locked: false, empty: false, cd: 0 };
+    const me = s.me();
+    let cd = sk.cd ? Math.min(1, (me.cd[id] ?? 0) / sk.cd) : 0;
+    // 천붕: 질풍참 직후에만 쓸 수 있음
+    if (id === 'cheonbung') cd = me.cbWindow > 0 ? 0 : 1;
+    const remain = me.cd[id] ?? 0;
+    return { slot: k, name, sub: remain > 0 ? remain.toFixed(1) : `${e.name} Lv${save.skillLevels[id] ?? 1}`, color: e.color, locked: false, empty: false, cd, ready: id === 'cheonbung' && me.cbWindow > 0 };
   }
 
   update(s: Session) {
@@ -244,20 +251,37 @@ export class Hud {
     this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(save.inventory.hp));
     this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(save.inventory.mp));
 
-    const ti = timeInfo(Date.now());
+    const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
     const info = `${s.world.map.name}　${PHASES[ti.phase].icon} ${PHASES[ti.phase].name} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}　💰 ${save.gold} G　Lv ${save.level}`;
     this.set('info', this.els.info, 'text', info);
 
+    // 퀘스트 알림: 진행 중인 퀘스트를 위에서부터
+    const active = QUESTS.filter(q => save.quests[q.id]?.active);
+    const qEls = this.els.quests.children;
+    for (let i = 0; i < qEls.length; i++) {
+      const q = active[i], st = q && save.quests[q.id];
+      const done = !!q && st!.count >= q.need;
+      const txt = q ? `${q.name} ${Math.min(st!.count, q.need)}/${q.need}${done ? ' ✔ 교수님께!' : ''}` : '퀘스트 없음';
+      if (this.cache['q' + i] !== txt) {
+        this.cache['q' + i] = txt;
+        const e = qEls[i] as HTMLElement;
+        e.firstElementChild!.textContent = txt;
+        e.classList.toggle('empty', !q);
+        e.classList.toggle('done', done);
+      }
+    }
+
     for (const k of SLOT_KEYS) {
       const v = this.slotView(s, k), el = this.slotEls.get(k)!;
-      const sig = `${v.name}|${v.sub}|${v.color}|${v.locked}|${v.empty}`;
+      const sig = `${v.name}|${v.sub}|${v.color}|${v.locked}|${v.empty}|${v.ready}`;
       if (this.cache['slot' + k] !== sig) {
         this.cache['slot' + k] = sig;
         el.querySelector('.name')!.textContent = v.name;
         el.querySelector('small')!.textContent = v.sub;
         el.classList.toggle('locked', v.locked);
         el.classList.toggle('empty', v.empty);
+        el.classList.toggle('ready', !!v.ready);
         el.style.setProperty('--ec', v.color || 'transparent');
       }
       this.set('cd' + k, el.querySelector<HTMLElement>('.cd')!, 'height', `${v.cd * 100}%`);

@@ -20,6 +20,12 @@ export interface SaveData {
   skillLevels: Record<string, number>;
   inventory: { hp: number; mp: number; reset: number };
   map: MapId;
+  quests: Record<string, { active: boolean; count: number }>;
+  /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
+  attendedCycle: number;
+  /** 테스트용 시간 당기기 (ms) */
+  timeOffset: number;
+  kills: number;
 }
 
 export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
@@ -29,7 +35,14 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     learned: {}, skillLevels: {},
     inventory: { hp: 3, mp: 3, reset: 0 },
     map: 'school',
+    quests: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
+}
+
+/** 예전 저장 데이터에 새 항목이 없으면 기본값으로 채운다 */
+export function normalizeSave(s: SaveData): SaveData {
+  const d = newSave(s.name, s.cls, s.gender);
+  return { ...d, ...s, inventory: { ...d.inventory, ...s.inventory }, stats: { ...d.stats, ...s.stats } };
 }
 
 export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number }

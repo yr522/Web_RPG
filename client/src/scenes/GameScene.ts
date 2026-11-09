@@ -6,7 +6,14 @@ import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette } from './palette';
+import { professorHasNews } from '@shared/rules/progress';
+import { ELEMENTS } from '@shared/data/elements';
+import type { Fx } from '@shared/sim/types';
+
+const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
+import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
+import { COIN } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 export const VIEW_H = 620;
@@ -14,7 +21,7 @@ const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
-export interface SceneDeps { session: Session; input: Input; hud: Hud; renderScale: () => number; isTouch: boolean }
+export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: 'prof' | 'shop') => void }
 
 export class GameScene extends Phaser.Scene {
   private deps!: SceneDeps;
@@ -25,9 +32,21 @@ export class GameScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Image;
   private nameTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
+  private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
+  private profMark: Phaser.GameObjects.Text | null = null;
   private camX = 0;
+  private hitstop = 0;
+  private shake = 0;
+  private flash = new Map<string, number>();
+  private fxList: { f: Fx; t: number }[] = [];
+  private combat!: Phaser.GameObjects.Graphics;
+  private fxG!: Phaser.GameObjects.Graphics;
+  private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
+  private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private coinG!: Phaser.GameObjects.Graphics;
   private fade = 1;
   private viewW = 960;
+  private zoom = 1;
 
   constructor() { super('game'); }
 
@@ -35,18 +54,25 @@ export class GameScene extends Phaser.Scene {
 
   preload() {
     this.load.image('fighter', fighterUrl);
+    // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
+    this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
     this.textures.get('fighter').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.makeGraySlime();
+    this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
     this.fx = this.add.graphics().setDepth(2);
+    this.combat = this.add.graphics().setDepth(4);
+    this.coinG = this.add.graphics().setDepth(4.5);
+    this.fxG = this.add.graphics().setDepth(6);
     this.player = this.add.image(0, 0, 'fighter').setOrigin(0.5, 1).setScale(1.25).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
-    }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.deps.renderScale());
+    }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
     this.overlay = this.add.graphics().setScrollFactor(0).setDepth(10);
 
     this.scale.on('resize', () => this.applyView());
@@ -57,20 +83,36 @@ export class GameScene extends Phaser.Scene {
 
   private text(s: string, size: number, color: string) {
     return this.add.text(0, 0, s, { fontFamily: FONT, fontSize: `${size}px`, fontStyle: 'bold', color, stroke: '#000', strokeThickness: 3 })
-      .setResolution(this.deps.renderScale());
+      .setResolution(this.zoom);
   }
 
   /** 렌더 배율에 맞춰 카메라 확대. 월드 좌표는 항상 높이 540 기준. */
   private applyView() {
-    const s = this.deps.renderScale(), cam = this.cameras.main;
+    const cam = this.cameras.main;
+    this.zoom = this.scale.height / VIEW_H;
     cam.setOrigin(0, 0);
-    cam.setZoom(s);
-    this.viewW = this.scale.width / s;
+    cam.setZoom(this.zoom);
+    cam.setRoundPixels(true);
+    this.viewW = this.scale.width / this.zoom;
+    // 글자는 화면 배율만큼 크게 그려야 선명하다
+    const fix = (list: Phaser.GameObjects.GameObject[]) => {
+      for (const o of list) {
+        if (o instanceof Phaser.GameObjects.Text) o.setResolution(this.zoom);
+        else if (o instanceof Phaser.GameObjects.Container) fix(o.list);
+      }
+    };
+    fix(this.children.list);
   }
 
   /** 맵이 바뀔 때마다 맵의 고정된 부분을 새로 만든다 */
   private buildMap() {
     this.mapLayer.removeAll(true);
+    for (const t of this.enemyLabels.values()) t.destroy();
+    this.enemyLabels.clear();
+    for (const sp of this.enemySprites.values()) sp.destroy();
+    this.enemySprites.clear();
+    this.flash.clear();
+    this.fxList = [];
     const { world, save } = this.deps.session, map = world.map;
     const g = this.add.graphics();
     this.mapLayer.add(g);
@@ -94,8 +136,22 @@ export class GameScene extends Phaser.Scene {
     for (const pt of map.portals) {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
     }
+    this.profMark = null;
     for (const n of map.npcs) {
       const x = n.x, y = GROUND_Y;
+      // 터치·클릭으로 대화
+      const zone = this.add.zone(x, y - 55, n.id === 'shop' ? 132 : 80, 125).setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => {
+        if (this.deps.input.blocked) return;
+        const me = this.deps.session.me();
+        if (Math.abs(me.x + me.w / 2 - x) < 280) this.deps.openNpc(n.id);
+        else this.deps.hud.toast('더 가까이 가자');
+      });
+      this.mapLayer.add(zone);
+      if (n.id === 'prof') {
+        this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
+        this.mapLayer.add(this.profMark);
+      }
       if (n.id === 'shop') {
         g.fillStyle(0x6b4a2a).fillRect(x - 60, y - 46, 120, 46);
         g.fillStyle(0x8a6438).fillRect(x - 64, y - 50, 128, 8);
@@ -157,30 +213,57 @@ export class GameScene extends Phaser.Scene {
     const nowMs = performance.now();
     const dt = Math.min(0.25, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
-    const events = session.update(dt, () => input.readCommand());
+    // 타격감: 맞는 순간 아주 잠깐 멈칫(hitstop)
+    const events = this.hitstop > 0 ? [] : session.update(dt, () => input.readCommand());
+    this.hitstop = Math.max(0, this.hitstop - dt);
     for (const ev of events) {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
+      if (ev.type === 'interact') this.deps.openNpc(ev.npc);
+      if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
+      if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
+      if (ev.type === 'fx') this.fxList.push({ f: ev.fx, t: 0 });
+      if (ev.type === 'hit') {
+        this.flash.set(ev.enemyId, 0.1);
+        this.hitstop = Math.max(this.hitstop, ev.reaction ? 0.08 : ev.heavy ? 0.045 : 0.02);
+        if (ev.reaction) this.shake = Math.max(this.shake, 7);
+      }
+      if (ev.type === 'died') this.shake = 0;
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
     const target = this.cameraTarget(px + me.w / 2, me.face);
     this.camX += (target - this.camX) * Math.min(1, dt * 6);
-    this.cameras.main.setScroll(Math.round(this.camX * 100) / 100, 0);
+    this.shake = Math.max(0, this.shake - 30 * dt);
+    const sx = (Math.random() - 0.5) * this.shake, sy = (Math.random() - 0.5) * this.shake;
+    this.cameras.main.setScroll(Math.round((this.camX + sx) * this.zoom) / this.zoom, Math.round(sy * this.zoom) / this.zoom);
 
-    const pal = palette(Date.now());
+    const pal = palette(session.nowMs());
     this.drawBackground(pal);
     this.drawPortals();
+    this.drawEnemies(dt);
+    this.drawFx(dt);
 
-    this.player.setPosition(px + me.w / 2, py + me.h).setFlipX(me.face < 0);
+    // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
+    const act = me.action?.name;
+    const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
+    this.player.setPosition(px + me.w / 2 + lunge, py + me.h).setFlipX(me.face < 0);
+    this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
     const portal = session.world.portalNear(me);
     const npc = session.world.map.npcs.find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
     if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
-    else if (npc) this.showBubble(npc.x, GROUND_Y - 122, npc.id === 'shop' ? '상점 (준비 중)' : '대화 (준비 중)');
+    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
     else this.bubble.setVisible(false);
+    if (this.bubble.visible && input.blocked) this.bubble.setVisible(false);
+
+    if (this.profMark) {
+      const news = professorHasNews(session.save, session.nowMs());
+      this.profMark.setVisible(news).setY(GROUND_Y - 106 + Math.sin(this.time.now / 200) * 3);
+    }
+    this.updateFloats(dt);
 
     this.fade = Math.max(0, this.fade - dt * 2.5);
     this.overlay.clear();
@@ -188,6 +271,144 @@ export class GameScene extends Phaser.Scene {
     if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
+  }
+
+  private addFloat(x: number, y: number, text: string, color: string, size = 18, life = 0.9) {
+    const t = this.text(text, size, color).setOrigin(0.5, 1).setPosition(x + (Math.random() - 0.5) * 14, y).setDepth(9);
+    this.floats.push({ t, age: 0, life });
+  }
+
+  /** 몬스터 (3단계에서 스프라이트로 교체) + 내 조준 표시 */
+  private drawEnemies(dt: number) {
+    const g = this.combat, world = this.deps.session.world;
+    g.clear();
+    const alive = new Set<string>();
+    for (const e of world.enemies) {
+      const fl = Math.max(0, (this.flash.get(e.id) ?? 0) - dt);
+      this.flash.set(e.id, fl);
+      let label = this.enemyLabels.get(e.id);
+      if (e.dead && e.deadT > 0.35) { label?.setVisible(false); continue; }
+      alive.add(e.id);
+      const alpha = e.dead ? 1 - e.deadT / 0.35 : 1;
+      let sp = this.enemySprites.get(e.id);
+      if (!sp) {
+        // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
+        sp = this.add.sprite(0, 0, e.elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+        if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+        this.enemySprites.set(e.id, sp);
+      }
+      // 프레임 (유저 지정): 0 = 기본, 1 = 이동(0과 번갈아), 2 = 점프 준비 자세
+      let frame = 0;
+      if (e.leap === 'crouch') frame = 2;
+      else if (e.onGround && e.stun <= 0 && Math.abs(e.vx) > 1) frame = Math.floor(this.time.now / 1000 * 6 + e.spawnX) % 2;
+      // 웅크릴 때 부들부들 떨림 (점프 예고)
+      const shiver = e.leap === 'crouch' ? Math.sin(this.time.now / 25) * 1.5 : 0;
+      sp.setFrame(frame).setVisible(true).setAlpha(alpha)
+        .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
+        .setFlipX(e.dir > 0);
+      if (fl > 0) sp.setTintFill(0xffffff);
+      else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+      else sp.clearTint();
+      if (!label) {
+        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+        this.enemyLabels.set(e.id, label);
+      }
+      label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
+      if (e.hp < e.maxHp && !e.dead) {
+        g.fillStyle(0x000000, 0.6).fillRect(e.x, e.y - 10, e.w, 5);
+        g.fillStyle(0xff5050).fillRect(e.x, e.y - 10, e.w * Math.max(0, e.hp / e.maxHp), 5);
+      }
+      // 마지막으로 맞은 원소 (원소 반응 힌트)
+      if (e.record && !e.dead) {
+        g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
+        g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
+      }
+    }
+    for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
+    for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
+
+    // 골드: 빙글빙글 도는 동전, 사라지기 5초 전부터 깜빡임
+    const cg = this.coinG;
+    cg.clear();
+    for (const c of world.coins) {
+      if (c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2) continue;
+      const spin = Math.abs(Math.cos(this.time.now / 250 + c.x));
+      const rx = 7 * (0.35 + 0.65 * spin);
+      cg.fillStyle(0xffd84a).fillEllipse(c.x + 7, c.y + 7, rx * 2, 14);
+      cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
+    }
+
+    // 질풍참 조준: 부채꼴 + 점선
+    const me = this.deps.session.me(), a = me.action;
+    if (a?.name === 'aim' && a.skill) {
+      const el = me.data.learned[a.skill], col = el ? hex(ELEMENTS[el].color) : 0xdddddd;
+      const ox = me.x + me.w / 2, oy = me.y + me.h / 2, R = 220, m = a.maxAng ?? 0.75;
+      const base = me.face > 0 ? 0 : Math.PI;
+      g.fillStyle(col, 0.14).slice(ox, oy, R, base - m, base + m).fillPath();
+      const ang = me.face > 0 ? a.ang ?? 0 : Math.PI - (a.ang ?? 0);
+      g.lineStyle(4, col, 0.9);
+      for (let d = 0; d < R; d += 16) {
+        g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * Math.min(R, d + 10), oy + Math.sin(ang) * Math.min(R, d + 10));
+      }
+    }
+    // 천붕 준비: 몸 주위 원
+    if (me.cbWindow > 0 && me.data.learned.cheonbung !== undefined) {
+      const el = me.data.learned.cheonbung;
+      g.fillStyle(el ? hex(ELEMENTS[el].color) : 0xffffff, 0.3).fillCircle(me.x + me.w / 2, me.y + me.h / 2, 34);
+    }
+  }
+
+  /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
+  private makeGraySlime() {
+    const src = this.textures.get('slime').getSourceImage() as HTMLImageElement;
+    const c = document.createElement('canvas');
+    c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d')!;
+    ctx.drawImage(src, 0, 0);
+    const img = ctx.getImageData(0, 0, c.width, c.height), d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const l = 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+      const v = Math.min(255, l * 1.9);
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = this.textures.addCanvas('slime_gray', c)!;
+    for (let f = 0; f < 3; f++) tex.add(f, 0, f * 32, 0, 32, 32);
+    tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /** 검기·원 퍼짐·잔상 */
+  private drawFx(dt: number) {
+    const g = this.fxG;
+    g.clear();
+    for (const o of this.fxList) {
+      o.t += dt;
+      const f = o.f, p = Math.min(1, o.t / f.life), al = 1 - p;
+      if (f.kind === 'arc') {
+        const lo = Math.min(f.a0, f.a1), hi = Math.max(f.a0, f.a1);
+        // 왼쪽을 볼 때는 좌우 반전
+        const s0 = f.face > 0 ? lo : Math.PI - hi, s1 = f.face > 0 ? hi : Math.PI - lo;
+        g.lineStyle(f.w * (1 - p * 0.5), hex(f.color), al).beginPath().arc(f.x, f.y, f.r, s0, s1).strokePath();
+        g.lineStyle(2, 0xffffff, al).beginPath().arc(f.x, f.y, f.r - 3, s0, s1).strokePath();
+      } else if (f.kind === 'line') {
+        g.lineStyle(f.w, hex(f.color), al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+      } else if (f.kind === 'ring') {
+        g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
+      } else if (f.kind === 'ghost') {
+        g.fillStyle(hex(f.color), 0.45 * al).fillRect(f.x, f.y + 8, f.w, f.h - 8);
+      }
+    }
+    this.fxList = this.fxList.filter(o => o.t < o.f.life);
+  }
+
+  private updateFloats(dt: number) {
+    for (const f of this.floats) {
+      f.age += dt;
+      f.t.y -= 40 * dt;
+      f.t.setAlpha(f.age > f.life * 0.6 ? 1 - (f.age - f.life * 0.6) / (f.life * 0.4) : 1);
+    }
+    this.floats = this.floats.filter(f => { if (f.age < f.life) return true; f.t.destroy(); return false; });
   }
 
   private showBubble(x: number, y: number, s: string) {
