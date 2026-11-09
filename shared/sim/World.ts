@@ -377,7 +377,12 @@ export class World implements SkillWorld {
       } else {
         const dx = target ? cx(target) - cx(e) : 9999, dy = target ? cy(target) - cy(e) : 9999;
         const chasing = Math.abs(dx) < SLIME_AI.sight && Math.abs(dy) < 110;
-        if (chasing) { e.dir = dx >= 0 ? 1 : -1; e.vx = e.dir * e.speed * 1.7; }
+        if (chasing) {
+          // 거의 겹쳐 있으면 방향을 바꾸지 않고 멈춘다 (매 틱 좌우로 떨리는 것 방지)
+          const near = Math.abs(dx) <= SLIME_AI.chaseDeadZone;
+          if (!near) e.dir = dx > 0 ? 1 : -1;
+          e.vx = near ? 0 : e.dir * e.speed * 1.7;
+        }
         else {
           e.turnT -= dt;
           if (e.turnT < 0) { e.dir = e.dir > 0 ? -1 : 1; e.turnT = 1.5 + this.rng() * 2.5; }
