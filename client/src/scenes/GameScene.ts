@@ -11,7 +11,7 @@ import { ELEMENTS } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
-import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
+import { PlayerAvatar, preloadAvatar } from './PlayerAvatar';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
 import { COIN } from '@shared/data/monsters';
 
@@ -29,7 +29,7 @@ export class GameScene extends Phaser.Scene {
   private fx!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
   private mapLayer!: Phaser.GameObjects.Container;
-  private player!: Phaser.GameObjects.Image;
+  private player!: PlayerAvatar;
   private nameTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
@@ -53,13 +53,12 @@ export class GameScene extends Phaser.Scene {
   init(deps: SceneDeps) { this.deps = deps; }
 
   preload() {
-    this.load.image('fighter', fighterUrl);
+    preloadAvatar(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
-    this.textures.get('fighter').setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.makeGraySlime();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
@@ -68,7 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.combat = this.add.graphics().setDepth(4);
     this.coinG = this.add.graphics().setDepth(4.5);
     this.fxG = this.add.graphics().setDepth(6);
-    this.player = this.add.image(0, 0, 'fighter').setOrigin(0.5, 1).setScale(1.25).setDepth(5);
+    this.player = new PlayerAvatar(this).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
@@ -248,7 +247,7 @@ export class GameScene extends Phaser.Scene {
     // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
     const act = me.action?.name;
     const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
-    this.player.setPosition(px + me.w / 2 + lunge, py + me.h).setFlipX(me.face < 0);
+    this.player.update(dt, me, px + me.w / 2 + lunge, py + me.h);
     this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
