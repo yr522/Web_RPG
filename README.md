@@ -1,6 +1,9 @@
 # Web_RPG
 웹게임 마법학교 RPG 게임입니다.
 
+## 바로 플레이
+**https://yr522.github.io/Web_RPG/** — `main` 에 머지되면 1~2분 뒤 자동으로 업데이트돼요.
+
 ## 실행 방법
 [Node.js](https://nodejs.org/) 20 이상이 필요해요.
 
