@@ -7,7 +7,7 @@ import type { Hud } from '../hud/Hud';
 import { DialogHost, el, esc } from './Dialog';
 
 const STATS: Record<StatId, { name: string; desc: string }> = {
-  str: { name: '근력', desc: '전사 데미지 · 최대 체력' },
+  str: { name: '근력', desc: '검사 데미지 · 최대 체력' },
   dex: { name: '민첩', desc: '궁수 데미지 · 이동속도' },
   int: { name: '지능', desc: '마법사 데미지 · MP 회복속도' },
 };

@@ -1,7 +1,7 @@
-// 검사(전사) 스킬 — 프로토타입 v0.4.7 그대로 이식
+// 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
 import type { PlayerState } from '../entities';
-import type { SkillWorld } from './types';
+import type { ClassSkills, SkillWorld } from './types';
 
 const color = (e: Element | null) => (e ? ELEMENTS[e].color : '#dddddd');
 const cx = (p: PlayerState) => p.x + p.w / 2;
@@ -102,5 +102,9 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
   },
 };
 
-/** 공격 중에도 걸을 수 있는 행동 */
-export const WARRIOR_WALK_ACTIONS = ['basic', 'ilseom', 'wolcham', 'cheonbung'];
+export const WARRIOR: ClassSkills = {
+  can: WARRIOR_CAN,
+  start: WARRIOR_START,
+  walk: { basic: 1, ilseom: 1, wolcham: 1, cheonbung: 1 },
+  auto: ['basic', 'ilseom'],
+};

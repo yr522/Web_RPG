@@ -46,4 +46,10 @@ export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
   | { kind: 'ring'; x: number; y: number; color: string; r0: number; r1: number; life: number }
-  | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number };
+  | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number }
+  /** 원소 기둥: x = 가운데, by = 바닥 */
+  | { kind: 'pillar'; x: number; by: number; w: number; h: number; color: string; life: number }
+  /** 원소 파도 한 칸: x = 왼쪽, y = 바닥 */
+  | { kind: 'flame'; x: number; y: number; w: number; h: number; color: string; life: number }
+  /** 화살비 범위 (땅까지 세로 띠) */
+  | { kind: 'zone'; x: number; w: number; color: string; life: number };

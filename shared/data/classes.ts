@@ -15,7 +15,7 @@ export interface ClassDef {
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
-  warrior: { name: '전사', hp: 150, mp: 100, regen: 7, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], professor: '검술과 바르크 교수' },
+  warrior: { name: '검사', hp: 150, mp: 100, regen: 7, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], professor: '검술과 바르크 교수' },
   mage: { name: '마법사', hp: 110, mp: 140, regen: 10, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], professor: '마법학과 엘린 교수' },
   archer: { name: '궁수', hp: 125, mp: 110, regen: 8, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], professor: '궁술과 시엘 교수' },
 };
@@ -50,5 +50,12 @@ export type SlotKey = (typeof SLOT_KEYS)[number];
 /** 직업 스킬 슬롯별 해금 레벨 (Z A S D) */
 export const UNLOCK_LEVELS = [1, 3, 6, 10];
 export const MAX_SKILL_LEVEL = 5;
+
+/** 능력치 시작값 (근력·민첩·지능 모두) */
+export const START_STAT = 5;
+/** 캐릭터 생성 때 직접 나눠 주는 포인트. 안 쓴 포인트는 남은 포인트로 넘어간다 */
+export const CREATE_STAT_POINTS = 5;
+export const NAME_MAX = 10;
+export const DEFAULT_NAME = '견습생';
 
 export const expNeed = (level: number) => 40 + (level - 1) * 25;

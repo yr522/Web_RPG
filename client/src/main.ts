@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
 import { LocalStore } from '@shared/store/Store';
-import { newSave, normalizeSave } from '@shared/sim/save';
+import { normalizeSave } from '@shared/sim/save';
 import { LocalSession } from './session/LocalSession';
 import { Input } from './input/Input';
 import { Hud, type UiMode } from './hud/Hud';
@@ -9,6 +9,7 @@ import { GameScene, VIEW_H } from './scenes/GameScene';
 import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
+import { showCreateScreen } from './ui/CreateScreen';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -42,9 +43,9 @@ async function boot() {
 
   const store = new LocalStore();
   if (params.has('reset')) await store.clear();
-  // 캐릭터 생성 화면은 다음 단계. 지금은 테스트용 전사 캐릭터로 시작.
-  let save = await store.load();
-  save = save ? normalizeSave(save) : newSave('견습생', 'warrior', 'M');
+  // 저장된 캐릭터가 없으면 캐릭터 생성 화면부터 (?reset 으로 처음부터 다시 만들 수 있음)
+  const loaded = await store.load();
+  const save = loaded ? normalizeSave(loaded) : await showCreateScreen();
   await store.save(save);
 
   const session = new LocalSession(save, store);
