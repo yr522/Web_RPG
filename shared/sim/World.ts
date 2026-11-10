@@ -137,7 +137,7 @@ export class World implements SkillWorld {
       if (i >= 4) continue;
       const name = this.activeSkill(p, i), a = p.action;
       if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[i]}에 배울 수 있어`); continue; }
-      if (a && (a.name === 'aim' || a.name === 'dash')) continue;
+      if (a && a.name === 'dash') continue;
       const remain = (a ? a.dur - a.t : 0) + p.lockT;
       if (!a && p.lockT <= 0) this.tryStart(p, name);
       else if (remain <= 0.2) p.buffer = { name, t: this.time };

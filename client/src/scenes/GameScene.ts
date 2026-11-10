@@ -277,7 +277,7 @@ export class GameScene extends Phaser.Scene {
     this.floats.push({ t, age: 0, life });
   }
 
-  /** 몬스터 (3단계에서 스프라이트로 교체) + 내 조준 표시 */
+  /** 몬스터 (3단계에서 스프라이트로 교체) */
   private drawEnemies(dt: number) {
     const g = this.combat, world = this.deps.session.world;
     g.clear();
@@ -337,19 +337,7 @@ export class GameScene extends Phaser.Scene {
       cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
     }
 
-    // 질풍참 조준: 부채꼴 + 점선
-    const me = this.deps.session.me(), a = me.action;
-    if (a?.name === 'aim' && a.skill) {
-      const el = me.data.learned[a.skill], col = el ? hex(ELEMENTS[el].color) : 0xdddddd;
-      const ox = me.x + me.w / 2, oy = me.y + me.h / 2, R = 220, m = a.maxAng ?? 0.75;
-      const base = me.face > 0 ? 0 : Math.PI;
-      g.fillStyle(col, 0.14).slice(ox, oy, R, base - m, base + m).fillPath();
-      const ang = me.face > 0 ? a.ang ?? 0 : Math.PI - (a.ang ?? 0);
-      g.lineStyle(4, col, 0.9);
-      for (let d = 0; d < R; d += 16) {
-        g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * Math.min(R, d + 10), oy + Math.sin(ang) * Math.min(R, d + 10));
-      }
-    }
+    const me = this.deps.session.me();
     // 천붕 준비: 몸 주위 원
     if (me.cbWindow > 0 && me.data.learned.cheonbung !== undefined) {
       const el = me.data.learned.cheonbung;
