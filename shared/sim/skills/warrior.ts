@@ -61,40 +61,23 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
   },
 
   jilpung(w, p, chain) {
-    // 꾹 누르고 ↑↓ 로 부채꼴 조준 → 떼면 돌진
+    // 바라보는 방향으로 곧장 돌진 (각도 조절 없음 — 궁수 사슬 화살과 차별화)
+    const el = w.elemOf(p, 'jilpung'), sp = 1000;
+    w.chainText(p, 'jilpung', chain);
     p.action = {
-      name: 'aim', skill: 'jilpung', t: 0, dur: 1.6, ang: 0, aiming: false, noGravity: true, maxAng: 0.75,
-      update: dt => {
-        const a = p.action!;
-        p.vx = 0; p.vy = 0;
-        if (p.cmd.move) p.face = p.cmd.move;
-        if (a.t > 0.12) {
-          a.aiming = true;
-          if (p.cmd.up) a.ang = Math.max(-a.maxAng!, a.ang! - 2.2 * dt);
-          if (p.cmd.down) a.ang = Math.min(a.maxAng!, a.ang! + 2.2 * dt);
-        }
-        if (!w.held(p, 'jilpung')) a.dur = a.t;
+      name: 'dash', skill: 'jilpung', t: 0, dur: 0.22, noGravity: true, inv: true,
+      update: () => {
+        p.vx = sp * p.face;
+        p.vy = 0;
+        w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: color(el), life: 0.18 });
       },
       end: () => {
-        const ang = Number.isFinite(p.action?.ang) ? p.action!.ang! : 0;
-        const el = w.elemOf(p, 'jilpung'), sp = 1000;
-        w.chainText(p, 'jilpung', chain);
-        p.action = {
-          name: 'dash', t: 0, dur: 0.22, noGravity: true, inv: true,
-          update: () => {
-            p.vx = Math.cos(ang) * sp * p.face;
-            p.vy = Math.sin(ang) * sp;
-            w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: color(el), life: 0.18 });
-          },
-          end: () => {
-            p.vx *= 0.25; p.vy *= 0.2;
-            if (w.learned(p, 'cheonbung') && p.combo === 3) p.cbWindow = 1.2;
-            p.combo = 0;
-          },
-        };
-        w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: 2.4, elem: el, order: 2, chain, kb: 260, kbAng: ang, life: 0.22, skill: 'jilpung' });
+        p.vx *= 0.25;
+        if (w.learned(p, 'cheonbung') && p.combo === 3) p.cbWindow = 1.2;
+        p.combo = 0;
       },
     };
+    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: 2.4, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: 0.22, skill: 'jilpung' });
   },
 
   cheonbung(w, p, chain) {

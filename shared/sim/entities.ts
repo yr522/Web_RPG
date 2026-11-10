@@ -17,10 +17,6 @@ export interface PlayerAction {
   /** 무적 */
   inv?: boolean;
   superArmor?: boolean;
-  /** 조준 각도 (질풍참) */
-  ang?: number;
-  maxAng?: number;
-  aiming?: boolean;
 }
 
 export interface PlayerState extends Body {
