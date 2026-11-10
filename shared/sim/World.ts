@@ -10,12 +10,13 @@ import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, learned, skillLevel } from '../rules/progress';
-import type { Coin, Enemy, Hitbox, PlayerState } from './entities';
-import type { HitboxSpec, SkillWorld } from './skills/types';
-import { WARRIOR_CAN, WARRIOR_START, WARRIOR_WALK_ACTIONS } from './skills/warrior';
+import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Vortex } from './entities';
+import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
+import { CLASS_SKILLS } from './skills';
+import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
 
-export type { PlayerState, Enemy, Coin } from './entities';
+export type { PlayerState, Enemy, Coin, Projectile, Vortex } from './entities';
 export const TICK = 1 / 60;
 
 const cx = (o: { x: number; w: number }) => o.x + o.w / 2;
@@ -37,6 +38,9 @@ export class World implements SkillWorld {
   readonly enemies: Enemy[] = [];
   coins: Coin[] = [];
   hitboxes: Hitbox[] = [];
+  projectiles: Projectile[] = [];
+  vortices: Vortex[] = [];
+  private timers: { t: number; fn: () => void; owner: PlayerState }[] = [];
   time = 0;
   readonly rng: Rng;
   private events: GameEvent[] = [];
@@ -59,7 +63,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: GROUND_Y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, crouch: false,
+      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
     return p;
@@ -78,7 +82,10 @@ export class World implements SkillWorld {
   /** 스킬트리 초기화 등으로 배운 스킬이 바뀌면 진행 중인 전투 상태를 푼다 */
   resetCombat(p: PlayerState) {
     p.cd = {}; p.action = null; p.buffer = null; p.lockT = 0; p.combo = 0; p.cbWindow = 0; p.lastHit = null;
+    p.buffT = 0; p.chainArrow = null; p.ropeTo = null;
     this.hitboxes = this.hitboxes.filter(h => h.owner !== p);
+    this.projectiles = this.projectiles.filter(o => o.owner !== p);
+    this.timers = this.timers.filter(o => o.owner !== p);
   }
 
   private spawnEnemy(x: number, elem: Element | null, y?: number) {
@@ -89,7 +96,7 @@ export class World implements SkillWorld {
       elem, elemental: !!elem, maxHp: def.hp, hp: def.hp,
       dir: this.rng() < 0.5 ? -1 : 1, turnT: 1 + this.rng() * 2, hopT: this.rng() * 2, stun: 0, record: null,
       dead: false, deadT: 0, spawnX: x, spawnY: sy, speed: 40 + this.rng() * 20, leap: 'none', leapT: 0,
-      leapCd: this.range(SLIME_AI.leapEvery),
+      leapCd: this.range(SLIME_AI.leapEvery), pulled: false,
     };
     this.enemies.push(e);
   }
@@ -102,6 +109,9 @@ export class World implements SkillWorld {
     for (const p of this.players.values()) this.stepPlayer(p, commands.get(p.id) ?? emptyCommand(), dt);
     this.stepEnemies(dt);
     this.stepHitboxes(dt);
+    this.stepProjectiles(dt);
+    this.stepVortices(dt);
+    this.stepTimers(dt);
     this.stepCoins(dt);
     const out = this.events;
     this.events = [];
@@ -117,7 +127,15 @@ export class World implements SkillWorld {
     p.hurt = Math.max(0, p.hurt - dt);
     p.cbWindow = Math.max(0, p.cbWindow - dt);
     p.lockT = Math.max(0, p.lockT - dt);
-    for (const s in p.cd) p.cd[s] = Math.max(0, p.cd[s] - dt);
+    // 마력 해방: 쿨타임 2배속, 끝나면 그때부터 해방 쿨타임
+    if (p.buffT > 0) {
+      p.buffT -= dt;
+      if (p.buffT <= 0) { p.buffT = 0; p.cd.haebang = SKILLS.haebang.cd; this.float(cx(p), p.y - 26, '해방 종료', '#aaaaaa', 14); }
+    }
+    const rate = p.buffT > 0 ? 2 : 1;
+    for (const s in p.cd) p.cd[s] = Math.max(0, p.cd[s] - dt * (s === 'haebang' ? 1 : rate));
+    if (!p.action || p.action.name !== 'grapple') p.ropeTo = null;
+    const cs = CLASS_SKILLS[p.data.cls];
     p.mp = Math.min(p.stats.maxMp, p.mp + p.stats.regen * dt);
     if (this.map.safe) p.hp = Math.min(p.stats.maxHp, p.hp + 6 * dt);
 
@@ -137,14 +155,20 @@ export class World implements SkillWorld {
       if (i >= 4) continue;
       const name = this.activeSkill(p, i), a = p.action;
       if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[i]}에 배울 수 있어`); continue; }
-      if (a && a.name === 'dash') continue;
+      // 사슬 화살이 날아가는 중 한 번 더 누르면 끌려감
+      if (name === 'sasl' && p.chainArrow && !p.chainArrow.dead && !(a && a.name === 'aim')) { startGrapple(this, p); continue; }
+      // 조준·충전·돌진·끌려가는 중에는 다른 스킬 완전 무효
+      if (a && (a.name === 'aim' || a.name === 'charge' || a.name === 'dash' || a.name === 'grapple')) continue;
       const remain = (a ? a.dur - a.t : 0) + p.lockT;
       if (!a && p.lockT <= 0) this.tryStart(p, name);
+      // 궁수 충전: 쏜 직후에 눌러도 바로 당기기 시작 (발사는 쉬는 시간이 지난 뒤)
+      else if (p.data.cls === 'archer' && CHARGE_SKILLS.includes(name) && (!a || a.name === 'recover') && p.hurt <= 0) this.tryStart(p, name);
       else if (remain <= 0.2) p.buffer = { name, t: this.time };
     }
 
     // 안전장치: 행동이 비정상적으로 길어지면 풀기
-    if (p.action && p.action.t > 2.5) { p.action = null; p.vx = p.vy = 0; }
+    if (p.action && p.action.t > (p.action.name === 'charge' ? 6 : 2.5)) { p.action = null; p.vx = p.vy = 0; }
+    if (!Number.isFinite(p.lockT) || p.lockT > 3) p.lockT = 0;
     const a = p.action;
     if (a) {
       a.t += dt;
@@ -156,14 +180,15 @@ export class World implements SkillWorld {
       const b = p.buffer; p.buffer = null;
       if (this.time - b.t < 0.35) this.tryStart(p, b.name);
     }
-    // Z 를 누르고 있으면 기본기(기본 공격·일섬) 연타
+    // Z 를 누르고 있으면 기본기(기본 공격·일섬·마력탄) 연타
     const z = this.activeSkill(p, 0);
-    if (!p.action && p.lockT <= 0 && z && cmd.skillHeld.includes('Z') && p.hurt <= 0) this.tryStart(p, z, true);
+    if (!p.action && p.lockT <= 0 && z && cs.auto.includes(z) && cmd.skillHeld.includes('Z') && p.hurt <= 0) this.tryStart(p, z, true);
 
     // 이동
-    if (p.action && WARRIOR_WALK_ACTIONS.includes(p.action.name) && p.hurt <= 0) {
-      // 전사: 공격 중에도 이동 (바라보는 방향은 공격 방향 유지)
-      if (cmd.move) p.vx = cmd.move * p.stats.speed;
+    const walkMul = p.action ? cs.walk[p.action.name] : undefined;
+    if (p.action && walkMul !== undefined && p.hurt <= 0) {
+      // 전사·궁수: 공격 중에도 이동 (바라보는 방향은 공격 방향 유지)
+      if (cmd.move) p.vx = cmd.move * p.stats.speed * walkMul;
       else if (p.onGround && p.action.name !== 'ilseom' && p.action.name !== 'wolcham') p.vx = 0;
       if (cmd.jumpPressed && p.onGround && !p.action.noGravity) p.vy = JUMP_VELOCITY;
     }
@@ -223,17 +248,19 @@ export class World implements SkillWorld {
   }
 
   private tryStart(p: PlayerState, name: string, silent = false) {
-    const sk = SKILLS[name];
-    const can = WARRIOR_CAN[name]?.(this, p);
+    const sk = SKILLS[name], cs = CLASS_SKILLS[p.data.cls];
+    const can = cs.can[name]?.(this, p);
     if (can !== undefined && can !== true) { if (!silent) this.warn(p, can); return false; }
     if ((p.cd[name] ?? 0) > 0) { if (!silent) this.warn(p, '쿨타임'); return false; }
     if (p.mp < sk.mp) { if (!silent) this.warn(p, 'MP 부족'); return false; }
-    const start = WARRIOR_START[name];
+    const start = cs.start[name];
     if (!start) { if (!silent) this.warn(p, '아직 못 쓰는 스킬이야'); return false; }
     p.mp -= sk.mp;
-    if (sk.cd) p.cd[name] = sk.cd;
+    // 마력 해방의 쿨타임은 버프가 끝난 뒤부터
+    if (sk.cd && name !== 'haebang') p.cd[name] = sk.cd;
     const order = this.slotOf(p, name);
-    const chain = !!(p.lastHit && this.time - p.lastHit.t < 0.9 && order > p.lastHit.order);
+    // 연계 보너스는 전사 전용
+    const chain = p.data.cls === 'warrior' && !!(p.lastHit && this.time - p.lastHit.t < 0.9 && order > p.lastHit.order);
     // 전사 초식 순서: 일섬 → 월참 → 질풍참이 이어져야(연계) 천붕이 열린다
     if (name === 'ilseom') p.combo = 1;
     else if (name === 'wolcham') p.combo = chain && p.combo === 1 ? 2 : 0;
@@ -244,9 +271,37 @@ export class World implements SkillWorld {
   }
 
   // SkillWorld 구현 (스킬 코드가 쓰는 것들)
+  private skillMult(p: PlayerState, skill: string) {
+    return skill === 'basic' ? 1 : 1 + 0.1 * (skillLevel(p.data, skill) - 1);
+  }
   addHB(p: PlayerState, h: HitboxSpec) {
-    const sm = h.skill === 'basic' ? 1 : 1 + 0.1 * (skillLevel(p.data, h.skill) - 1);
-    this.hitboxes.push({ ...h, owner: p, face: h.face ?? p.face, order: h.order ?? 0, chain: h.chain ?? false, t: 0, hit: new Set(), sm });
+    this.hitboxes.push({
+      dx: 0, dy: 0, w: 0, h: 0, ...h,
+      owner: p, face: h.face ?? p.face, order: h.order ?? 0, chain: h.chain ?? false, t: 0, hit: new Set(), sm: this.skillMult(p, h.skill),
+    });
+  }
+  addProj(p: PlayerState, s: ProjSpec): Projectile {
+    const o: Projectile = {
+      id: `j${this.nextId++}`, kind: s.kind, x: s.x, y: s.y, ang: Math.atan2(s.vy, s.vx), speed: Math.hypot(s.vx, s.vy),
+      range: s.range, traveled: 0, size: s.size, len: s.len, pierce: s.pierce, hit: new Set(), dead: false,
+      owner: p, face: Math.sign(s.vx) || p.face, coef: s.coef, elem: s.elem, order: s.order ?? 0, chain: s.chain ?? false, kb: s.kb,
+      sm: this.skillMult(p, s.skill),
+    };
+    this.projectiles.push(o);
+    return o;
+  }
+  addVortex(_p: PlayerState, v: Vortex) { this.vortices.push(v); }
+  later(p: PlayerState, t: number, fn: () => void) { this.timers.push({ t, fn, owner: p }); }
+  nearestFront(p: PlayerState, range: number) {
+    let best: Enemy | null = null, bd = Infinity;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const dx = cx(e) - cx(p), dy = cy(e) - cy(p);
+      if (dx * p.face < -10 || Math.abs(dx) > range || Math.abs(dy) > 220) continue;
+      const d = Math.hypot(dx, dy);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
   }
   fx(f: Fx) { this.events.push({ type: 'fx', fx: f }); }
   float(x: number, y: number, text: string, color: string, size?: number, life?: number) {
@@ -266,7 +321,8 @@ export class World implements SkillWorld {
   }
 
   // ===================== 공격 판정 =====================
-  hitboxRect(h: Hitbox) {
+  hitboxRect(h: Hitbox): Rect {
+    if (h.abs) return h.abs;
     const p = h.owner;
     if (h.center) return { x: cx(p) - h.w / 2, y: cy(p) - h.h / 2, w: h.w, h: h.h };
     const x = h.face > 0 ? cx(p) + h.dx : cx(p) - h.dx - h.w;
@@ -286,7 +342,51 @@ export class World implements SkillWorld {
     this.hitboxes = this.hitboxes.filter(h => h.t < h.life);
   }
 
-  private hitEnemy(e: Enemy, h: Hitbox) {
+  private stepProjectiles(dt: number) {
+    for (const o of this.projectiles) {
+      if (o.dead) continue;
+      const step = o.speed * dt;
+      o.x += Math.cos(o.ang) * step; o.y += Math.sin(o.ang) * step; o.traveled += step;
+      const r = { x: o.x - o.size / 2, y: o.y - o.size / 2, w: o.size, h: o.size };
+      for (const e of this.enemies) {
+        if (e.dead || o.hit.has(e.id) || !overlaps(r, e)) continue;
+        o.hit.add(e.id);
+        this.hitEnemy(e, o);
+        if (!o.pierce) {
+          o.dead = true;
+          this.fx({ kind: 'ring', x: o.x, y: o.y, color: o.elem ? ELEMENTS[o.elem].color : '#dddddd', r0: 4, r1: 26, life: 0.2 });
+          break;
+        }
+      }
+      if (o.traveled >= o.range) o.dead = true;
+    }
+    for (const p of this.players.values()) if (p.chainArrow?.dead) p.chainArrow = null;
+    this.projectiles = this.projectiles.filter(o => !o.dead);
+  }
+
+  /** 소용돌이: 범위 안 몬스터를 가운데로 끌어당김 */
+  private stepVortices(dt: number) {
+    for (const v of this.vortices) {
+      v.t += dt;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        const dx = v.x - cx(e), dy = v.y - cy(e);
+        if (Math.hypot(dx, dy) > v.r) continue;
+        const f = Math.min(1, dt * 7);
+        e.x += dx * f; e.y += dy * f; e.vx = 0; e.vy = 0; e.stun = 0.3; e.pulled = true; e.leap = 'none';
+      }
+    }
+    this.vortices = this.vortices.filter(v => v.t < v.life);
+  }
+
+  private stepTimers(dt: number) {
+    const due: (() => void)[] = [];
+    for (const o of this.timers) { o.t -= dt; if (o.t <= 0) due.push(o.fn); }
+    this.timers = this.timers.filter(o => o.t > 0);
+    for (const fn of due) fn();
+  }
+
+  private hitEnemy(e: Enemy, h: Attack) {
     const p = h.owner;
     const base = p.stats.atk * h.coef * h.sm * (h.chain ? 1.2 : 1) * (0.92 + this.rng() * 0.16);
     const m = elemMult(h.elem, e);
@@ -357,6 +457,8 @@ export class World implements SkillWorld {
         }
         continue;
       }
+      // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
+      if (e.pulled) { e.pulled = false; continue; }
       const target = this.nearestPlayer(e);
       e.leapCd -= dt;
       if (e.stun > 0) {

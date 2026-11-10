@@ -1,5 +1,5 @@
 // 저장 데이터 형태 + 능력치 계산 (기획서 5장 공식)
-import { CLASSES, type ClassId, type StatId } from '../data/classes';
+import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, START_STAT, type ClassId, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 
@@ -31,12 +31,28 @@ export interface SaveData {
 export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
   return {
     version: 1, name, cls, gender, level: 1, exp: 0, gold: 0,
-    stats: { str: 5, dex: 5, int: 5 }, statPts: 0,
+    stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
     learned: {}, skillLevels: {},
     inventory: { hp: 3, mp: 3, reset: 0 },
     map: 'school',
     quests: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
+}
+
+/**
+ * 캐릭터 생성 화면에서 만든 캐릭터. add = 생성 때 나눠 준 능력치 포인트.
+ * 잘못된 값은 고쳐서 받는다 (나중에 서버도 같은 함수로 검사).
+ */
+export function createSave(name: string, cls: ClassId, gender: Gender, add: Record<StatId, number>): SaveData {
+  const s = newSave(name.trim().slice(0, NAME_MAX) || DEFAULT_NAME, CLASSES[cls] ? cls : 'warrior', gender === 'F' ? 'F' : 'M');
+  let left = CREATE_STAT_POINTS;
+  for (const k of ['str', 'dex', 'int'] as StatId[]) {
+    const n = Math.max(0, Math.min(left, Math.floor(add[k] || 0)));
+    s.stats[k] += n;
+    left -= n;
+  }
+  s.statPts = left;
+  return s;
 }
 
 /** 예전 저장 데이터에 새 항목이 없으면 기본값으로 채운다 */

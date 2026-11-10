@@ -41,6 +41,10 @@ export class GameScene extends Phaser.Scene {
   private fxList: { f: Fx; t: number }[] = [];
   private combat!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
+  /** 캐릭터 뒤에 그리는 것 (마법진) */
+  private underG!: Phaser.GameObjects.Graphics;
+  /** 투사체·소용돌이·충전 바·조준 */
+  private projG!: Phaser.GameObjects.Graphics;
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private coinG!: Phaser.GameObjects.Graphics;
@@ -67,6 +71,8 @@ export class GameScene extends Phaser.Scene {
     this.combat = this.add.graphics().setDepth(4);
     this.coinG = this.add.graphics().setDepth(4.5);
     this.fxG = this.add.graphics().setDepth(6);
+    this.underG = this.add.graphics().setDepth(4.8);
+    this.projG = this.add.graphics().setDepth(6.5);
     this.player = new PlayerAvatar(this).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
@@ -243,6 +249,7 @@ export class GameScene extends Phaser.Scene {
     this.drawPortals();
     this.drawEnemies(dt);
     this.drawFx(dt);
+    this.drawCombat(px, py);
 
     // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
     const act = me.action?.name;
@@ -345,6 +352,85 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** 투사체·소용돌이 + 내 캐릭터 주변 표시 (마법진, 충전 바, 조준, 사슬) */
+  private drawCombat(px: number, py: number) {
+    const g = this.projG, u = this.underG, world = this.deps.session.world, me = this.deps.session.me();
+    const t = this.time.now / 1000;
+    g.clear(); u.clear();
+    const elCol = (e: import('@shared/data/elements').Element | null | undefined) => (e ? hex(ELEMENTS[e].color) : 0xdddddd);
+
+    for (const v of world.vortices) {
+      const p = v.t / v.life, al = Math.min(1, (1 - p) * 2), c = hex(v.color);
+      g.fillStyle(0x140a28, 0.55 * al).fillCircle(v.x, v.y, 30 + 10 * Math.sin(v.t * 20));
+      for (let i = 0; i < 3; i++) {
+        const a0 = v.t * 9 + i * 2.1;
+        g.lineStyle(3, c, al).beginPath().arc(v.x, v.y, 45 + i * 22, a0, a0 + 1.8).strokePath();
+      }
+      g.lineStyle(3, c, 0.15 * al).strokeCircle(v.x, v.y, v.r);
+    }
+
+    for (const o of world.projectiles) {
+      const c = elCol(o.elem);
+      if (o.kind === 'orb') {
+        g.fillStyle(c, 0.33).fillCircle(o.x, o.y, 13);
+        g.fillStyle(c).fillCircle(o.x, o.y, 8);
+        g.fillStyle(0xffffff).fillCircle(o.x, o.y, 3);
+        continue;
+      }
+      // 화살: 진행 방향으로 회전한 막대 + 화살촉
+      const L = o.len ?? 26, th = o.kind === 'big' ? 10 : 4;
+      const cos = Math.cos(o.ang), sin = Math.sin(o.ang);
+      const pt = (lx: number, ly: number) => ({ x: o.x + lx * cos - ly * sin, y: o.y + lx * sin + ly * cos });
+      const quad = (x0: number, y0: number, x1: number, y1: number, col: number, al: number) => {
+        g.fillStyle(col, al).fillPoints([pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1)], true);
+      };
+      if (o.kind === 'big') quad(-L, -th * 1.6, L * 0.4, th * 1.6, c, 0.27);
+      quad(-L, -th / 2, 0, th / 2, c, 1);
+      g.fillStyle(c).fillPoints([pt(4, 0), pt(-6, -th - 3), pt(-6, th + 3)], true);
+    }
+
+    const x = px, y = py, a = me.action;
+    // 사슬 화살: 날아가는 화살 / 끌려가는 지점까지 밧줄
+    const to = me.ropeTo ?? (me.chainArrow && !me.chainArrow.dead ? me.chainArrow : null);
+    if (to) g.lineStyle(2, 0xe8dcb0).lineBetween(x + me.w / 2, y + me.h / 2, to.x, to.y);
+    // 마력 해방 중: 몸 주위 원
+    if (me.buffT > 0) g.lineStyle(2, 0xc8b8ff, 0.5 + 0.3 * Math.sin(t * 10)).strokeCircle(x + me.w / 2, y + me.h / 2, 32);
+    if (!a) return;
+
+    if (a.cast) {
+      // 캐스팅: 발밑에서 도는 마법진 + 캐스팅 바
+      const col = elCol(a.skill ? me.data.learned[a.skill] : null), mx = x + me.w / 2, my = y + me.h;
+      const ring = (ang: number) => ({ x: mx + Math.cos(ang) * 40, y: my + Math.sin(ang) * 40 * 0.3 });
+      u.lineStyle(3, col).strokeEllipse(mx, my, 80, 24);
+      const rot = t * 3, star = [];
+      for (let i = 0; i < 6; i++) star.push(ring(rot + (i * Math.PI * 2 / 6) * 2));
+      u.strokePoints(star, true);
+      const f = Math.min(1, a.t / (a.castEnd ?? a.dur));
+      if (f < 1) {
+        g.fillStyle(0x000000, 0.67).fillRect(x - 8, y - 14, me.w + 16, 5);
+        g.fillStyle(col).fillRect(x - 8, y - 14, (me.w + 16) * f, 5);
+      }
+    }
+    if (a.name === 'charge') {
+      // 충전 바 (가득 차면 깜빡임)
+      const col = elCol(a.elem), gv = a.g ?? 0;
+      g.fillStyle(0x000000, 0.67).fillRect(x - 10, y - 14, me.w + 20, 6);
+      g.fillStyle(gv >= 1 && Math.floor(t * 12) % 2 ? 0xffffff : col).fillRect(x - 10, y - 14, (me.w + 20) * gv, 6);
+    }
+    if (a.name === 'aim') {
+      // 조준: 부채꼴 + 점선
+      const col = elCol(a.elem), ox = x + me.w / 2, oy = y + me.h / 2, R = 300, m = a.maxAng ?? 1;
+      const base = me.face > 0 ? 0 : Math.PI;
+      g.fillStyle(col, 0.13).slice(ox, oy, R, base - m, base + m).fillPath();
+      const ang = me.face > 0 ? a.ang ?? 0 : Math.PI - (a.ang ?? 0);
+      g.lineStyle(4, col, 0.9);
+      for (let d = 0; d < R; d += 16) {
+        const e = Math.min(R, d + 10);
+        g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * e, oy + Math.sin(ang) * e);
+      }
+    }
+  }
+
   /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
   private makeGraySlime() {
     const src = this.textures.get('slime').getSourceImage() as HTMLImageElement;
@@ -384,6 +470,21 @@ export class GameScene extends Phaser.Scene {
         g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
       } else if (f.kind === 'ghost') {
         g.fillStyle(hex(f.color), 0.45 * al).fillRect(f.x, f.y + 8, f.w, f.h - 8);
+      } else if (f.kind === 'pillar') {
+        // 원소 기둥: 아래에서 솟아오름
+        const hh = f.h * Math.min(1, o.t / 0.1), pa = p < 0.6 ? 0.9 : (1 - p) / 0.4 * 0.9;
+        g.fillStyle(hex(f.color), pa).fillRect(f.x - f.w / 2, f.by - hh, f.w, hh);
+        g.fillStyle(0xffffff, pa * 0.53).fillRect(f.x - f.w / 6, f.by - hh, f.w / 3, hh);
+      } else if (f.kind === 'flame') {
+        // 원소 파도 한 칸: 뾰족한 불길 4개
+        const grow = Math.min(1, o.t / 0.08);
+        g.fillStyle(hex(f.color), al);
+        for (let i = 0; i < 4; i++) {
+          const bx = f.x + i * f.w / 4, hh = f.h * grow * (0.6 + 0.4 * Math.abs(Math.sin(i * 1.7 + o.t * 20)));
+          g.fillTriangle(bx, f.y, bx + f.w / 8, f.y - hh, bx + f.w / 4, f.y);
+        }
+      } else if (f.kind === 'zone') {
+        g.fillStyle(hex(f.color), 0.18 * al).fillRect(f.x, 0, f.w, GROUND_Y);
       }
     }
     this.fxList = this.fxList.filter(o => o.t < o.f.life);

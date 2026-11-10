@@ -178,7 +178,7 @@ html, body {
 .mskills .potion .key { display: none; }
 
 /* 세로 화면 안내 */
-#rotate { display: none; position: fixed; inset: 0; z-index: 20; background: #07070f; color: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 10px; font-size: 18px; text-align: center; }
+#rotate { display: none; position: fixed; inset: 0; z-index: 30; background: #07070f; color: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 10px; font-size: 18px; text-align: center; }
 @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
 
 /* ===== 대화창 · 메뉴 창 ===== */
@@ -255,3 +255,95 @@ html, body {
 .stat .d { flex: 1; color: #aab; font-size: 12px; }
 .plus { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #6a6; background: #2f5a2f; color: #fff; font-size: 18px; cursor: pointer; }
 .plus:disabled { opacity: .3; cursor: default; }
+
+/* ===== 캐릭터 생성 화면 (구상도 920×520 기준, --cu = 구상도 1px) ===== */
+.cc {
+  --cu: min(100vh / 520, 100vw / 920);
+  --ink: #f2efe6;
+  --frame: rgba(255, 255, 255, .85);
+  position: fixed; inset: 0; z-index: 20; display: flex; align-items: stretch;
+  background: radial-gradient(ellipse at 50% 30%, #2a2650 0%, #12112a 70%);
+  color: var(--ink); font-size: calc(16 * var(--cu));
+  padding: var(--sat) var(--sar) var(--sab) var(--sal);
+}
+.cc button { font: inherit; color: inherit; cursor: pointer; }
+/* 왼쪽: 직업·성별 + 배너 + 스토리 */
+.cc-left {
+  position: relative; flex: 0 0 calc(262 * var(--cu)); overflow: hidden;
+  border-right: calc(3 * var(--cu)) solid var(--frame); background: #0c0b1c;
+}
+.cc-title {
+  position: relative; z-index: 2; text-align: center; padding-top: calc(16 * var(--cu));
+  font-family: var(--title); font-weight: 700; font-size: calc(22 * var(--cu)); text-shadow: 0 2px 6px #000;
+}
+.cc-banner {
+  position: absolute; left: 50%; top: calc(60 * var(--cu)); transform: translateX(-50%);
+  width: calc(240 * var(--cu)); height: auto; opacity: .5; filter: blur(.5px);
+  -webkit-mask-image: linear-gradient(#000 55%, transparent 100%); mask-image: linear-gradient(#000 55%, transparent 100%);
+}
+.cc-story {
+  position: absolute; z-index: 2; left: calc(14 * var(--cu)); right: calc(14 * var(--cu)); top: calc(290 * var(--cu));
+  margin: 0; padding: calc(12 * var(--cu)) calc(14 * var(--cu));
+  background: rgba(10, 10, 28, .78); border: 1px solid rgba(255, 255, 255, .18); border-radius: calc(8 * var(--cu));
+  font-size: calc(12.5 * var(--cu)); line-height: 1.55; word-break: keep-all; font-weight: 300;
+}
+.cc-cap { float: left; font-family: var(--title); font-weight: 700; font-size: calc(34 * var(--cu)); line-height: 1; margin: calc(2 * var(--cu)) calc(6 * var(--cu)) 0 0; }
+/* 가운데: 캐릭터 도트 + 단상 */
+.cc-mid { position: relative; flex: 1 1 auto; }
+.cc-stage {
+  position: absolute; left: 50%; top: calc(436 * var(--cu)); transform: translateX(-50%);
+  width: calc(160 * var(--cu)); height: calc(60 * var(--cu));
+  background: linear-gradient(#8a7fb0, #4d4472); border: calc(3 * var(--cu)) solid var(--frame); border-bottom: 0;
+  border-radius: calc(6 * var(--cu)) calc(6 * var(--cu)) 0 0;
+}
+.cc-sprite {
+  /* 96×96 칸을 4배로. 발 기준점(--fx, --fy)을 단상 위 가운데에 맞춘다 */
+  --s: calc(384 * var(--cu));
+  position: absolute; left: calc(50% - var(--s) * var(--fx, .5)); top: calc(436 * var(--cu) - var(--s) * var(--fy, 1));
+  width: var(--s); height: var(--s); image-rendering: pixelated;
+}
+/* 오른쪽: 직업 · 입력 · 생성 */
+.cc-right { position: relative; flex: 0 0 calc(262 * var(--cu)); }
+.cc-label { position: absolute; left: calc(36 * var(--cu)); top: calc(10 * var(--cu)); font-family: var(--title); font-weight: 700; font-size: calc(18 * var(--cu)); }
+.cc-classes { position: absolute; left: calc(8 * var(--cu)); top: calc(40 * var(--cu)); display: flex; gap: calc(6 * var(--cu)); }
+.cc-class {
+  width: calc(76 * var(--cu)); height: calc(78 * var(--cu)); border-radius: calc(14 * var(--cu));
+  border: calc(3 * var(--cu)) solid var(--frame); background: rgba(255, 255, 255, .08);
+  font-weight: 700; font-size: calc(17 * var(--cu)); word-break: keep-all;
+}
+.cc-class.sel { background: #f2efe6; color: #1b1838; box-shadow: 0 0 calc(14 * var(--cu)) rgba(255, 240, 180, .55); }
+.cc-form {
+  position: absolute; left: calc(6 * var(--cu)); top: calc(144 * var(--cu)); width: calc(232 * var(--cu)); height: calc(280 * var(--cu));
+  box-sizing: border-box; padding: calc(14 * var(--cu)) calc(16 * var(--cu));
+  border: calc(3 * var(--cu)) solid var(--frame); border-radius: calc(34 * var(--cu)); background: rgba(10, 10, 28, .55);
+  display: flex; flex-direction: column; gap: calc(12 * var(--cu));
+}
+.cc-name {
+  width: 100%; box-sizing: border-box; height: calc(36 * var(--cu)); padding: 0 calc(10 * var(--cu));
+  border: 0; border-radius: calc(4 * var(--cu)); background: #c4c4c4; color: #111; text-align: center;
+  font: inherit; font-size: calc(17 * var(--cu)); user-select: text; -webkit-user-select: text;
+}
+.cc-name::placeholder { color: #555; }
+.cc-row { display: flex; align-items: center; gap: calc(10 * var(--cu)); font-weight: 700; font-size: calc(17 * var(--cu)); }
+.cc-k { min-width: calc(48 * var(--cu)); }
+.cc-gender {
+  width: calc(34 * var(--cu)); height: calc(34 * var(--cu)); border-radius: calc(6 * var(--cu));
+  border: calc(3 * var(--cu)) solid #222; padding: 0;
+}
+.cc-gender.f { background: #f5a3c7; }
+.cc-gender.m { background: #9dd8ec; }
+.cc-gender.sel { border-color: #fff; box-shadow: 0 0 0 calc(3 * var(--cu)) rgba(255, 255, 255, .35); }
+.cc-stat { gap: calc(14 * var(--cu)); }
+.cc-pm {
+  width: calc(24 * var(--cu)); height: calc(24 * var(--cu)); border-radius: 50%; padding: 0; line-height: 1;
+  border: calc(2 * var(--cu)) solid var(--ink); background: transparent; font-size: calc(17 * var(--cu));
+}
+.cc-pm:active { background: rgba(255, 255, 255, .25); }
+.cc-v { min-width: calc(26 * var(--cu)); text-align: center; }
+.cc-create {
+  position: absolute; right: calc(18 * var(--cu)); top: calc(446 * var(--cu));
+  width: calc(92 * var(--cu)); height: calc(46 * var(--cu));
+  border: calc(3 * var(--cu)) solid #111; background: #b8b8b8; color: #111 !important;
+  font-weight: 700; font-size: calc(19 * var(--cu));
+}
+.cc-create:active { background: #d8d8d8; }

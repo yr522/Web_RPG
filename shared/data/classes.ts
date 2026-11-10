@@ -51,4 +51,11 @@ export type SlotKey = (typeof SLOT_KEYS)[number];
 export const UNLOCK_LEVELS = [1, 3, 6, 10];
 export const MAX_SKILL_LEVEL = 5;
 
+/** 능력치 시작값 (근력·민첩·지능 모두) */
+export const START_STAT = 5;
+/** 캐릭터 생성 때 직접 나눠 주는 포인트. 안 쓴 포인트는 남은 포인트로 넘어간다 */
+export const CREATE_STAT_POINTS = 5;
+export const NAME_MAX = 10;
+export const DEFAULT_NAME = '견습생';
+
 export const expNeed = (level: number) => 40 + (level - 1) * 25;

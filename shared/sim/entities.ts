@@ -17,6 +17,21 @@ export interface PlayerAction {
   /** 무적 */
   inv?: boolean;
   superArmor?: boolean;
+  /** 마법사 캐스팅 (발밑 마법진·캐스팅 바) */
+  cast?: boolean;
+  /** 캐스팅 바가 다 차는 시점 (없으면 dur) */
+  castEnd?: number;
+  /** 궁수 충전: 0~1 */
+  g?: number;
+  /** 궁수 충전: 손을 뗐음 */
+  released?: boolean;
+  /** 궁수 충전: 이 시간 전에는 발사하지 않음 (직전 발사 후 쉬는 시간) */
+  minT?: number;
+  /** 충전·조준 중인 스킬의 원소 */
+  elem?: import('../data/elements').Element | null;
+  /** 조준 각도 (사슬 화살) */
+  ang?: number;
+  maxAng?: number;
 }
 
 export interface PlayerState extends Body {
@@ -47,6 +62,12 @@ export interface PlayerState extends Body {
   /** 땅에서 ↓ 를 누르고 앉아 있음 (이동 멈춤) */
   crouch: boolean;
   hurt: number;
+  /** 마력 해방 남은 시간 */
+  buffT: number;
+  /** 날아가는 중인 사슬 화살 (한 번 더 누르면 끌려감) */
+  chainArrow: Projectile | null;
+  /** 사슬 화살로 끌려가는 지점 (밧줄 그리기용) */
+  ropeTo: { x: number; y: number } | null;
 }
 
 export interface Enemy extends Body {
@@ -71,6 +92,8 @@ export interface Enemy extends Body {
   leapT: number;
   /** 다음 큰 점프까지 */
   leapCd: number;
+  /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
+  pulled: boolean;
 }
 
 export interface Coin {
@@ -82,11 +105,11 @@ export interface Coin {
   t: number;
 }
 
-export interface Hitbox {
+export interface Rect { x: number; y: number; w: number; h: number }
+
+/** 몬스터를 때리는 것의 공통 부분 (공격 판정, 투사체) */
+export interface Attack {
   owner: PlayerState;
-  /** 플레이어 중심 기준 위치 (center 면 가운데 정렬) */
-  dx: number; dy: number; w: number; h: number;
-  center?: boolean;
   face: number;
   coef: number;
   elem: Element | null;
@@ -96,9 +119,38 @@ export interface Hitbox {
   kbAng?: number;
   launch?: number;
   light?: boolean;
+  /** 스킬 레벨 배율 */
+  sm: number;
+}
+
+/** 날아가는 공격 (마력탄, 화살) */
+export interface Projectile extends Attack {
+  id: EntityId;
+  kind: 'orb' | 'arrow' | 'chain' | 'big';
+  x: number; y: number;
+  ang: number;
+  speed: number;
+  range: number;
+  traveled: number;
+  /** 판정 크기 (정사각형 한 변) */
+  size: number;
+  /** 화살 길이 (그리기용) */
+  len?: number;
+  pierce?: boolean;
+  hit: Set<EntityId>;
+  dead: boolean;
+}
+
+/** 소용돌이 화살: 범위 안 몬스터를 가운데로 끌어모음 */
+export interface Vortex { x: number; y: number; r: number; t: number; life: number; color: string }
+
+export interface Hitbox extends Attack {
+  /** 고정 위치 판정 (원소 기둥, 화살비 등). 있으면 dx·dy 무시 */
+  abs?: Rect;
+  /** 플레이어 중심 기준 위치 (center 면 가운데 정렬) */
+  dx: number; dy: number; w: number; h: number;
+  center?: boolean;
   life: number;
   t: number;
   hit: Set<EntityId>;
-  /** 스킬 레벨 배율 */
-  sm: number;
 }
