@@ -1,4 +1,4 @@
-// 검사(전사) 스킬 — 프로토타입 v0.4.7 그대로 이식
+// 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
 import type { PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';

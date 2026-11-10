@@ -15,7 +15,7 @@ export interface ClassDef {
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
-  warrior: { name: '전사', hp: 150, mp: 100, regen: 7, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], professor: '검술과 바르크 교수' },
+  warrior: { name: '검사', hp: 150, mp: 100, regen: 7, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], professor: '검술과 바르크 교수' },
   mage: { name: '마법사', hp: 110, mp: 140, regen: 10, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], professor: '마법학과 엘린 교수' },
   archer: { name: '궁수', hp: 125, mp: 110, regen: 8, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], professor: '궁술과 시엘 교수' },
 };

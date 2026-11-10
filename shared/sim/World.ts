@@ -187,7 +187,7 @@ export class World implements SkillWorld {
     // 이동
     const walkMul = p.action ? cs.walk[p.action.name] : undefined;
     if (p.action && walkMul !== undefined && p.hurt <= 0) {
-      // 전사·궁수: 공격 중에도 이동 (바라보는 방향은 공격 방향 유지)
+      // 검사·궁수: 공격 중에도 이동 (바라보는 방향은 공격 방향 유지)
       if (cmd.move) p.vx = cmd.move * p.stats.speed * walkMul;
       else if (p.onGround && p.action.name !== 'ilseom' && p.action.name !== 'wolcham') p.vx = 0;
       if (cmd.jumpPressed && p.onGround && !p.action.noGravity) p.vy = JUMP_VELOCITY;
@@ -259,9 +259,9 @@ export class World implements SkillWorld {
     // 마력 해방의 쿨타임은 버프가 끝난 뒤부터
     if (sk.cd && name !== 'haebang') p.cd[name] = sk.cd;
     const order = this.slotOf(p, name);
-    // 연계 보너스는 전사 전용
+    // 연계 보너스는 검사 전용
     const chain = p.data.cls === 'warrior' && !!(p.lastHit && this.time - p.lastHit.t < 0.9 && order > p.lastHit.order);
-    // 전사 초식 순서: 일섬 → 월참 → 질풍참이 이어져야(연계) 천붕이 열린다
+    // 검사 초식 순서: 일섬 → 월참 → 질풍참이 이어져야(연계) 천붕이 열린다
     if (name === 'ilseom') p.combo = 1;
     else if (name === 'wolcham') p.combo = chain && p.combo === 1 ? 2 : 0;
     else if (name === 'jilpung') p.combo = chain && p.combo === 2 ? 3 : 0;

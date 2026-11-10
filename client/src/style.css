@@ -347,3 +347,6 @@ html, body {
   font-weight: 700; font-size: calc(19 * var(--cu));
 }
 .cc-create:active { background: #d8d8d8; }
+.cc-left-pts { margin-top: auto; justify-content: space-between; font-size: calc(15 * var(--cu)); color: #ffe066; }
+.cc-left-pts .cc-v { font-size: calc(18 * var(--cu)); }
+.cc-left-pts.zero { color: rgba(242, 239, 230, .55); }

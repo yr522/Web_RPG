@@ -53,7 +53,7 @@ export interface PlayerState extends Body {
   lockT: number;
   buffer: { name: string; t: number } | null;
   lastHit: { order: number; t: number } | null;
-  /** 전사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
+  /** 검사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
   combo: number;
   /** 질풍참 직후 천붕을 쓸 수 있는 시간 */
   cbWindow: number;

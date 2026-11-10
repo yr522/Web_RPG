@@ -1,6 +1,6 @@
 // 캐릭터 생성 화면 (유저 구상도 기준)
 // 왼쪽: 고른 직업·성별 + 배너 일러스트 + 스토리 / 가운데: 캐릭터 도트 / 오른쪽: 직업 · 닉네임 · 성별 · 능력치 · 생성
-import { CREATE_STAT_POINTS, NAME_MAX, START_STAT, type ClassId, type StatId } from '@shared/data/classes';
+import { CLASSES, CREATE_STAT_POINTS, NAME_MAX, START_STAT, type ClassId, type StatId } from '@shared/data/classes';
 import { createSave, type Gender, type SaveData } from '@shared/sim/save';
 import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, SHEETS, type SheetName } from '../scenes/PlayerAvatar';
 import { el, esc } from './Dialog';
@@ -11,8 +11,6 @@ import mageF from '../../../assets/temp/magician_banner_F.png';
 import archerM from '../../../assets/temp/archer_banner_M.png';
 import archerF from '../../../assets/temp/archer_banner_F.png';
 
-/** 생성 화면에서 부르는 직업 이름 (구상도) */
-const CLASS_LABEL: Record<ClassId, string> = { warrior: '검사', mage: '마법사', archer: '궁수' };
 const GENDER_LABEL: Record<Gender, string> = { M: '남성', F: '여성' };
 const CLASS_ORDER: ClassId[] = ['warrior', 'mage', 'archer'];
 const BANNERS: Record<ClassId, Record<Gender, string>> = {
@@ -75,7 +73,7 @@ export function showCreateScreen(): Promise<SaveData> {
     right.appendChild(el('div', 'cc-label', '직업'));
     const classRow = el('div', 'cc-classes');
     const classBtns = CLASS_ORDER.map(id => {
-      const b = el('button', 'cc-class', CLASS_LABEL[id], () => { cls = id; render(); });
+      const b = el('button', 'cc-class', CLASSES[id].name, () => { cls = id; render(); });
       classRow.appendChild(b);
       return b;
     });
@@ -111,6 +109,10 @@ export function showCreateScreen(): Promise<SaveData> {
       statVals.set(st.id, val);
       form.appendChild(row);
     }
+    const left2 = el('div', 'cc-row cc-left-pts', '<span class="cc-k">남은 포인트</span>');
+    const ptsVal = el('span', 'cc-v');
+    left2.appendChild(ptsVal);
+    form.appendChild(left2);
     right.appendChild(form);
 
     const create = el('button', 'cc-create', '생성', () => {
@@ -152,7 +154,7 @@ export function showCreateScreen(): Promise<SaveData> {
     canvas.style.setProperty('--fy', String(FOOT_Y / CELL));
 
     function render() {
-      title.textContent = `${CLASS_LABEL[cls]} / ${GENDER_LABEL[gender]}`;
+      title.textContent = `${CLASSES[cls].name} / ${GENDER_LABEL[gender]}`;
       const src = BANNERS[cls][gender];
       if (banner.getAttribute('src') !== src) banner.src = src;
       const text = esc(STORY[cls]);
@@ -160,6 +162,8 @@ export function showCreateScreen(): Promise<SaveData> {
       classBtns.forEach((b, i) => b.classList.toggle('sel', CLASS_ORDER[i] === cls));
       genderBtns.forEach((b, i) => b.classList.toggle('sel', (['F', 'M'] as Gender[])[i] === gender));
       for (const st of STATS) statVals.get(st.id)!.textContent = String(START_STAT + add[st.id]);
+      ptsVal.textContent = String(CREATE_STAT_POINTS - used());
+      left2.classList.toggle('zero', used() >= CREATE_STAT_POINTS);
     }
     render();
   });
