@@ -11,7 +11,7 @@ import { ELEMENTS } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
-import fighterUrl from '../../../assets/temp/player_fighter_sprite_demo.png';
+import { PlayerAvatar, preloadAvatar } from './PlayerAvatar';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
 import { COIN } from '@shared/data/monsters';
 
@@ -29,7 +29,7 @@ export class GameScene extends Phaser.Scene {
   private fx!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
   private mapLayer!: Phaser.GameObjects.Container;
-  private player!: Phaser.GameObjects.Image;
+  private player!: PlayerAvatar;
   private nameTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
@@ -53,13 +53,12 @@ export class GameScene extends Phaser.Scene {
   init(deps: SceneDeps) { this.deps = deps; }
 
   preload() {
-    this.load.image('fighter', fighterUrl);
+    preloadAvatar(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
   }
 
   create() {
-    this.textures.get('fighter').setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.makeGraySlime();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
@@ -68,7 +67,7 @@ export class GameScene extends Phaser.Scene {
     this.combat = this.add.graphics().setDepth(4);
     this.coinG = this.add.graphics().setDepth(4.5);
     this.fxG = this.add.graphics().setDepth(6);
-    this.player = this.add.image(0, 0, 'fighter').setOrigin(0.5, 1).setScale(1.25).setDepth(5);
+    this.player = new PlayerAvatar(this).setDepth(5);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
@@ -248,7 +247,7 @@ export class GameScene extends Phaser.Scene {
     // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
     const act = me.action?.name;
     const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
-    this.player.setPosition(px + me.w / 2 + lunge, py + me.h).setFlipX(me.face < 0);
+    this.player.update(dt, me, px + me.w / 2 + lunge, py + me.h);
     this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
@@ -278,7 +277,7 @@ export class GameScene extends Phaser.Scene {
     this.floats.push({ t, age: 0, life });
   }
 
-  /** 몬스터 (3단계에서 스프라이트로 교체) + 내 조준 표시 */
+  /** 몬스터 (3단계에서 스프라이트로 교체) */
   private drawEnemies(dt: number) {
     const g = this.combat, world = this.deps.session.world;
     g.clear();
@@ -338,19 +337,7 @@ export class GameScene extends Phaser.Scene {
       cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
     }
 
-    // 질풍참 조준: 부채꼴 + 점선
-    const me = this.deps.session.me(), a = me.action;
-    if (a?.name === 'aim' && a.skill) {
-      const el = me.data.learned[a.skill], col = el ? hex(ELEMENTS[el].color) : 0xdddddd;
-      const ox = me.x + me.w / 2, oy = me.y + me.h / 2, R = 220, m = a.maxAng ?? 0.75;
-      const base = me.face > 0 ? 0 : Math.PI;
-      g.fillStyle(col, 0.14).slice(ox, oy, R, base - m, base + m).fillPath();
-      const ang = me.face > 0 ? a.ang ?? 0 : Math.PI - (a.ang ?? 0);
-      g.lineStyle(4, col, 0.9);
-      for (let d = 0; d < R; d += 16) {
-        g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * Math.min(R, d + 10), oy + Math.sin(ang) * Math.min(R, d + 10));
-      }
-    }
+    const me = this.deps.session.me();
     // 천붕 준비: 몸 주위 원
     if (me.cbWindow > 0 && me.data.learned.cheonbung !== undefined) {
       const el = me.data.learned.cheonbung;

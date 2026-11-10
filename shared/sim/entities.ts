@@ -17,10 +17,6 @@ export interface PlayerAction {
   /** 무적 */
   inv?: boolean;
   superArmor?: boolean;
-  /** 조준 각도 (질풍참) */
-  ang?: number;
-  maxAng?: number;
-  aiming?: boolean;
 }
 
 export interface PlayerState extends Body {
@@ -48,6 +44,8 @@ export interface PlayerState extends Body {
   cbWindow: number;
   /** 맞은 뒤 무적 시간 */
   invT: number;
+  /** 땅에서 ↓ 를 누르고 앉아 있음 (이동 멈춤) */
+  crouch: boolean;
   hurt: number;
 }
 

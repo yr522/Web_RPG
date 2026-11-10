@@ -59,7 +59,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: GROUND_Y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0,
+      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, crouch: false,
     };
     this.players.set(id, p);
     return p;
@@ -137,7 +137,7 @@ export class World implements SkillWorld {
       if (i >= 4) continue;
       const name = this.activeSkill(p, i), a = p.action;
       if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[i]}에 배울 수 있어`); continue; }
-      if (a && (a.name === 'aim' || a.name === 'dash')) continue;
+      if (a && a.name === 'dash') continue;
       const remain = (a ? a.dur - a.t : 0) + p.lockT;
       if (!a && p.lockT <= 0) this.tryStart(p, name);
       else if (remain <= 0.2) p.buffer = { name, t: this.time };
@@ -167,10 +167,12 @@ export class World implements SkillWorld {
       else if (p.onGround && p.action.name !== 'ilseom' && p.action.name !== 'wolcham') p.vx = 0;
       if (cmd.jumpPressed && p.onGround && !p.action.noGravity) p.vy = JUMP_VELOCITY;
     }
+    // 앉기: 땅에서 ↓ 를 누르고 있으면 멈춰서 방향만 돌린다 (↓+점프는 발판 내려가기 그대로)
+    p.crouch = !p.action && p.hurt <= 0 && p.onGround && cmd.down;
     if (!p.action) {
       if (p.hurt > 0) p.vx *= 1 - 5 * dt;
       else {
-        p.vx = cmd.move * p.stats.speed;
+        p.vx = p.crouch ? 0 : cmd.move * p.stats.speed;
         if (cmd.move) p.face = cmd.move;
         if (cmd.jumpPressed && p.onGround) {
           const onPlatform = p.plat && !p.plat.ground && p.y + p.h < GROUND_Y - 2;
@@ -377,7 +379,12 @@ export class World implements SkillWorld {
       } else {
         const dx = target ? cx(target) - cx(e) : 9999, dy = target ? cy(target) - cy(e) : 9999;
         const chasing = Math.abs(dx) < SLIME_AI.sight && Math.abs(dy) < 110;
-        if (chasing) { e.dir = dx >= 0 ? 1 : -1; e.vx = e.dir * e.speed * 1.7; }
+        if (chasing) {
+          // 거의 겹쳐 있으면 방향을 바꾸지 않고 멈춘다 (매 틱 좌우로 떨리는 것 방지)
+          const near = Math.abs(dx) <= SLIME_AI.chaseDeadZone;
+          if (!near) e.dir = dx > 0 ? 1 : -1;
+          e.vx = near ? 0 : e.dir * e.speed * 1.7;
+        }
         else {
           e.turnT -= dt;
           if (e.turnT < 0) { e.dir = e.dir > 0 ? -1 : 1; e.turnT = 1.5 + this.rng() * 2.5; }
