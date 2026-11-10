@@ -29,6 +29,10 @@ const ANIMS = {
   idle: { frames: [0], frameTime: 1 },
   // 걷기는 2프레임뿐이라 천천히 번갈아 보여 준다
   walk: { frames: [1, 2], frameTime: 0.22 },
+  /** 공중 (올라갈 때·떨어질 때 같은 그림) */
+  jump: { frames: [3], frameTime: 1 },
+  /** 땅에서 ↓ */
+  crouch: { frames: [4], frameTime: 1 },
 } as const;
 type AnimName = keyof typeof ANIMS;
 
@@ -56,7 +60,7 @@ export class PlayerAvatar {
   /** 매 프레임 호출: 상태에 맞는 모션을 고르고 프레임을 넘긴다 */
   update(dt: number, me: PlayerState, x: number, y: number) {
     const walking = me.onGround && !me.action && Math.abs(me.vx) > 20;
-    const next: AnimName = walking ? 'walk' : 'idle';
+    const next: AnimName = !me.onGround ? 'jump' : me.crouch ? 'crouch' : walking ? 'walk' : 'idle';
     if (next !== this.anim) { this.anim = next; this.t = 0; }
     this.t += dt;
     const a = ANIMS[this.anim];
