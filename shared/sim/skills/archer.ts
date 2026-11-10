@@ -30,7 +30,7 @@ function chargeShot(w: SkillWorld, p: PlayerState, name: string, el: Element | n
         a.g = Math.min(1, a.t / 1.0);
         if (!w.held(p, name)) a.released = true;
       }
-      if (p.cmd.move) p.face = p.cmd.move;
+      // 당기는 중에는 방향 고정 (뒤로 걸으며 거리 조절해도 앞으로 쏜다)
       if (a.released && a.t >= a.minT!) a.dur = a.t;
     },
     end: () => {
@@ -111,7 +111,7 @@ export const ARCHER: ClassSkills = {
     soyong(w, p) {
       const el = w.elemOf(p, 'soyong'), c = color(el);
       p.action = {
-        name: 'draw', skill: 'soyong', elem: el, t: 0, dur: 0.24, update: () => { p.vx = 0; },
+        name: 'draw', skill: 'soyong', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
           const vx = cx(p) + p.face * 270, vy = cy(p) - 6;
           w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: 210, color: c });
@@ -127,7 +127,7 @@ export const ARCHER: ClassSkills = {
     hwasalbi(w, p) {
       const el = w.elemOf(p, 'hwasalbi'), c = color(el);
       p.action = {
-        name: 'draw', skill: 'hwasalbi', elem: el, t: 0, dur: 0.24, update: () => { p.vx = 0; },
+        name: 'draw', skill: 'hwasalbi', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
           const zx = cx(p) + p.face * 230;
           p.lockT = 0.35 + 6 * 0.1 + 0.05;

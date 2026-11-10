@@ -44,7 +44,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     w.chainText(p, 'wolcham', chain);
     if (up && p.onGround) p.vy = -330;
     p.action = {
-      name: 'wolcham', t: 0, dur: 0.26,
+      name: 'wolcham', t: 0, dur: 0.26, superArmor: true,
       events: [{
         at: 0.05, fn: () => {
           if (up) {
