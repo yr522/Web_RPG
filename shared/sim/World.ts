@@ -59,7 +59,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: GROUND_Y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0,
+      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, crouch: false,
     };
     this.players.set(id, p);
     return p;
@@ -167,10 +167,12 @@ export class World implements SkillWorld {
       else if (p.onGround && p.action.name !== 'ilseom' && p.action.name !== 'wolcham') p.vx = 0;
       if (cmd.jumpPressed && p.onGround && !p.action.noGravity) p.vy = JUMP_VELOCITY;
     }
+    // 앉기: 땅에서 ↓ 를 누르고 있으면 멈춰서 방향만 돌린다 (↓+점프는 발판 내려가기 그대로)
+    p.crouch = !p.action && p.hurt <= 0 && p.onGround && cmd.down;
     if (!p.action) {
       if (p.hurt > 0) p.vx *= 1 - 5 * dt;
       else {
-        p.vx = cmd.move * p.stats.speed;
+        p.vx = p.crouch ? 0 : cmd.move * p.stats.speed;
         if (cmd.move) p.face = cmd.move;
         if (cmd.jumpPressed && p.onGround) {
           const onPlatform = p.plat && !p.plat.ground && p.y + p.h < GROUND_Y - 2;
