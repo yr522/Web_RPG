@@ -6,8 +6,8 @@ import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, SHEETS, type SheetName } fro
 import { el, esc } from './Dialog';
 import warriorM from '../../../assets/temp/fighter_banner_M.png';
 import warriorF from '../../../assets/temp/fighter_banner_F.png';
-import mageM from '../../../assets/temp/magician_banner_M.png';
-import mageF from '../../../assets/temp/magician_banner_F.png';
+import mageM from '../../../assets/img/banner/magician_male_none_background.png';
+import mageF from '../../../assets/img/banner/magician_female_none_background.png';
 import archerM from '../../../assets/temp/archer_banner_M.png';
 import archerF from '../../../assets/temp/archer_banner_F.png';
 
@@ -18,6 +18,8 @@ const BANNERS: Record<ClassId, Record<Gender, string>> = {
   mage: { M: mageM, F: mageF },
   archer: { M: archerM, F: archerF },
 };
+/** 전신 일러스트를 쓰는 직업 (반신 크기로 확대해서 보여줌) */
+const FULL_BANNER: ClassId[] = ['mage'];
 /** 직업 스토리 (임시 문구 — 세계관 문서에서 비밀이 아닌 부분만 옮김) */
 const STORY: Record<ClassId, string> = {
   warrior: '진중하고 조용한 검술과 학생. 평범한 가정의 쌍둥이 남매로 태어나, 마을 이웃이던 스승에게 검을 배웠다. 검을 쥐고 있을 때 마음이 가장 고요해진다.',
@@ -158,6 +160,7 @@ export function showCreateScreen(): Promise<SaveData> {
       title.textContent = `${CLASSES[cls].name} / ${GENDER_LABEL[gender]}`;
       const src = BANNERS[cls][gender];
       if (banner.getAttribute('src') !== src) banner.src = src;
+      banner.classList.toggle('full', FULL_BANNER.includes(cls));
       const text = esc(STORY[cls]);
       story.innerHTML = `<span class="cc-cap">${text[0]}</span>${text.slice(1)}`;
       classBtns.forEach((b, i) => b.classList.toggle('sel', CLASS_ORDER[i] === cls));
