@@ -10,6 +10,7 @@ import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { showCreateScreen } from './ui/CreateScreen';
+import { setupMobileGate } from './ui/MobileGate';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -31,6 +32,8 @@ function canvasLayout() {
 }
 
 async function boot() {
+  // 모바일: 가로 + 전체화면 안내 (가로 안내와 같은 기준 = 손가락 터치 기기)
+  setupMobileGate(matchMedia('(pointer: coarse)').matches);
   // 폰트가 늦게 뜨면 Phaser 글자가 기본 폰트로 그려지므로 먼저 불러온다
   await Promise.race([
     Promise.all([

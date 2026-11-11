@@ -180,6 +180,11 @@ html, body {
 /* 세로 화면 안내 */
 #rotate { display: none; position: fixed; inset: 0; z-index: 30; background: #07070f; color: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 10px; font-size: 18px; text-align: center; }
 @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+/* 모바일: 가로로 돌린 다음 전체화면 요청 (가로 안내가 먼저 = 세로일 때는 위 #rotate 가 덮음) */
+#fsgate { display: none; position: fixed; inset: 0; z-index: 29; background: #07070f; color: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-size: 18px; text-align: center; }
+#fsgate.on { display: flex; }
+#fsgate button { font: inherit; font-weight: 700; padding: 12px 28px; border-radius: 12px; border: 2px solid #fff; background: #3a3470; color: #fff; }
+#fsgate button:active { background: #5a50a0; }
 
 /* ===== 대화창 · 메뉴 창 ===== */
 .dlg-overlay { position: fixed; inset: 0; z-index: 12; background: rgba(5, 5, 15, .45); display: flex; align-items: flex-end; justify-content: center; }
