@@ -5,8 +5,8 @@ import type { MapId } from './maps';
 
 /** 퀘스트 목표 */
 export type QuestGoal =
-  /** 몬스터 처치. target: 일반 / 원소 / 아무거나 */
-  | { kind: 'kill'; target: 'normal' | 'elemental' | 'any'; n: number }
+  /** 몬스터 처치. target: 일반 / 원소 / 아무거나. tag 가 있으면 그 이름표 몬스터만 셈 (보스 등, 컷신의 fight 로 나옴) */
+  | { kind: 'kill'; target: 'normal' | 'elemental' | 'any'; n: number; tag?: string }
   /** 물건 모아 오기 (가방에 있는 개수로 셈, 보고할 때 가져감) */
   | { kind: 'collect'; item: string; n: number }
   /** 누구에게 말 걸기 (그 NPC 대사에 { do: { quest: 'report' } } 가 있어야 끝남) */
@@ -56,6 +56,10 @@ export const QUESTS: QuestDef[] = [
   {
     id: 'test_talk', name: '테스트 퀘스트: 말 걸기', desc: '테스트 NPC 에게 말 걸기', giver: 'story_test',
     goal: { kind: 'talk', npc: 'story_test' }, reward: { gold: 50 },
+  },
+  {
+    id: 'test_boss', name: '테스트 퀘스트: 이름표 몬스터', desc: '컷신에서 나온 테스트 슬라임 처치 (다른 슬라임은 안 셈)', giver: 'story_test',
+    goal: { kind: 'kill', target: 'any', n: 1, tag: 'test_boss' }, reward: { exp: 40 },
   },
 ];
 

@@ -1,6 +1,6 @@
 // 컷신: 위에서부터 차례로 실행. 하나가 끝나야 다음으로 (wait: false 면 기다리지 않고 바로 다음).
 //
-// who: 'player' = 플레이어, 'npc:<NPC id>' = 지금 맵의 NPC
+// who: 'player' = 플레이어, 'npc:<NPC id>' = 지금 맵의 NPC, 'mob:<이름>' = mob 단계로 만든 연출용 몬스터
 // x 자리: 숫자(맵 좌표) 또는 who 와 같은 글자(그 캐릭터 위치)
 //
 //   { lock: true }                       플레이어 조작 막기 (false = 풀기). 컷신이 끝나면 자동으로 풀림
@@ -12,9 +12,15 @@
 //   { face: { who, dir } }               바라보는 방향 (1 오른쪽, -1 왼쪽)
 //   { say: { who, text, life } }         머리 위 말풍선 (life 초)
 //   { talk: 'NPC id' }                   그 NPC 대화창 (닫힐 때까지 기다림)
+//   { mob: { id, elem, x, face } }       연출용 몬스터 등장 (겉모습만, 싸우지 않음). elem 생략 = 일반 슬라임
+//   { remove: 'mob:<이름>' }              연출용 몬스터 없애기
+//   { fight: { who: 'mob:<이름>', tag } } 연출용 몬스터를 그 자리에서 진짜 몬스터로 바꿈.
+//                                         컷신이 끝날 때까지 가만히 있다가 끝나면 싸움 시작. tag = 이름표 (퀘스트에서 이 몬스터만 셀 때)
 //   { wait: 초 }                          기다리기
 
-export type Who = 'player' | `npc:${string}`;
+import type { Element } from './elements';
+
+export type Who = 'player' | `npc:${string}` | `mob:${string}`;
 export type CutX = number | Who;
 export type Motion = 'idle' | 'crouch' | 'jump' | 'attack';
 
@@ -27,6 +33,9 @@ export type CutStep = (
   | { face: { who: Who; dir: 1 | -1 } }
   | { say: { who: Who; text: string; life?: number } }
   | { talk: string }
+  | { mob: { id: string; elem?: Element | null; x: CutX; face?: 1 | -1 } }
+  | { remove: Who }
+  | { fight: { who: Who; tag?: string } }
   | { wait: number }
 ) & { wait?: number | false };
 
@@ -60,5 +69,20 @@ export const CUTSCENES: Record<string, CutStep[]> = {
     { ui: true },
     { lock: false },
     { talk: 'story_test' },
+  ],
+  // 몬스터 연출 테스트: 불 슬라임 등장 → 카메라·말풍선·점프·다가옴 → 진짜 몬스터로 바뀌고 컷신 끝나면 싸움
+  test_mob: [
+    { lock: true },
+    { ui: false },
+    { walk: { who: 'player', to: 600 } },
+    { mob: { id: 'boss', elem: 'fire', x: 1010 } },
+    { cam: { x: 'mob:boss', zoom: 1.6, time: 0.8 } },
+    { say: { who: 'mob:boss', text: '!', life: 1 }, wait: 0.6 },
+    { pose: { who: 'mob:boss', motion: 'jump' } },
+    { pose: { who: 'mob:boss', motion: 'crouch', time: 0.5 } },
+    { walk: { who: 'mob:boss', to: 'player', speed: 120 }, wait: false },
+    { cam: { x: 'player', zoom: 1.2, time: 1.2 } },
+    { fight: { who: 'mob:boss', tag: 'test_boss' } },
+    { cam: 'follow', time: 0.5 },
   ],
 };

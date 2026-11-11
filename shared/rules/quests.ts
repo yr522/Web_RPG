@@ -66,13 +66,15 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
 }
 
 /** 몬스터 처치 → 처치 퀘스트 숫자. 방금 다 채운 퀘스트들을 돌려준다 */
-export function questsOnKill(s: SaveData, elemental: boolean): QuestDef[] {
+export function questsOnKill(s: SaveData, elemental: boolean, tag?: string): QuestDef[] {
   const done: QuestDef[] = [];
   for (const [id, st] of Object.entries(s.quests)) {
     const q = questDef(id);
     if (!q || !st.active || q.goal.kind !== 'kill' || st.count >= q.goal.n) continue;
     const t = q.goal.target;
-    if (t === 'any' || (t === 'elemental') === elemental) {
+    // 이름표 퀘스트는 그 이름표 몬스터만, 보통 퀘스트는 이름표 몬스터도 같이 셈
+    const match = q.goal.tag ? q.goal.tag === tag : t === 'any' || (t === 'elemental') === elemental;
+    if (match) {
       st.count++;
       if (st.count >= q.goal.n) done.push(q);
     }
@@ -111,6 +113,7 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
     case 'visit': return { map: q.goal.map };
     case 'kill': {
       const want = q.goal.target;
+      if (q.goal.tag) return null;
       const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => want === 'any' || (want === 'elemental') === !!sp[1]));
       return id ? { map: id } : null;
     }

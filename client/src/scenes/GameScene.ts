@@ -7,7 +7,7 @@ import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette } from './palette';
 import { professorHasNews } from '@shared/rules/progress';
-import { ELEMENTS } from '@shared/data/elements';
+import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
@@ -38,14 +38,28 @@ export interface SceneDeps {
   talk: (npc: string) => Promise<void>;
 }
 
-/** 대화 NPC 그림 (컷신에서 걷기·모션) */
-interface NpcActor { root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; home: number; x: number; face: 1 | -1; to: number | null; speed: number; pose: Motion | null; t: number }
+/**
+ * 컷신에서 움직이는 그림: 대화 NPC('npc:id', 뼈대 그림) 와 연출용 몬스터('mob:이름', 슬라임 그림).
+ * 화면에서만 움직이고 게임 규칙과는 상관없다.
+ */
+interface Actor {
+  kind: 'npc' | 'mob';
+  root: Phaser.GameObjects.Container | Phaser.GameObjects.Sprite;
+  label: Phaser.GameObjects.Text;
+  elem: Element | null;
+  home: number; x: number; face: 1 | -1; to: number | null; speed: number; pose: Motion | null; t: number;
+  /** 점프 중 경과 시간 (null = 땅) */
+  jumpT: number | null;
+}
+/** 컷신 점프: 높이(px), 시간(초) / 연출용 몬스터 머리 높이 (말풍선 위치) */
+const ACTOR_JUMP = { h: 50, time: 0.5 };
+const MOB_HEAD = 46;
 /** 길 안내 화살표: 플레이어 머리 위, 가야 할 쪽 */
 const GUIDE = { hideWithin: 50, color: 0xffd84a };
 
 export class GameScene extends Phaser.Scene implements Stage {
   private deps!: SceneDeps;
-  private npcActors = new Map<string, NpcActor>();
+  private actors = new Map<string, Actor>();
   private cut!: CutscenePlayer;
   private guideG!: Phaser.GameObjects.Graphics;
   /** 카메라 확대 배율 (컷신), 컷신 카메라 이동 */
@@ -184,7 +198,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
     }
     this.profMark = null;
-    this.npcActors.clear();
+    for (const a of this.actors.values()) if (a.kind === 'mob') { a.root.destroy(); a.label.destroy(); }
+    this.actors.clear();
     for (const n of map.npcs) {
       const x = n.x, y = GROUND_Y;
       // 터치·클릭으로 대화
@@ -206,7 +221,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
-        this.npcActors.set(n.id, { root, label, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0 });
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
         continue;
       }
       if (n.id === 'shop') {
@@ -300,7 +315,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const z = this.zoom * this.camZoom;
     if (this.cameras.main.zoom !== z) this.cameras.main.setZoom(z);
     this.cameras.main.setScroll(Math.round((this.camX + sx) * z) / z, Math.round((camY + sy) * z) / z);
-    this.updateNpcActors(dt);
+    this.updateActors(dt);
 
     const pal = palette(session.nowMs());
     this.drawBackground(pal);
@@ -379,36 +394,78 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.camHold = null;
   }
 
-  npcX(id: string) { return this.npcActors.get(id)?.x ?? null; }
-  npcWalk(id: string, to: number, speed: number) {
-    const a = this.npcActors.get(id);
+  actorX(who: string) { return this.actors.get(who)?.x ?? null; }
+  actorWalk(who: string, to: number, speed: number) {
+    const a = this.actors.get(who);
     if (!a) return;
     a.to = to; a.speed = speed; a.face = to > a.x ? 1 : -1;
   }
-  npcMoving(id: string) { return this.npcActors.get(id)?.to != null; }
-  npcPose(id: string, motion: Motion | null) { const a = this.npcActors.get(id); if (a) a.pose = motion; }
-  npcFace(id: string, dir: 1 | -1) { const a = this.npcActors.get(id); if (a) a.face = dir; }
-  npcReset() {
-    for (const a of this.npcActors.values()) { a.x = a.home; a.to = null; a.pose = null; a.face = -1; }
+  actorMoving(who: string) { const a = this.actors.get(who); return !!a && (a.to !== null || a.jumpT !== null); }
+  actorPose(who: string, motion: Motion | null) {
+    const a = this.actors.get(who);
+    if (!a) return;
+    a.pose = motion;
+    if (motion === 'jump') a.jumpT = 0;
+  }
+  actorFace(who: string, dir: 1 | -1) { const a = this.actors.get(who); if (a) a.face = dir; }
+  actorElem(who: string) { return this.actors.get(who)?.elem ?? null; }
+
+  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1) {
+    this.mobRemove(id);
+    const root = this.add.sprite(x, GROUND_Y + 1, elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+    if (elem) root.setTint(hex(ELEMENTS[elem].color));
+    const label = this.text(elem ? `${ELEMENTS[elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+    this.actors.set(`mob:${id}`, { kind: 'mob', root, label, elem, home: x, x, face, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+  }
+  mobRemove(id: string) {
+    const a = this.actors.get(`mob:${id}`);
+    if (!a) return;
+    a.root.destroy(); a.label.destroy();
+    this.actors.delete(`mob:${id}`);
+    this.bubbles.get(`mob:${id}`)?.hide();
+  }
+
+  /** 컷신 끝: NPC 는 제자리로, 연출용 몬스터는 없앰 */
+  resetActors() {
+    for (const [who, a] of this.actors) {
+      if (a.kind === 'mob') this.mobRemove(who.slice(4));
+      else { a.x = a.home; a.to = null; a.pose = null; a.face = -1; a.jumpT = null; }
+    }
   }
   setUi(v: boolean) {
     this.uiOn = v;
     document.body.classList.toggle('ui-off', !v);
   }
 
-  /** NPC 걷기·모션 (뼈대 걷기 그림: 0 서기 · 1·2 걷기 · 3 공중 · 4 앉기) */
-  private updateNpcActors(dt: number) {
-    for (const a of this.npcActors.values()) {
+  /**
+   * 컷신 그림 움직이기.
+   * NPC 뼈대 그림: 0 서기 · 1·2 걷기 · 3 공중 · 4 앉기 / 슬라임: 0 기본 · 1 이동(0과 번갈아) · 2 웅크림
+   */
+  private updateActors(dt: number) {
+    for (const a of this.actors.values()) {
+      const mob = a.kind === 'mob';
       let frame = 0;
       if (a.to !== null) {
         const d = a.to - a.x, step = a.speed * dt;
         if (Math.abs(d) <= step) { a.x = a.to; a.to = null; } else a.x += Math.sign(d) * step;
         a.t += dt;
-        frame = a.to === null ? 0 : 1 + (Math.floor(a.t / 0.22) % 2);
-      } else if (a.pose === 'crouch') frame = 4;
-      else if (a.pose === 'jump') frame = 3;
-      a.root.setPosition(a.x, GROUND_Y).setScale(AVATAR_SCALE * a.face, AVATAR_SCALE);
-      for (const sp of a.root.list as Phaser.GameObjects.Sprite[]) sp.setFrame(frame);
+        if (a.to !== null) frame = mob ? Math.floor(a.t * 6) % 2 : 1 + (Math.floor(a.t / 0.22) % 2);
+      } else if (a.pose === 'crouch') frame = mob ? 2 : 4;
+      let y = GROUND_Y;
+      if (a.jumpT !== null) {
+        a.jumpT += dt;
+        const k = Math.min(1, a.jumpT / ACTOR_JUMP.time);
+        y -= Math.sin(Math.PI * k) * ACTOR_JUMP.h;
+        if (!mob) frame = 3;
+        if (k >= 1) { a.jumpT = null; if (a.pose === 'jump') a.pose = null; }
+      }
+      if (mob) {
+        (a.root as Phaser.GameObjects.Sprite).setFrame(frame).setPosition(a.x, y + 1).setFlipX(a.face > 0);
+      } else {
+        const root = a.root as Phaser.GameObjects.Container;
+        root.setPosition(a.x, y).setScale(AVATAR_SCALE * a.face, AVATAR_SCALE);
+        for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setFrame(frame);
+      }
       a.label.setPosition(a.x, GROUND_Y + 6);
     }
   }
@@ -447,14 +504,20 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const n of this.deps.session.world.map.npcs) {
       const talk = TALK_NPCS[n.id];
       if (!talk?.bubble) continue;
-      const near = Math.abs(this.npcX(n.id)! - meX) < NPC_BUBBLE_RANGE;
+      const near = Math.abs((this.actorX(`npc:${n.id}`) ?? n.x) - meX) < NPC_BUBBLE_RANGE;
       if (near && !this.npcNear.get(n.id)) this.say(`npc:${n.id}`, talk.bubble.text, talk.bubble.life);
       this.npcNear.set(n.id, near);
     }
     for (const [who, b] of this.bubbles) {
       if (who === 'player') { b.update(dt, meX, meFeet - AVATAR_HEAD - 4); continue; }
+      const a = this.actors.get(who);
+      if (a) {
+        const lift = a.jumpT !== null ? Math.sin(Math.PI * Math.min(1, a.jumpT / ACTOR_JUMP.time)) * ACTOR_JUMP.h : 0;
+        b.update(dt, a.x, GROUND_Y - lift - (a.kind === 'mob' ? MOB_HEAD : AVATAR_HEAD) - 4);
+        continue;
+      }
       const n = this.deps.session.world.map.npcs.find(o => `npc:${o.id}` === who);
-      if (n) b.update(dt, this.npcX(n.id) ?? n.x, GROUND_Y - AVATAR_HEAD - 4);
+      if (n) b.update(dt, n.x, GROUND_Y - AVATAR_HEAD - 4);
       else b.hide();
     }
   }

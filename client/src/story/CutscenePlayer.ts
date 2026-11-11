@@ -1,23 +1,29 @@
 // 컷신 재생기: cutscenes.ts 의 단계를 차례로 실행한다.
 // 플레이어는 진짜 입력 대신 이 재생기가 만든 명령(걷기·앉기·점프·공격)으로 움직인다 → 게임 규칙 그대로 움직임.
-// NPC 는 화면에서만 움직인다 (컷신이 끝나면 제자리로).
+// NPC·연출용 몬스터는 화면에서만 움직인다 (컷신이 끝나면 NPC 는 제자리로, 연출용 몬스터는 사라짐).
+// fight 단계: 연출용 몬스터를 그 자리에서 진짜 몬스터로 바꾼다 → 컷신이 끝나면 싸움 시작.
 import { CUTSCENES, CUTSCENE, type CutStep, type CutX, type Motion, type Who } from '@shared/data/cutscenes';
 import { emptyCommand, type Command } from '@shared/sim/types';
+import type { Element } from '@shared/data/elements';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 
-/** 컷신이 화면(GameScene)에 시키는 일 */
+/** 컷신이 화면(GameScene)에 시키는 일. who = 'npc:id' 또는 'mob:이름' */
 export interface Stage {
   /** 카메라: x = 화면 가운데에 올 맵 좌표 (null = 플레이어 따라가기), zoom 배, time 초 동안 */
   camTo(x: number | null, zoom: number, time: number): void;
-  /** NPC 위치 (지금 맵에 없으면 null) */
-  npcX(id: string): number | null;
-  npcWalk(id: string, to: number, speed: number): void;
-  npcMoving(id: string): boolean;
-  npcPose(id: string, motion: Motion | null): void;
-  npcFace(id: string, dir: 1 | -1): void;
-  /** 컷신이 끝나면 NPC 를 제자리로 */
-  npcReset(): void;
+  /** 위치 (없으면 null) */
+  actorX(who: string): number | null;
+  actorWalk(who: string, to: number, speed: number): void;
+  /** 걷거나 점프하는 중 */
+  actorMoving(who: string): boolean;
+  actorPose(who: string, motion: Motion | null): void;
+  actorFace(who: string, dir: 1 | -1): void;
+  actorElem(who: string): Element | null;
+  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1): void;
+  mobRemove(id: string): void;
+  /** 컷신이 끝나면: NPC 제자리, 연출용 몬스터 없앰 */
+  resetActors(): void;
   say(who: string, text: string, life: number): void;
   /** 화면 UI 보이기/숨기기 */
   setUi(v: boolean): void;
@@ -78,7 +84,8 @@ export class CutscenePlayer {
       this.input.locked = false;
       this.stage.setUi(true);
       this.stage.camTo(null, 1, 0.5);
-      this.stage.npcReset();
+      this.stage.resetActors();
+      this.session.releaseHeld();
       this.running = false;
     }
   }
@@ -99,13 +106,26 @@ export class CutscenePlayer {
   private xOf(x: CutX): number | null {
     if (typeof x === 'number') return x;
     if (x === 'player') return this.meX();
-    return this.stage.npcX(x.slice(4));
+    return this.stage.actorX(x);
   }
 
   private async run(step: CutStep): Promise<void> {
     if ('lock' in step) { this.input.locked = step.lock; return; }
     if ('ui' in step) { this.stage.setUi(step.ui); return; }
     if ('talk' in step) { await this.talk(step.talk); return; }
+    if ('mob' in step) {
+      const x = this.xOf(step.mob.x);
+      if (x !== null) this.stage.mobSpawn(step.mob.id, step.mob.elem ?? null, x, step.mob.face ?? -1);
+      return;
+    }
+    if ('remove' in step) { if (step.remove.startsWith('mob:')) this.stage.mobRemove(step.remove.slice(4)); return; }
+    if ('fight' in step) {
+      const who = step.fight.who, x = this.stage.actorX(who);
+      if (x === null || !who.startsWith('mob:')) return;
+      this.session.spawnStory(x, this.stage.actorElem(who), step.fight.tag);
+      this.stage.mobRemove(who.slice(4));
+      return;
+    }
     if ('say' in step) { this.stage.say(step.say.who, step.say.text, step.say.life ?? CUTSCENE.sayLife); return; }
     if ('cam' in step) {
       const c = step.cam;
@@ -124,7 +144,7 @@ export class CutscenePlayer {
         await this.sleep(0.05);
         this.held = { move: 0, down: false };
         this.driving = false;
-      } else this.stage.npcFace(who.slice(4), dir);
+      } else this.stage.actorFace(who, dir);
       return;
     }
     if ('walk' in step) {
@@ -139,20 +159,22 @@ export class CutscenePlayer {
         this.held = { move: 0, down: false };
         this.driving = false;
       } else {
-        const id = who.slice(4);
-        // NPC 가 플레이어에게 걸어갈 때는 바로 옆에서 멈춤
-        const stop = to === 'player' ? target + (this.stage.npcX(id)! > target ? 40 : -40) : target;
-        this.stage.npcWalk(id, stop, speed ?? CUTSCENE.walkSpeed);
-        await this.until(() => !this.stage.npcMoving(id));
+        // 다른 캐릭터에게 걸어갈 때는 바로 옆에서 멈춤
+        const from = this.stage.actorX(who);
+        if (from === null) return;
+        const stop = typeof to === 'string' ? target + (from > target ? 40 : -40) : target;
+        this.stage.actorWalk(who, stop, speed ?? CUTSCENE.walkSpeed);
+        await this.until(() => !this.stage.actorMoving(who));
       }
       return;
     }
     if ('pose' in step) {
       const { who, motion, time } = step.pose;
       if (who !== 'player') {
-        this.stage.npcPose(who.slice(4), motion);
-        await this.sleep(time ?? 0.6);
-        this.stage.npcPose(who.slice(4), null);
+        this.stage.actorPose(who, motion);
+        if (motion === 'jump') await this.until(() => !this.stage.actorMoving(who), 2);
+        if (motion !== 'jump' || time) await this.sleep(time ?? 0.6);
+        this.stage.actorPose(who, null);
         return;
       }
       await this.playerPose(motion, time);

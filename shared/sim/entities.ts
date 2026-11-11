@@ -96,6 +96,12 @@ export interface Enemy extends Body {
   leapCd: number;
   /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
   pulled: boolean;
+  /** 이야기용 이름표 (이 몬스터를 잡으면 진행되는 퀘스트용, 예: 보스) */
+  tag?: string;
+  /** 컷신 중 붙잡힘: 스스로 안 움직이고 부딪혀도 피해 없음 (컷신이 끝나면 풀림) */
+  held?: boolean;
+  /** 한 번만 나오는 몬스터 (죽으면 다시 안 나타남) */
+  once?: boolean;
 }
 
 export interface Coin {

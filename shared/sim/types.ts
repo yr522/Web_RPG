@@ -42,7 +42,7 @@ export type GameEvent =
   /** 이펙트 (검기, 원 퍼짐 등) */
   | { type: 'fx'; fx: Fx }
   | { type: 'died'; playerId: EntityId }
-  | { type: 'kill'; playerId: EntityId; enemyId: EntityId };
+  | { type: 'kill'; playerId: EntityId; enemyId: EntityId; tag?: string };
 
 export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
