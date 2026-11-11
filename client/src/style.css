@@ -364,60 +364,60 @@ html, body {
 
 /* ===== 인벤토리 (I) · 색은 시안 임시색 ===== */
 .inv {
-  --cell: 72px; --ico: 64px; --inv-blue: #1673a3; --inv-gray: #c0c0c0;
+  --cell: 48px; --ico: 32px; --inv-blue: #1673a3; --inv-gray: #c0c0c0;
   position: fixed; right: calc(4vw + var(--sar)); top: 50%; transform: translateY(-50%); z-index: 11;
   display: none; align-items: stretch; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .45));
 }
 .inv.open { display: flex; }
-.inv-panel { background: var(--inv-blue); padding: 0 6px 6px; display: flex; flex-direction: column; color: #fff; }
-.inv-bar { display: flex; align-items: center; gap: 8px; height: 34px; font-size: 14px; }
+.inv-panel { background: var(--inv-blue); padding: 0 4px 4px; display: flex; flex-direction: column; color: #fff; }
+.inv-bar { display: flex; align-items: center; gap: 6px; height: 26px; font-size: 12px; }
 .inv-title { flex: 1; }
 .inv-btn {
-  width: 26px; height: 24px; padding: 0; border: 2px solid #fff; border-radius: 3px; background: transparent; color: #fff;
-  font-size: 12px; cursor: pointer; font-family: inherit;
+  width: 20px; height: 18px; padding: 0; border: 1.5px solid #fff; border-radius: 3px; background: transparent; color: #fff;
+  font-size: 10px; cursor: pointer; font-family: inherit;
 }
 .inv-btn:hover { background: rgba(255, 255, 255, .2); }
-.inv-tabs { display: flex; gap: 2px; background: var(--inv-gray); padding: 3px 4px 0; }
+.inv-tabs { display: flex; gap: 2px; background: var(--inv-gray); padding: 2px 3px 0; }
 .inv-tab {
   border: 1px solid #555; border-bottom: none; border-radius: 6px 6px 0 0; background: #8e8e8e; color: #fff;
-  font-family: inherit; font-size: 12px; padding: 2px 10px; cursor: pointer;
+  font-family: inherit; font-size: 11px; padding: 1px 7px; cursor: pointer;
 }
 .inv-tab.on { background: #fff; color: #222; }
-.inv-body { background: var(--inv-gray); padding: 6px; flex: 1; }
+.inv-body { background: var(--inv-gray); padding: 4px; flex: 1; }
 .inv-grid {
-  display: grid; grid-template-columns: repeat(4, var(--cell)); gap: 6px; align-content: start;
-  max-height: calc(var(--cell) * 5 + 24px); overflow-y: auto;
+  display: grid; grid-template-columns: repeat(4, var(--cell)); gap: 4px; align-content: start;
+  max-height: calc(var(--cell) * 5 + 16px); overflow-y: auto;
 }
 .inv-cell {
   position: relative; width: var(--cell); height: var(--cell); box-sizing: border-box;
-  border: 3px solid #fff; border-radius: 3px; background: #c8c8c8;
+  border: 2px solid #fff; border-radius: 3px; background: #c8c8c8;
   display: flex; align-items: center; justify-content: center; touch-action: manipulation;
 }
 .item-ico { width: var(--ico); height: var(--ico); image-rendering: pixelated; pointer-events: none; }
 .item-ico.emoji { width: auto; height: auto; font-size: calc(var(--ico) * .62); line-height: 1; }
 .card.shop .item-ico { --ico: 32px; }
 .inv-n {
-  position: absolute; right: 3px; bottom: 1px; font-size: 12px; font-weight: 700; color: #fff;
+  position: absolute; right: 2px; bottom: 0; font-size: 10px; font-weight: 700; color: #fff;
   text-shadow: 0 0 2px #000, 0 0 2px #000; pointer-events: none;
 }
 /* 장비창: 캐릭터 그림 위에 칸 배치 */
 .inv-eq-body { position: relative; display: flex; align-items: center; justify-content: center; }
 .inv-figure {
   /* 뼈대 그림의 몸 가운데(49, 72)를 창 가운데에 */
-  position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; transform-origin: 49px 72px; transform: translate(-49px, -72px) scale(6);
+  position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; transform-origin: 49px 72px; transform: translate(-49px, -72px) scale(4);
   background-repeat: no-repeat; background-position: 0 0; image-rendering: pixelated; opacity: .28; pointer-events: none;
 }
-.inv-eq-grid { position: relative; display: grid; grid-template-columns: repeat(3, var(--cell)); gap: 8px 14px; padding: 6px 10px; }
-.inv-cell.eq { border-radius: 12px; }
+.inv-eq-grid { position: relative; display: grid; grid-template-columns: repeat(3, var(--cell)); gap: 5px 9px; padding: 4px 7px; }
+.inv-cell.eq { border-radius: 8px; }
 .inv-cell.eq.empty { background: rgba(200, 200, 200, .75); }
-.inv-label { color: #222; font-size: 13px; text-align: center; word-break: keep-all; }
+.inv-label { color: #222; font-size: 10px; text-align: center; word-break: keep-all; }
 .inv-gap { width: var(--cell); height: var(--cell); }
 @media (max-height: 560px) {
-  .inv { --cell: 46px; --ico: 32px; right: calc(8px + var(--sar)); }
-  .inv-bar { height: 28px; font-size: 12px; }
-  .inv-eq-grid { gap: 5px 8px; }
-  .inv-figure { transform: translate(-49px, -72px) scale(4); }
-  .inv-label { font-size: 11px; }
+  .inv { --cell: 36px; --ico: 28px; right: calc(8px + var(--sar)); }
+  .inv-bar { height: 24px; font-size: 11px; }
+  .inv-eq-grid { gap: 4px 6px; }
+  .inv-figure { transform: translate(-49px, -72px) scale(3); }
+  .inv-label { font-size: 9px; }
 }
 
 /* 아이템 설명 플로팅 */
