@@ -5,7 +5,7 @@ import { ELEMENTS, type Element } from '@shared/data/elements';
 import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
 import { countItem } from '@shared/rules/inventory';
 import { QUESTS } from '@shared/data/quests';
-import { questProgress, questState } from '@shared/rules/quests';
+import { questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { pickTalk } from '@shared/rules/story';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
@@ -121,8 +121,11 @@ export class NpcDialog {
         const step = it.step;
         if ('choices' in step) { render(); return; }
         queue.shift();
-        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸)
-        if ('do' in step) { this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }); continue; }
+        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸). 실패하면(가방 가득 등) 대화를 거기서 끝냄
+        if ('do' in step) {
+          if (!this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }).ok) { this.host.close(); return; }
+          continue;
+        }
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         line = step.line;
@@ -236,12 +239,12 @@ export class NpcDialog {
     if (view === 'quest') {
       b.appendChild(el('p', 'line', '"부탁할 일이 있어. 언제든 다시 받을 수 있단다."'));
       for (const q of PROF_QUESTS()) {
-        const st = questState(s, q.id), pr = questProgress(s, q), card = el('div', 'card');
+        const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
         card.appendChild(el('div', '', `<b>${q.name}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));
         else if (st === 'ready') card.appendChild(el('button', 'sm go', '보고하기', () => this.act({ type: 'questReport', id: q.id })));
-        else card.appendChild(el('div', 'note', `진행 중 ${pr.cur} / ${pr.need}`));
+        else card.appendChild(el('div', 'note', `진행 중 ${pr}`));
         b.appendChild(card);
       }
       back();
