@@ -6,7 +6,8 @@ import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import { questDef, type QuestDef } from '../data/quests';
-import { newlyReady, questReadyText, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
+import { autoReport, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
+import { mapNpcs, mapPortals } from '../rules/story';
 import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
@@ -75,10 +76,21 @@ export class World implements SkillWorld {
 
   /** 퀘스트를 다 했을 때 큰 글씨 알림 (누구에게 보고하는지) */
   private questReady(p: PlayerState, q: QuestDef) {
+    // 자동 보고 퀘스트는 바로 보고 (다음 퀘스트도 바로 받음)
+    if (q.auto) {
+      for (const r of autoReport(p.data)) {
+        if (r.banner) this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#9ef0a0' });
+        if (r.statsChanged) this.refreshStats(p, r.fullHeal);
+      }
+      return;
+    }
     this.events.push({ type: 'banner', playerId: p.id, text: questReadyText(q), color: '#9ef0a0' });
   }
 
   removePlayer(id: EntityId) { this.players.delete(id); }
+
+  /** 틱 밖에서 생긴 이벤트(입장 때 퀘스트 완료 등)를 꺼냄 */
+  takeEvents() { const out = this.events; this.events = []; return out; }
 
   /** 레벨·능력치가 바뀌면 다시 계산 */
   refreshStats(p: PlayerState, fullHeal = false) {
@@ -473,7 +485,12 @@ export class World implements SkillWorld {
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
     const [g0, g1] = def.gold;
     this.dropGold(cx(e), cy(e), g0 + Math.floor(this.rng() * (g1 - g0 + 1)));
-    for (const d of def.drops ?? []) if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
+    for (const d of def.drops ?? []) {
+      if (d.quest && questState(s, d.quest) !== 'active') continue;
+      // 최대 개수: 가방 + 바닥에 떨어져 있는 것
+      if (d.max !== undefined && countItem(s, d.item) + this.coins.filter(c => c.item === d.item).length >= d.max) continue;
+      if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
+    }
     questsOnKill(s, e.mob, e.tag);
     for (const id of readyQuestIds(s)) if (!before.includes(id)) this.questReady(p, questDef(id)!);
   }
@@ -643,12 +660,12 @@ export class World implements SkillWorld {
 
   // ===================== 그 밖 =====================
   npcNear(p: PlayerState) {
-    return this.map.npcs.find(n => Math.abs(n.x - cx(p)) < 60) ?? null;
+    return mapNpcs(p.data, this.mapId).find(n => Math.abs(n.x - cx(p)) < 60) ?? null;
   }
 
   /** 근처 포탈 (화면에서 "↑ 이동" 말풍선용) */
   portalNear(p: PlayerState) {
-    return this.map.portals.find(o => Math.abs(o.x - cx(p)) < 40) ?? null;
+    return mapPortals(p.data, this.mapId).find(o => Math.abs(o.x - cx(p)) < 40) ?? null;
   }
 
   usePotion(p: PlayerState, kind: 'hp' | 'mp') {

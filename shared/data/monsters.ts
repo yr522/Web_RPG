@@ -26,8 +26,8 @@ export interface MonsterDef {
   chase: number;
   /** 원소 몬스터 (원소 상성이 크게 먹음) */
   elemental?: boolean;
-  /** 잡으면 확률로 떨어뜨리는 물건 */
-  drops?: readonly { item: string; chance: number }[];
+  /** 잡으면 확률로 떨어뜨리는 물건. max = 이만큼 가지고 있으면(바닥에 떨어진 것 포함) 안 떨어뜨림, quest = 이 퀘스트를 하는 중일 때만 */
+  drops?: readonly { item: string; chance: number; max?: number; quest?: string }[];
 }
 
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
@@ -41,7 +41,10 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   },
   // 마법공학의 유산 (임시 그림, 수치 임시)
   guard_a: { name: '경비기계A', hp: 420, exp: 30, touch: 16, gold: [20, 30], w: 44, h: 52, ai: 'walker', speed: [45, 60], chase: 1.6 },
-  guard_b: { name: '경비기계B', hp: 650, exp: 45, touch: 22, gold: [30, 45], w: 56, h: 58, ai: 'charger', speed: [35, 45], chase: 1.5 },
+  guard_b: {
+    name: '경비기계B', hp: 650, exp: 45, touch: 22, gold: [30, 45], w: 56, h: 58, ai: 'charger', speed: [35, 45], chase: 1.5,
+    drops: [{ item: 'workshop_key', chance: 0.05, max: 1, quest: 'mg9' }],
+  },
 };
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */

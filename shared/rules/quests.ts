@@ -4,6 +4,7 @@ import { questDef, type QuestDef } from '../data/quests';
 import { MAPS, type MapId } from '../data/maps';
 import type { MonsterId } from '../data/monsters';
 import { TALK_NPCS } from '../data/npcs';
+import { mapNpcs } from './story';
 import { itemDef } from '../data/items';
 import type { SaveData } from '../sim/save';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
@@ -115,7 +116,30 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   if (exp) { res = gainExp(s, exp); parts.push(`EXP +${exp}`); }
   if (r.gold) { s.gold += r.gold; parts.push(`+${r.gold} G`); }
   for (const it of r.items ?? []) { addItem(s, it.id, it.n); parts.push(`${itemDef(it.id)?.name ?? it.id} ×${it.n}`); }
-  return { ...res, ok: true, banner: res.banner ?? `퀘스트 완료! ${parts.join(' · ')}` };
+  // 다음 퀘스트 바로 받기
+  let nextMsg: string | undefined;
+  if (q.next) nextMsg = acceptQuest(s, q.next).msg;
+  return { ...res, ok: true, banner: res.banner ?? `퀘스트 완료!${parts.length ? ` ${parts.join(' · ')}` : ''}`, msg: nextMsg ?? res.msg };
+}
+
+/** 다 한 자동 보고 퀘스트를 보고 (다음 퀘스트가 바로 끝나면 이어서). 결과들을 돌려준다 */
+export function autoReport(s: SaveData): ActionResult[] {
+  const out: ActionResult[] = [];
+  for (let guard = 0; guard < 20; guard++) {
+    const q = activeQuests(s).find(o => o.auto && questState(s, o.id) === 'ready');
+    if (!q) break;
+    out.push(reportQuest(s, q.id));
+  }
+  return out;
+}
+
+/** 밤 고정 퀘스트를 하는 중인지 */
+export const nightLocked = (s: SaveData) => activeQuests(s).some(q => q.nightLock);
+
+/** 지금 따라다니는 NPC (없으면 null) */
+export function companionNpc(s: SaveData): string | null {
+  for (const q of activeQuests(s)) if (q.companion && q.companion.notCls !== s.cls) return q.companion.npc;
+  return null;
 }
 
 /** 하는 중인 퀘스트들 */
@@ -166,7 +190,7 @@ export function questsOnVisit(s: SaveData, map: MapId): QuestDef[] {
 export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number } | null {
   const state = questState(s, q.id);
   // 다 했으면 보고하러
-  if (state === 'ready') return npcPlace(reportTo(q));
+  if (state === 'ready') return npcPlace(reportTo(q), s);
   if (q.where) return { map: q.where };
   // 아직 안 끝난 첫 목표 쪽으로
   for (let i = 0; i < q.goals.length; i++) {
@@ -180,7 +204,7 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
         const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => !want || sp.mob === want));
         return id ? { map: id } : null;
       }
-      case 'learn': return npcPlace('prof');
+      case 'learn': return npcPlace('prof', s);
       case 'collect': case 'level': case 'equip': continue;
     }
   }
@@ -188,9 +212,9 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
 }
 
 /** NPC 가 있는 맵과 위치 */
-export function npcPlace(npc: string): { map: MapId; x: number } | null {
+export function npcPlace(npc: string, s?: SaveData): { map: MapId; x: number } | null {
   for (const id of Object.keys(MAPS) as MapId[]) {
-    const n = MAPS[id].npcs.find(o => o.id === npc);
+    const n = (s ? mapNpcs(s, id) : MAPS[id].npcs).find(o => o.id === npc);
     if (n) return { map: id, x: n.x };
   }
   return null;

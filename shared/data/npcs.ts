@@ -38,6 +38,8 @@ export type Cond =
   | { has: string; n?: number }
   /** 직업 (검사 warrior / 마법사 mage / 궁수 archer) */
   | { cls: 'warrior' | 'mage' | 'archer' }
+  /** 시간대 (아침 / 낮 / 밤) */
+  | { time: 'morning' | 'day' | 'night' }
   /** 모두 맞을 때 */
   | { all: Cond[] }
   /** 하나라도 맞을 때 */
@@ -55,12 +57,42 @@ export interface TalkNpcDef {
   talks?: { when: Cond; steps: DialogueStep[] }[];
   /** 플레이어가 다가오면 머리 위에 잠깐 뜨는 말풍선 */
   bubble?: { text: string; life: number };
+  /** 사람이 아니라 물건 (임시 그림) */
+  prop?: 'bed';
 }
 
 /** 플레이어가 이 거리(월드 px) 안으로 들어오면 말풍선이 뜬다 */
 export const NPC_BUBBLE_RANGE = 220;
 
 export const TALK_NPCS: Record<string, TalkNpcDef> = {
+  // ---- 마법공학의 유산 (대사 없이 진행만. 대사는 나중에) ----
+  // 동급생 마법사: 어느 맵에 서 있는지는 maps.ts 의 npcs (퀘스트 진행에 따라 자리를 옮김)
+  mage_friend: {
+    name: '마법사 동급생',
+    icon: '🔮',
+    dialogue: [],
+    talks: [
+      // 1. 사연 듣기 → 2. 숲 둘러보기
+      { when: { all: [{ level: { gte: 3 } }, { quest: 'mg2', state: 'none' }] }, steps: [{ do: { quest: 'give', id: 'mg2' } }] },
+      // 3. 아무것도 없다고 알리기 → 4. 밤에 잠자기
+      { when: { quest: 'mg2', state: 'ready' }, steps: [{ do: { quest: 'report', id: 'mg2' } }] },
+    ],
+  },
+  // 기숙사 방 침대: 밤에 자면 다음으로 (검사·궁수는 4번 퀘스트, 마법사는 혼자 수색 시작)
+  bed: {
+    name: '침대',
+    icon: '🛏️',
+    prop: 'bed',
+    dialogue: [],
+    talks: [
+      { when: { all: [{ quest: 'mg4', state: 'ready' }, { time: 'night' }] }, steps: [{ do: { quest: 'report', id: 'mg4' } }] },
+      {
+        when: { all: [{ cls: 'mage' }, { level: { gte: 3 } }, { quest: 'mg5', state: 'none' }, { time: 'night' }] },
+        steps: [{ do: { quest: 'give', id: 'mg5' } }],
+      },
+    ],
+  },
+
   test: {
     name: '테스트 NPC',
     icon: '💬',
