@@ -1,7 +1,7 @@
 // 인벤토리 창 (I). 게임을 멈추지 않는 떠 있는 창.
 // 오른쪽: 가방 (전체·장비·소비·기타 탭), 왼쪽 위 버튼을 누르면 왼쪽에 장비창이 펼쳐진다.
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
-import { EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { BAG_SIZE, EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -12,8 +12,8 @@ import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.pn
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
 import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
 
-/** 가방은 최소 이만큼 칸을 보여 준다 (4줄 × 5칸 = 시안) */
-const COLS = 4, MIN_ROWS = 5;
+/** 가방: 한 줄 4칸, 한 번에 5줄이 보이고 나머지는 오른쪽 휠로 내려 본다 */
+const COLS = 4, VISIBLE_ROWS = 5;
 /** 두 번 터치 인정 시간 (ms) */
 const DOUBLE_TAP = 350;
 /** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
@@ -71,8 +71,9 @@ export class InventoryWindow {
       this.tabsEl.appendChild(b);
     }
     main.appendChild(this.tabsEl);
-    const body = el('div', 'inv-body');
+    const body = el('div', 'inv-body inv-bag');
     body.appendChild(this.grid);
+    body.appendChild(this.makeScrollbar());
     main.appendChild(body);
 
     this.root.appendChild(this.equipPanel);
@@ -170,7 +171,7 @@ export class InventoryWindow {
     // 가방: 탭에 맞는 물건만, 얻은 순서대로
     this.grid.innerHTML = '';
     const list = s.bag.map((e, i) => ({ e, i })).filter(({ e }) => this.tab === 'all' || itemDef(e.id)?.kind === this.tab);
-    const cells = Math.max(MIN_ROWS * COLS, Math.ceil(list.length / COLS) * COLS);
+    const cells = Math.max(BAG_SIZE, VISIBLE_ROWS * COLS, Math.ceil(list.length / COLS) * COLS);
     for (let c = 0; c < cells; c++) {
       const it = list[c];
       const cell = el('div', 'inv-cell');
@@ -181,6 +182,7 @@ export class InventoryWindow {
       }
       this.grid.appendChild(cell);
     }
+    requestAnimationFrame(() => this.syncScroll());
 
     // 장비창
     if (this.expanded) {
@@ -197,6 +199,43 @@ export class InventoryWindow {
       }
     }
   }
+
+  /** 가방 오른쪽 휠 (모바일에서도 보이게 직접 그림). 휠 굴리기·손잡이 끌기·막대 누르기로 내려 본다 */
+  private makeScrollbar() {
+    const track = el('div', 'inv-sb'), thumb = el('div', 'inv-sb-thumb');
+    track.appendChild(thumb);
+    const g = this.grid;
+    const sync = () => {
+      const max = g.scrollHeight - g.clientHeight, th = track.clientHeight;
+      const h = max > 0 ? Math.max(20, th * g.clientHeight / g.scrollHeight) : th;
+      thumb.style.height = `${h}px`;
+      thumb.style.transform = `translateY(${max > 0 ? (th - h) * g.scrollTop / max : 0}px)`;
+    };
+    this.syncScroll = sync;
+    g.addEventListener('scroll', sync);
+    let drag: { id: number; y: number; top: number } | null = null;
+    const scrollTo = (thumbTop: number) => {
+      const max = g.scrollHeight - g.clientHeight, room = track.clientHeight - thumb.offsetHeight;
+      if (room > 0) g.scrollTop = Math.max(0, Math.min(1, thumbTop / room)) * max;
+    };
+    track.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const r = track.getBoundingClientRect();
+      if (e.target !== thumb) scrollTo(e.clientY - r.top - thumb.offsetHeight / 2);
+      drag = { id: e.pointerId, y: e.clientY, top: g.scrollTop };
+      try { track.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+    });
+    track.addEventListener('pointermove', e => {
+      if (drag?.id !== e.pointerId) return;
+      const max = g.scrollHeight - g.clientHeight, room = track.clientHeight - thumb.offsetHeight;
+      if (room > 0) g.scrollTop = drag.top + (e.clientY - drag.y) * max / room;
+    });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) track.addEventListener(t, e => { if (drag?.id === e.pointerId) drag = null; });
+    track.addEventListener('wheel', e => { g.scrollTop += e.deltaY; }, { passive: true });
+    return track;
+  }
+
+  private syncScroll = () => {};
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 행동 */
   private bindCell(cell: HTMLElement, key: string, id: string, action: () => void) {
