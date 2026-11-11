@@ -43,6 +43,7 @@ export class InventoryWindow {
   constructor(private session: Session, private hud: Hud) {
     // 장비창 (왼쪽)
     const eqBar = el('div', 'inv-bar', '<span class="inv-title">equipment</span>');
+    this.bindDrag(eqBar);
     this.equipPanel.appendChild(eqBar);
     const eqTabs = el('div', 'inv-tabs');
     eqTabs.appendChild(el('button', 'inv-tab on', 'armor'));
@@ -58,6 +59,7 @@ export class InventoryWindow {
     // 가방 (오른쪽)
     const main = el('div', 'inv-panel inv-main');
     const bar = el('div', 'inv-bar');
+    this.bindDrag(bar);
     this.toggleBtn = el('button', 'inv-btn', '', () => this.setExpanded(!this.expanded)) as HTMLButtonElement;
     bar.appendChild(this.toggleBtn);
     bar.appendChild(el('span', 'inv-title', 'inventory'));
@@ -83,22 +85,70 @@ export class InventoryWindow {
       if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest?.('.inv-cell')) this.tip.hide();
     }, true);
     this.setExpanded(false);
+    // 화면 크기가 바뀌면 창이 화면 밖으로 나가지 않게
+    addEventListener('resize', () => this.keepInside());
+  }
+
+  /** 윗줄(제목줄)을 꾹 눌러 끌면 창을 옮긴다. 버튼 위에서는 안 끌림 */
+  private bindDrag(bar: HTMLElement) {
+    let drag: { id: number; dx: number; dy: number } | null = null;
+    bar.addEventListener('pointerdown', e => {
+      if ((e.target as HTMLElement).closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      const r = this.root.getBoundingClientRect();
+      this.moveTo(r.left, r.top);
+      drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top };
+      try { bar.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+      this.root.classList.add('dragging');
+    });
+    bar.addEventListener('pointermove', e => {
+      if (drag?.id === e.pointerId) this.moveTo(e.clientX - drag.dx, e.clientY - drag.dy);
+    });
+    const end = (e: PointerEvent) => {
+      if (drag?.id !== e.pointerId) return;
+      drag = null;
+      this.root.classList.remove('dragging');
+    };
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) bar.addEventListener(t, end);
+  }
+
+  /** 창 왼쪽 위를 (x, y) 로. 창이 화면 밖으로 나가지 않게 */
+  private moveTo(x: number, y: number) {
+    const r = this.root.getBoundingClientRect();
+    x = Math.max(0, Math.min(innerWidth - r.width, x));
+    y = Math.max(0, Math.min(innerHeight - r.height, y));
+    this.root.classList.add('moved');
+    this.root.style.left = `${x}px`;
+    this.root.style.top = `${y}px`;
+  }
+
+  private keepInside() {
+    if (!this.isOpen || !this.root.classList.contains('moved')) return;
+    const r = this.root.getBoundingClientRect();
+    this.moveTo(r.left, r.top);
   }
 
   get isOpen() { return this.root.classList.contains('open'); }
 
   toggle() { if (this.isOpen) this.close(); else this.open(); }
 
-  open() { this.root.classList.add('open'); this.sig = ''; this.update(); }
+  open() { this.root.classList.add('open'); this.sig = ''; this.update(); this.keepInside(); }
 
   close() { this.root.classList.remove('open'); this.tip.hide(); }
 
   private setExpanded(v: boolean) {
+    // 옮겨 둔 창이면 가방 쪽은 제자리에 두고 장비창이 왼쪽으로 펼쳐지게
+    const main = this.root.lastElementChild as HTMLElement | null;
+    const before = main?.getBoundingClientRect().left ?? 0;
     this.expanded = v;
     this.equipPanel.style.display = v ? '' : 'none';
     this.toggleBtn.textContent = v ? '▶' : '◀';
     this.sig = '';
     this.update();
+    if (this.isOpen && this.root.classList.contains('moved') && main) {
+      const r = this.root.getBoundingClientRect();
+      this.moveTo(r.left + before - main.getBoundingClientRect().left, r.top);
+    } else this.keepInside();
   }
 
   /** 매 프레임: 가방·장비가 바뀌었을 때만 다시 그린다 */

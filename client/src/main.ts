@@ -95,10 +95,24 @@ async function boot() {
   });
   game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc });
 
-  addEventListener('resize', () => {
+  // 창 크기·전체화면·화면 회전이 바뀌면 캔버스를 새 크기에 다시 맞춘다.
+  // 브라우저마다 새 크기가 늦게 잡히는 경우가 있어서 조금 뒤에 한 번 더 맞춘다.
+  const fit = () => {
     const l = canvasLayout();
-    game.scale.setGameSize(l.width, l.height);
-  });
+    if (game.scale.width !== l.width || game.scale.height !== l.height) game.scale.setGameSize(l.width, l.height);
+    game.scale.getParentBounds();
+    game.scale.refresh();
+  };
+  let refitTimer = 0;
+  const refit = () => {
+    fit();
+    requestAnimationFrame(fit);
+    clearTimeout(refitTimer);
+    refitTimer = window.setTimeout(fit, 300);
+  };
+  addEventListener('resize', refit);
+  document.addEventListener('fullscreenchange', refit);
+  visualViewport?.addEventListener('resize', refit);
 }
 
 void boot();
