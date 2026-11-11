@@ -6,8 +6,8 @@ import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, SHEETS, type SheetName } fro
 import { el, esc } from './Dialog';
 import warriorM from '../../../assets/temp/fighter_banner_M.png';
 import warriorF from '../../../assets/temp/fighter_banner_F.png';
-import mageM from '../../../assets/temp/magician_banner_M.png';
-import mageF from '../../../assets/temp/magician_banner_F.png';
+import mageM from '../../../assets/img/banner/magician_male_none_background.png';
+import mageF from '../../../assets/img/banner/magician_female_none_background.png';
 import archerM from '../../../assets/temp/archer_banner_M.png';
 import archerF from '../../../assets/temp/archer_banner_F.png';
 
