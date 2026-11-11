@@ -103,6 +103,8 @@ export interface Enemy extends Body {
   pulled: boolean;
   /** 보스 패턴 (골렘: 내려치기 / 돌진) */
   pat?: 'slam' | 'charge';
+  /** 돌진 방향 (예고할 때 고정) */
+  chargeDir?: 1 | -1;
   /** 보안장치 오브에 맞은 횟수 (다 차면 기절) */
   orbHits?: number;
   /** 기절(취약) 남은 시간: 못 움직이고 받는 피해 배수 */

@@ -51,7 +51,7 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   },
   guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
   guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
-  golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 92, h: 140, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
+  golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 92, h: 140, ai: 'golem', speed: [21, 21], chase: 1, boss: true },
 };
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */
@@ -99,10 +99,10 @@ export const GOLEM_AI = {
   slamH: 150,
   slamDmg: 45,
   slamRecover: 0.7,
-  /** 2. 돌진: 플레이어가 멀면 이 확률로. 예고 후 앞으로 맵 끝까지, 맞으면 기절 */
+  /** 2. 돌진: 플레이어가 멀면 이 확률로. 예고할 때 방향을 정하고, 그 뒤로는 플레이어와 상관없이 벽까지. 맞으면 기절 */
   chargeChance: 0.45,
   chargeWindup: 0.9,
-  chargeSpeed: 300,
+  chargeSpeed: 210,
   chargeDmg: 30,
   stunTime: 3,
   /** 3. 오브에 이만큼 맞으면 기절 + 받는 피해 배수 */

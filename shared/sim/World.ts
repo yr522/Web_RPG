@@ -161,6 +161,8 @@ export class World implements SkillWorld {
   }
 
   private stepPlayer(p: PlayerState, cmd: Command, dt: number) {
+    // 이동기(질풍참 돌진·사슬 화살 끌려가기 등 무적 행동)가 이번 틱에 끝나도 이번 틱까지는 무적
+    const invAtStart = !!(p.action && p.action.inv);
     // 기절: 조작 불가
     if (p.stunT > 0) { p.stunT = Math.max(0, p.stunT - dt); cmd = emptyCommand(); }
     p.cmd = cmd;
@@ -267,7 +269,7 @@ export class World implements SkillWorld {
     }
 
     // 몬스터와 부딪히면 피해
-    if (p.invT <= 0 && !(p.action && p.action.inv)) {
+    if (p.invT <= 0 && !invAtStart && !(p.action && p.action.inv)) {
       for (const e of this.enemies) {
         if (e.dead || e.held || !overlaps(p, e)) continue;
         // 골렘 돌진에 맞으면 기절
@@ -547,8 +549,11 @@ export class World implements SkillWorld {
         e.x = Math.max(0, Math.min(this.map.width - e.w, e.x + e.vx * dt));
         e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * dt));
       } else stepBody(e, dt, this.solids, this.map.width);
-      if (e.x <= 0) e.dir = 1;
-      if (e.x >= this.map.width - e.w) e.dir = -1;
+      // 맵 끝에 닿으면 돌아섬 (골렘 돌진 중은 제외: 돌진이 벽에서 끝나야 함)
+      if (!(e.pat === 'charge' && e.leap === 'leap')) {
+        if (e.x <= 0) e.dir = 1;
+        if (e.x >= this.map.width - e.w) e.dir = -1;
+      }
     }
   }
 
@@ -667,9 +672,11 @@ export class World implements SkillWorld {
         e.leapT -= dt;
         if (e.leapT <= 0) { e.leap = 'none'; e.pat = undefined; e.leapCd = this.range(GOLEM_AI.every); }
       } else {
-        // 돌진: 맵 끝(벽)에 닿을 때까지
-        e.vx = e.dir * GOLEM_AI.chargeSpeed;
-        const atWall = e.dir > 0 ? e.x >= this.map.width - e.w - 1 : e.x <= 1;
+        // 돌진: 정한 방향으로 벽에 닿을 때까지 (플레이어 위치와 상관없음)
+        const d = e.chargeDir ?? e.dir;
+        e.dir = d;
+        e.vx = d * GOLEM_AI.chargeSpeed;
+        const atWall = d > 0 ? e.x >= this.map.width - e.w - 1 : e.x <= 1;
         if (atWall) { e.vx = 0; e.leap = 'none'; e.pat = undefined; e.leapCd = this.range(GOLEM_AI.every); this.events.push({ type: 'shake', amount: 8 }); }
       }
       return;
@@ -679,7 +686,7 @@ export class World implements SkillWorld {
     e.vx = target && Math.abs(dx) > 40 ? e.dir * e.speed : 0;
     if (!target || e.leapCd > 0 || !e.onGround) return;
     if (Math.abs(dx) < GOLEM_AI.slamRange + e.w / 2) { e.pat = 'slam'; e.leap = 'crouch'; e.leapT = GOLEM_AI.slamWindup; e.vx = 0; }
-    else if (this.rng() < GOLEM_AI.chargeChance) { e.pat = 'charge'; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
+    else if (this.rng() < GOLEM_AI.chargeChance) { e.pat = 'charge'; e.chargeDir = e.dir; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
     else e.leapCd = this.range(GOLEM_AI.every) * 0.5;
   }
 
