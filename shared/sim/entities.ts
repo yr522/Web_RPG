@@ -46,6 +46,8 @@ export interface PlayerState extends Body {
   /** 이번 틱 입력 */
   cmd: Command;
   potionCd: number;
+  /** 남은 밀려남 거리 (px, 부호 = 방향). 마법사 기본 공격 반동 */
+  push: number;
   warnCd: number;
   action: PlayerAction | null;
   cd: Record<string, number>;
