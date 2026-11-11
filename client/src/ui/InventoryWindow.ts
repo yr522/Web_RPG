@@ -14,6 +14,20 @@ import { ItemTip } from './ItemTip';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
 import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
+import icoHat from '../../../assets/UI/equipment_icons/hat.png';
+import icoRing from '../../../assets/UI/equipment_icons/ring.png';
+import icoNeck from '../../../assets/UI/equipment_icons/neck.png';
+import icoWeapon from '../../../assets/UI/equipment_icons/weapon.png';
+import icoTop from '../../../assets/UI/equipment_icons/top.png';
+import icoGloves from '../../../assets/UI/equipment_icons/gloves.png';
+import icoBottom from '../../../assets/UI/equipment_icons/bottom.png';
+import icoShoes from '../../../assets/UI/equipment_icons/shoes.png';
+
+/** 장비창 빈 칸 아이콘 (반지1·반지2 같은 그림) */
+const SLOT_ICONS: Record<EquipSlot, string> = {
+  hat: icoHat, ring1: icoRing, ring2: icoRing, necklace: icoNeck, weapon: icoWeapon,
+  top: icoTop, gloves: icoGloves, bottom: icoBottom, shoes: icoShoes,
+};
 
 /** 가방: 한 줄 4칸, 한 번에 5줄이 보이고 나머지는 오른쪽 휠로 내려 본다 */
 const COLS = 4, VISIBLE_ROWS = 5;
@@ -225,7 +239,14 @@ export class InventoryWindow {
         if (e) {
           cell.appendChild(itemIcon(e.id));
           this.bindCell(cell, `eq:${slot}:${e.uid}`, e.id, () => this.result(this.session.act({ type: 'unequip', slot })));
-        } else cell.appendChild(el('span', 'inv-label', EQUIP_SLOTS[slot]));
+        } else {
+          // 빈 칸: 부위 아이콘 (흰 선 그림)
+          const img = el('img', 'inv-slot-ico') as HTMLImageElement;
+          img.src = SLOT_ICONS[slot];
+          img.alt = img.title = EQUIP_SLOTS[slot];
+          img.draggable = false;
+          cell.appendChild(img);
+        }
         this.equipGrid.appendChild(cell);
       }
     }
