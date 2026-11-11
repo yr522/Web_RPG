@@ -64,6 +64,9 @@ const LOOPS = {
 } as const;
 type LoopName = keyof typeof LOOPS;
 
+/** 마법사가 쏘기 전(지팡이 1번 그림) 부들거림: 이 간격(초)마다 좌우로 이만큼(월드 px) 흔들림 */
+const SHAKE = { every: 0.035, amp: 1 };
+
 /** 검 휘두름·마법 쏨: 판정이 나온 뒤 이 시간 동안 휘두른(쏜) 그림 */
 const SWING_SHOW = 0.07;
 
@@ -118,6 +121,8 @@ export class PlayerAvatar {
   private t = 0;
   /** 마지막으로 보여 준 공격 그림 (공격 직후 쉬는 시간 동안 유지) */
   private attacked = false;
+  private shakeT = 0;
+  private shakeX = 0;
 
   constructor(scene: Phaser.Scene) {
     for (const sheet of Object.keys(SHEETS) as SheetName[]) {
@@ -152,8 +157,13 @@ export class PlayerAvatar {
       if (sp.texture.key !== key) sp.setTexture(key, pose.frame);
       else sp.setFrame(pose.frame);
     });
+    // 마법 쏘기 전(지팡이 1번 그림, 동작 중)에는 부들부들 떨림
+    if (pose.sheet === 'staff' && pose.frame === 0 && me.action) {
+      this.shakeT += dt;
+      if (this.shakeT >= SHAKE.every) { this.shakeT = 0; this.shakeX = this.shakeX > 0 ? -SHAKE.amp : SHAKE.amp; }
+    } else { this.shakeT = 0; this.shakeX = 0; }
     // 그림은 오른쪽을 보고 있다 → 왼쪽을 볼 때 뒤집기
-    this.root.setPosition(x, y).setScale(AVATAR_SCALE * (me.face < 0 ? -1 : 1), AVATAR_SCALE);
+    this.root.setPosition(x + this.shakeX, y).setScale(AVATAR_SCALE * (me.face < 0 ? -1 : 1), AVATAR_SCALE);
   }
 
   setVisible(v: boolean) { this.root.setVisible(v); }
