@@ -93,7 +93,10 @@ async function boot() {
     input: { keyboard: false, mouse: true, touch: true },
     banner: false,
   });
-  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc });
+  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc) });
+  // 대사 안의 컷신 → 게임 화면에서 재생
+  npcDialog.onCutscene = id => (game.scene.getScene('game') as GameScene).playCutscene(id);
+  if (import.meta.env.DEV) Object.assign(window, { __cutscene: (id: string) => (game.scene.getScene('game') as GameScene).playCutscene(id) });
 
   // 창 크기·전체화면·화면 회전이 바뀌면 캔버스를 새 크기에 다시 맞춘다.
   // 브라우저마다 새 크기가 늦게 잡히는 경우가 있어서 조금 뒤에 한 번 더 맞춘다.

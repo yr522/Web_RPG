@@ -5,7 +5,9 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAGE_RECOIL, type SlotKey } 
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
-import { QUESTS } from '../data/quests';
+import type { QuestDef } from '../data/quests';
+import { TALK_NPCS } from '../data/npcs';
+import { collectReady, questsOnKill, questsOnVisit } from '../rules/quests';
 import { SLIME, SLIME_AI, COIN, ITEM_DROP } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
@@ -67,7 +69,15 @@ export class World implements SkillWorld {
       lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
+    // 가기 퀘스트: 이 맵에 들어오면 완료
+    for (const q of questsOnVisit(data, this.mapId)) this.questReady(p, q);
     return p;
+  }
+
+  /** 퀘스트를 다 했을 때 큰 글씨 알림 (누구에게 보고하는지) */
+  private questReady(p: PlayerState, q: QuestDef) {
+    const who = q.giver === 'prof' ? '교수님' : TALK_NPCS[q.giver]?.name ?? q.giver;
+    this.events.push({ type: 'banner', playerId: p.id, text: `퀘스트 완료! ${who}께 가자`, color: '#9ef0a0' });
   }
 
   removePlayer(id: EntityId) { this.players.delete(id); }
@@ -89,6 +99,19 @@ export class World implements SkillWorld {
     this.timers = this.timers.filter(o => o.owner !== p);
   }
 
+  /**
+   * 이야기용 몬스터: 컷신이 그 자리에 진짜 몬스터를 만든다. 한 번만 나오고, held 면 컷신이 끝날 때까지 가만히.
+   * x = 가운데. 만든 몬스터 id 를 돌려준다.
+   */
+  spawnStory(x: number, elem: Element | null, tag?: string, held = true) {
+    const e = this.spawnEnemy(x - SLIME.w / 2, elem);
+    e.tag = tag; e.held = held; e.once = true;
+    return e.id;
+  }
+
+  /** 붙잡아 둔 몬스터 풀기 (컷신 끝) */
+  releaseHeld() { for (const e of this.enemies) e.held = false; }
+
   private spawnEnemy(x: number, elem: Element | null, y?: number) {
     const def = elem ? SLIME.elemental : SLIME.normal;
     const sy = y ?? GROUND_Y - SLIME.h;
@@ -100,6 +123,7 @@ export class World implements SkillWorld {
       leapCd: this.range(SLIME_AI.leapEvery), pulled: false,
     };
     this.enemies.push(e);
+    return e;
   }
 
   // ===================== 틱 =====================
@@ -226,7 +250,7 @@ export class World implements SkillWorld {
     // 몬스터와 부딪히면 피해
     if (p.invT <= 0 && !(p.action && p.action.inv)) {
       for (const e of this.enemies) {
-        if (e.dead || !overlaps(p, e)) continue;
+        if (e.dead || e.held || !overlaps(p, e)) continue;
         const dmg = e.elemental ? SLIME.elemental.touch : SLIME.normal.touch;
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
@@ -437,7 +461,7 @@ export class World implements SkillWorld {
   private onKill(p: PlayerState, e: Enemy) {
     const s = p.data;
     s.kills++;
-    this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id });
+    this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const r = gainExp(s, e.elemental ? SLIME.elemental.exp : SLIME.normal.exp);
     this.float(cx(e), e.y - 46, r.msg!, '#9ef0a0', 14, 1.0);
     if (r.banner) {
@@ -448,13 +472,7 @@ export class World implements SkillWorld {
     const [g0, g1] = e.elemental ? SLIME.elemental.gold : SLIME.normal.gold;
     this.dropGold(cx(e), cy(e), g0 + Math.floor(this.rng() * (g1 - g0 + 1)));
     for (const d of SLIME.drops) if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
-    for (const q of QUESTS) {
-      const st = s.quests[q.id];
-      if (st?.active && st.count < q.need && (q.target === 'elemental') === e.elemental) {
-        st.count++;
-        if (st.count >= q.need) this.events.push({ type: 'banner', playerId: p.id, text: '퀘스트 완료! 교수님께 가자', color: '#9ef0a0' });
-      }
-    }
+    for (const q of questsOnKill(s, e.elemental, e.tag)) this.questReady(p, q);
   }
 
   // ===================== 몬스터 =====================
@@ -463,6 +481,7 @@ export class World implements SkillWorld {
     for (const e of this.enemies) {
       if (e.dead) {
         e.deadT += dt;
+        if (e.once) continue;
         // 5초 뒤, 근처에 플레이어가 없으면 다시 나타남
         if (e.deadT > 5 && players.every(p => Math.abs(cx(p) - e.spawnX) > 320)) {
           e.dead = false; e.hp = e.maxHp; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none'; e.leapCd = this.range(SLIME_AI.leapEvery);
@@ -471,6 +490,8 @@ export class World implements SkillWorld {
       }
       // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
       if (e.pulled) { e.pulled = false; continue; }
+      // 컷신 중 붙잡힘: 제자리에 서 있기 (떨어지는 것만)
+      if (e.held) { e.vx = 0; e.leap = 'none'; stepBody(e, dt, this.solids, this.map.width); continue; }
       const target = this.nearestPlayer(e);
       e.leapCd -= dt;
       if (e.stun > 0) {
@@ -553,7 +574,9 @@ export class World implements SkillWorld {
       if (p) {
         if (c.item) {
           // 가방이 가득 차면 줍지 않고 바닥에 남는다
+          const before = collectReady(p.data);
           if (!addItem(p.data, c.item, c.amt)) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
+          for (const q of collectReady(p.data)) if (!before.includes(q)) this.questReady(p, q);
           this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
         } else {
           p.data.gold += c.amt;

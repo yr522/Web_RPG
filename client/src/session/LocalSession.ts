@@ -5,6 +5,7 @@ import type { Command, EntityId, GameEvent } from '@shared/sim/types';
 import type { SaveData } from '@shared/sim/save';
 import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
+import type { Element } from '@shared/data/elements';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
 
 export interface Session {
@@ -24,6 +25,9 @@ export interface Session {
   returnHome(): boolean;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: 'hp' | 'mp'): void;
+  /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
+  spawnStory(x: number, elem: Element | null, tag?: string): void;
+  releaseHeld(): void;
 }
 
 export class LocalSession implements Session {
@@ -63,6 +67,8 @@ export class LocalSession implements Session {
   }
 
   usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
+  spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
+  releaseHeld() { this.world.releaseHeld(); }
 
   /** 학교로 돌아가기 */
   returnHome(): boolean {
