@@ -23,7 +23,7 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { COIN, MONSTERS, type MonsterId } from '@shared/data/monsters';
+import { BOSS_ORB, COIN, MONSTERS, type MonsterId } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
@@ -35,6 +35,8 @@ const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i
 
 export interface SceneDeps {
   session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
+  /** 예 / 아니오 묻기 */
+  confirm: (text: string, yes: () => void) => void;
   /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
   talk: (npc: string) => Promise<void>;
 }
@@ -111,6 +113,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
   private dropSprites = new Map<string, { item: string; obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text }>();
   private fade = 1;
+  /** 세로로 긴 맵의 카메라 위쪽 y (맵에 들어오면 다시 맞춤) */
+  private camYNow: number | null = null;
   private mapSig = '';
   private companion: { id: string; root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; x: number } | null = null;
   private viewW = 960;
@@ -131,6 +135,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   create() {
     this.makeGraySlime();
     this.makeTempMobs();
+    this.makeTempMobs2();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
@@ -219,7 +224,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     this.mapSig = this.visibleSig();
     for (const pt of mapPortals(save, world.mapId)) {
-      this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
+      this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, (pt.y ?? GROUND_Y) - 98));
     }
     this.profMark = null;
     for (const a of this.actors.values()) if (a.kind === 'mob') { a.root.destroy(); a.label.destroy(); }
@@ -287,6 +292,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (soft) return;
     const me = this.deps.session.me();
     this.camX = this.cameraTarget(me.x + me.w / 2, me.face);
+    this.camYNow = null;
     this.fade = 1;
     this.placeCompanion();
   }
@@ -366,6 +372,10 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
       if (ev.type === 'interact') this.deps.openNpc(ev.npc);
+      if (ev.type === 'portal' && ev.confirm) {
+        const { to, toX, toY } = ev;
+        this.deps.confirm(ev.confirm, () => session.takePortal(to, toX, toY));
+      }
       if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
       if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
       if (ev.type === 'fx') this.fxList.push({ f: ev.fx, t: 0 });
@@ -375,12 +385,13 @@ export class GameScene extends Phaser.Scene implements Stage {
         if (ev.reaction) this.shake = Math.max(this.shake, 7);
       }
       if (ev.type === 'died') this.shake = 0;
+      if (ev.type === 'shake') this.shake = Math.max(this.shake, ev.amount);
       if (ev.type === 'say') this.say(ev.who === session.playerId ? 'player' : ev.who, ev.text, ev.life);
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
-    const camY = this.updateCamera(dt, px + me.w / 2, me.face);
+    const camY = this.updateCamera(dt, px + me.w / 2, me.face, py + me.h);
     this.shake = Math.max(0, this.shake - 30 * dt);
     const sx = (Math.random() - 0.5) * this.shake, sy = (Math.random() - 0.5) * this.shake;
     const z = this.zoom * this.camZoom;
@@ -409,7 +420,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.drawGuide(px + me.w / 2, py + me.h);
     const portal = session.world.portalNear(me);
     const npc = mapNpcs(session.save, session.world.mapId).find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
-    if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
+    if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
     else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
@@ -434,7 +445,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   playCutscene(id: string) { void this.cut.play(id); }
 
   /** 카메라: 평소엔 플레이어를 따라가고, 컷신이 잡으면 그 자리·배율로 부드럽게. 화면 위쪽 y 를 돌려준다 */
-  private updateCamera(dt: number, meX: number, face: number) {
+  private updateCamera(dt: number, meX: number, face: number, meFeet = GROUND_Y) {
     const followLeft = this.cameraTarget(meX, face);
     if (this.camMove) {
       const m = this.camMove;
@@ -452,7 +463,13 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     // 확대하면 보이는 높이가 줄어듦: 땅이 화면 아래쪽에 오도록
     const vh = VIEW_H / this.camZoom;
-    return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
+    const top = this.deps.session.world.map.top;
+    if (top === undefined) return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
+    // 세로로 긴 맵: 플레이어 발이 화면 아래쪽 70% 쯤에 오게 따라감
+    const want = Math.max(top, Math.min(VIEW_H - vh, meFeet - vh * 0.7));
+    if (this.camYNow === null) this.camYNow = want;
+    this.camYNow += (want - this.camYNow) * Math.min(1, dt * 6);
+    return this.camYNow;
   }
 
   /** 화면 가운데 x → 화면 왼쪽 x (맵 밖으로 안 나가게) */
@@ -617,7 +634,9 @@ export class GameScene extends Phaser.Scene implements Stage {
       let sp = this.enemySprites.get(e.id);
       if (!sp) {
         // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
-        sp = this.add.sprite(0, 0, mobTexture(e.mob, e.elem), 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+        sp = this.add.sprite(0, 0, mobTexture(e.mob, e.elem), 0).setOrigin(0.5, 1).setDepth(4);
+        // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤
+        sp.setScale(e.mob === 'slime' || e.mob === 'slime_elem' ? 1.45 : MONSTERS[e.mob].h / sp.frame.height);
         if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
         this.enemySprites.set(e.id, sp);
       }
@@ -632,6 +651,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         .setFlipX(e.dir > 0);
       if (fl > 0) sp.setTintFill(0xffffff);
       else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+      else if (e.groggy && e.groggy > 0) sp.setTint(0x8090b0);
       else sp.clearTint();
       if (!label) {
         label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : MONSTERS[e.mob].name, 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
@@ -647,6 +667,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
         g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
       }
+    }
+    // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
+    if (world.orb) {
+      const o = world.orb;
+      if (o.dir) {
+        const a = 0.35 + 0.35 * Math.abs(Math.sin(this.time.now / 60));
+        g.lineStyle(3, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      }
+      g.fillStyle(0x2a3a5a).fillRect(o.x - 26, o.y - 40, 52, 14);
+      g.fillStyle(0x6ec8ff, o.dir ? 1 : 0.75).fillCircle(o.x, o.y, 16);
+      g.lineStyle(2, 0xe0f6ff).strokeCircle(o.x, o.y, 16);
+    }
+    for (const s of world.orbShots) {
+      g.fillStyle(0x6ec8ff).fillCircle(s.x, s.y, BOSS_ORB.r);
+      g.fillStyle(0xe0f6ff).fillCircle(s.x, s.y, BOSS_ORB.r * 0.5);
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
@@ -804,6 +839,49 @@ export class GameScene extends Phaser.Scene implements Stage {
     });
   }
 
+  /** 공방 지하·골렘 임시 그림 (왼쪽을 봄) */
+  private makeTempMobs2() {
+    const make = (key: string, fw: number, fh: number, draw: (r: (x: number, y: number, w: number, h: number, c: string) => void, f: number) => void) => {
+      const c = document.createElement('canvas');
+      c.width = fw * 3; c.height = fh;
+      const ctx = c.getContext('2d')!;
+      for (let f = 0; f < 3; f++) draw((x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(f * fw + x, y, w, h); }, f);
+      const tex = this.textures.addCanvas(key, c)!;
+      for (let f = 0; f < 3; f++) tex.add(f, 0, f * fw, 0, fw, fh);
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    };
+    // 경비기계C: 뚜벅이, 두꺼운 몸 + 큰 다리
+    make('guard_c', 36, 42, (r, f) => {
+      r(6, 2, 24, 20, '#15181d'); r(7, 3, 22, 18, '#4f6a5c'); r(7, 3, 22, 4, '#6f8f7c');
+      r(8, 9, 10, 5, '#15181d'); r(9, 10, 8, 3, f === 2 ? '#d0ffd8' : '#5dff8a');
+      r(9, 22, 18, 8, '#15181d'); r(10, 23, 16, 6, '#3b5046');
+      const k = f === 1 ? 2 : 0;
+      r(8 - k, 30, 8, 12, '#15181d'); r(20 + k, 30, 8, 12, '#15181d');
+      r(9 - k, 31, 6, 10, '#6f8f7c'); r(21 + k, 31, 6, 10, '#6f8f7c');
+    });
+    // 경비기계D: 작은 비행 기계, 프로펠러
+    make('guard_d', 24, 18, (r, f) => {
+      const p = f === 1 ? 2 : 0;
+      r(2 + p, 0, 20 - p * 2, 2, '#9aa3ad'); r(11, 2, 2, 3, '#15181d');
+      r(4, 5, 16, 10, '#15181d'); r(5, 6, 14, 8, '#7a6aa8'); r(5, 6, 14, 2, '#9a8ac8');
+      r(6, 9, 5, 3, f === 2 ? '#ffd0ff' : '#ff6ad8');
+      r(8, 15, 2, 3, '#15181d'); r(14, 15, 2, 3, '#15181d');
+    });
+    // 마법 골렘: 큰 돌 몸 + 가운데 마력 결정
+    make('golem', 58, 88, (r, f) => {
+      r(10, 0, 34, 24, '#1b1a20'); r(11, 1, 32, 22, '#6b6470'); r(11, 1, 32, 5, '#857d8a');
+      r(13, 10, 9, 5, '#1b1a20'); r(14, 11, 7, 3, f === 2 ? '#e0f6ff' : '#6ec8ff');
+      r(2, 24, 54, 38, '#1b1a20'); r(3, 25, 52, 36, '#5c5662'); r(3, 25, 52, 6, '#766f7c');
+      r(22, 34, 14, 16, '#1b1a20'); r(24, 36, 10, 12, f === 2 ? '#c8f0ff' : '#4aa8ff');
+      const arm = f === 2 ? -8 : 0;
+      r(0, 28 + arm, 10, 30, '#1b1a20'); r(1, 29 + arm, 8, 28, '#6b6470');
+      r(48, 28, 10, 30, '#1b1a20'); r(49, 29, 8, 28, '#6b6470');
+      const k = f === 1 ? 3 : 0;
+      r(8 - k, 62, 16, 26, '#1b1a20'); r(34 + k, 62, 16, 26, '#1b1a20');
+      r(9 - k, 63, 14, 24, '#5c5662'); r(35 + k, 63, 14, 24, '#5c5662');
+    });
+  }
+
   /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
   private makeGraySlime() {
     const src = this.textures.get('slime').getSourceImage() as HTMLImageElement;
@@ -880,6 +958,9 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawBackground(pal: ReturnType<typeof palette>) {
     const g = this.bg, W = this.viewW, H = VIEW_H, camX = this.camX;
     g.clear();
+    // 배경 색만 쓰는 맵 (공방 지하 등)
+    const solid = this.deps.session.world.map.bgColor;
+    if (solid !== undefined) { g.fillStyle(solid).fillRect(0, 0, W, H); return; }
     g.fillGradientStyle(pal.top, pal.top, pal.mid, pal.mid, 1).fillRect(0, 0, W, H * 0.6);
     g.fillGradientStyle(pal.mid, pal.mid, pal.bot, pal.bot, 1).fillRect(0, H * 0.6, W, H * 0.4);
     if (pal.stars > 0.02) {
@@ -913,10 +994,11 @@ export class GameScene extends Phaser.Scene implements Stage {
     const g = this.fx, t = this.time.now / 1000;
     g.clear();
     for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId)) {
-      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, GROUND_Y - 48, 48, 88);
+      const py = (p.y ?? GROUND_Y) - 48;
+      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, py, 48, 88);
       for (let i = 0; i < 3; i++) {
         g.lineStyle(4, 0xbea0ff, 0.8 - i * 0.2);
-        g.strokeEllipse(p.x, GROUND_Y - 48, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
+        g.strokeEllipse(p.x, py, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
       }
     }
   }

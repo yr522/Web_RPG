@@ -3,6 +3,7 @@
 // 대사 쓰는 법: 위에서부터 차례로 나온다.
 //   { line: '대사' }                  → 대사 한 줄 (누르면 다음)
 //   { line: '대사', who: 'player' }   → 플레이어가 하는 말 (이름 자리에 플레이어 이름)
+//   { line: '대사', who: 'NPC id' }   → 다른 NPC 가 하는 말 (이름 자리에 그 NPC 이름)
 //   { choices: [ { label, reply } ] } → 선택지. 고르면 reply 대사들이 이어서 나온다
 //   { do: 효과 }                       → 화면에 안 보이고 효과만 (퀘스트 주기·보고, 플래그 바꾸기, 물건·골드 주고받기)
 //   { cutscene: '컷신 id' }            → 대화창을 닫고 컷신 재생 (cutscenes.ts)
@@ -22,7 +23,7 @@ export type Effect =
   | { gold: number };
 
 export type DialogueStep =
-  | { line: string; who?: 'npc' | 'player' }
+  | { line: string; who?: string }
   | { choices: { label: string; reply: DialogueStep[] }[] }
   | { do: Effect }
   | { cutscene: string };
@@ -65,17 +66,54 @@ export interface TalkNpcDef {
 export const NPC_BUBBLE_RANGE = 220;
 
 export const TALK_NPCS: Record<string, TalkNpcDef> = {
-  // ---- 마법공학의 유산 (대사 없이 진행만. 대사는 나중에) ----
+  // ---- 마법공학의 유산 (대사는 줄거리만 알 수 있게 넣은 임시) ----
   // 동급생 마법사: 어느 맵에 서 있는지는 maps.ts 의 npcs (퀘스트 진행에 따라 자리를 옮김)
   mage_friend: {
     name: '마법사 동급생',
     icon: '🔮',
-    dialogue: [],
+    dialogue: [{ line: '하암… 요즘 통 잠을 못 자서 그런가, 머리가 멍해.' }],
     talks: [
       // 1. 사연 듣기 → 2. 숲 둘러보기
-      { when: { all: [{ level: { gte: 3 } }, { quest: 'mg2', state: 'none' }] }, steps: [{ do: { quest: 'give', id: 'mg2' } }] },
+      {
+        when: { all: [{ level: { gte: 3 } }, { quest: 'mg2', state: 'none' }] },
+        steps: [
+          { line: '하암… 아, 미안. 요즘 밤마다 이상한 소리가 들려서 잠을 하나도 못 잤어.' },
+          { line: '속삭이는 소리 같기도 하고, 뭔가 덜컹거리는 소리 같기도 하고… 학교 뒤 숲 쪽에서 나는 것 같아.' },
+          { line: '혹시 숲 깊은 곳까지 한 번만 둘러봐 줄 수 있어?' },
+          { do: { quest: 'give', id: 'mg2' } },
+        ],
+      },
+      { when: { quest: 'mg2', state: 'active' }, steps: [{ line: '숲 깊은 곳, 갈림길 쪽이야. 부탁할게.' }] },
       // 3. 아무것도 없다고 알리기 → 4. 밤에 잠자기
-      { when: { quest: 'mg2', state: 'ready' }, steps: [{ do: { quest: 'report', id: 'mg2' } }] },
+      {
+        when: { quest: 'mg2', state: 'ready' },
+        steps: [
+          { line: '갈림길까지 가 봤는데, 아무것도 없던데?', who: 'player' },
+          { line: '그래…? 이상하다. 분명히 들렸는데.' },
+          { line: '오늘 밤에도 들리면 깨우러 갈게. 일단 기숙사에서 푹 자 둬.' },
+          { do: { quest: 'report', id: 'mg2' } },
+        ],
+      },
+      { when: { quest: 'mg4', state: 'ready' }, steps: [{ line: '밤에 기숙사에서 자 둬. 소리가 들리면 깨우러 갈게.' }] },
+      // 6~8. 숲 깊은 곳에서 (자리를 옮겨 가며)
+      { when: { quest: 'mg6', state: 'active' }, steps: [{ line: '방금 그 목소리 들었지…? 기계들이 길을 막고 있어. 먼저 저것들부터 처리하자!' }] },
+      { when: { quest: 'mg7', state: 'active' }, steps: [{ line: '여기도 기계투성이야. 아까랑은 생김새가 달라. 조심해!' }] },
+      {
+        when: { quest: 'mg9', state: 'active' },
+        steps: [
+          { line: '여기 입구가 있어! 그런데 단단히 잠겨 있네…' },
+          { line: '여는 장치가 따로 있는 것 같아. 아까 그 경비기계B 중 하나가 가지고 있지 않을까?' },
+        ],
+      },
+      // 9. 공방 안
+      {
+        when: { quest: 'mg10', state: 'active' },
+        steps: [
+          { line: '여기가 그 소리의 정체였구나… 오래전에 버려진 마법공방이야.' },
+          { line: '저 가운데 결정, 마력이 아직 남아 있어. 그런데 그것보다…' },
+          { line: '지하에서 엄청 강한 마력이 느껴져. 내려가 보자.' },
+        ],
+      },
     ],
   },
   // 기숙사 방 침대: 밤에 자면 다음으로 (검사·궁수는 4번 퀘스트, 마법사는 혼자 수색 시작)
@@ -83,12 +121,24 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     name: '침대',
     icon: '🛏️',
     prop: 'bed',
-    dialogue: [],
+    dialogue: [{ line: '(아직 잘 시간은 아니다.)', who: 'player' }],
     talks: [
-      { when: { all: [{ quest: 'mg4', state: 'ready' }, { time: 'night' }] }, steps: [{ do: { quest: 'report', id: 'mg4' } }] },
+      {
+        when: { all: [{ quest: 'mg4', state: 'ready' }, { time: 'night' }] },
+        steps: [
+          { line: '(잠이 든다…)', who: 'player' },
+          { line: '일어나, 일어나 봐! 지금 그 소리가 또 들려!', who: 'mage_friend' },
+          { line: '같이 가 보자. 지금이면 뭔가 찾을 수 있을지도 몰라!', who: 'mage_friend' },
+          { do: { quest: 'report', id: 'mg4' } },
+        ],
+      },
       {
         when: { all: [{ cls: 'mage' }, { level: { gte: 3 } }, { quest: 'mg5', state: 'none' }, { time: 'night' }] },
-        steps: [{ do: { quest: 'give', id: 'mg5' } }],
+        steps: [
+          { line: '(오늘 밤도 숲 쪽에서 속삭임과 덜컹거리는 소리가 들린다…)', who: 'player' },
+          { line: '(며칠째 잠을 못 잤다. 직접 가 봐야겠다.)', who: 'player' },
+          { do: { quest: 'give', id: 'mg5' } },
+        ],
       },
     ],
   },

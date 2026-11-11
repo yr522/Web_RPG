@@ -27,6 +27,8 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
+  /** 물어보는 포탈에서 "예" */
+  takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: 'hp' | 'mp'): void;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
@@ -50,9 +52,9 @@ export class LocalSession implements Session {
   me() { return this.world.players.get(this.playerId)!; }
   prevPos() { return this.prev; }
 
-  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }) {
+  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }, y?: number) {
     this.world = new World(map);
-    const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp);
+    const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp, y);
     this.prev = { x: p.x, y: p.y };
     this.save.map = map;
     void this.store.save(this.save);
@@ -65,7 +67,7 @@ export class LocalSession implements Session {
     if (!b || !checkCond(this.save, b.when)) return;
     const me = this.me();
     this.pending.push(...this.world.takeEvents());
-    this.enter(b.to, me.x, { hp: me.hp, mp: me.mp });
+    this.enter(b.to, me.x, { hp: me.hp, mp: me.mp }, me.y + me.h);
     this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: b.to });
   }
 
@@ -96,6 +98,12 @@ export class LocalSession implements Session {
     return r;
   }
 
+  takePortal(to: MapId, toX: number, toY?: number) {
+    const { hp, mp } = this.me();
+    this.enter(to, toX, { hp, mp }, toY);
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: to });
+  }
+
   usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
   spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
   releaseHeld() { this.world.releaseHeld(); }
@@ -121,8 +129,10 @@ export class LocalSession implements Session {
       for (const ev of events) {
         out.push(ev);
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
+          // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
+          if (ev.confirm) continue;
           const { hp, mp } = this.me();
-          this.enter(ev.to, ev.toX, { hp, mp });
+          this.enter(ev.to, ev.toX, { hp, mp }, ev.toY);
           out.push({ type: 'mapEnter', playerId: this.playerId, map: ev.to });
           break;
         }

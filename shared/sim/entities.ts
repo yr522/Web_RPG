@@ -65,6 +65,8 @@ export interface PlayerState extends Body {
   /** 땅에서 ↓ 를 누르고 앉아 있음 (이동 멈춤) */
   crouch: boolean;
   hurt: number;
+  /** 기절: 남은 시간 동안 조작 불가 */
+  stunT: number;
   /** 마력 해방 남은 시간 */
   buffT: number;
   /** 날아가는 중인 사슬 화살 (한 번 더 누르면 끌려감) */
@@ -99,6 +101,14 @@ export interface Enemy extends Body {
   leapCd: number;
   /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
   pulled: boolean;
+  /** 보스 패턴 (골렘: 내려치기 / 돌진) */
+  pat?: 'slam' | 'charge';
+  /** 보안장치 오브에 맞은 횟수 (다 차면 기절) */
+  orbHits?: number;
+  /** 기절(취약) 남은 시간: 못 움직이고 받는 피해 배수 */
+  groggy?: number;
+  /** 날아다니는 몬스터의 둥실둥실 기준 높이 */
+  hoverY?: number;
   /** 이야기용 이름표 (이 몬스터를 잡으면 진행되는 퀘스트용, 예: 보스) */
   tag?: string;
   /** 컷신 중 붙잡힘: 스스로 안 움직이고 부딪혀도 피해 없음 (컷신이 끝나면 풀림) */
