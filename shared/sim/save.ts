@@ -2,6 +2,8 @@
 import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, START_STAT, type ClassId, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
+import { START_ITEMS, type EquipSlot } from '../data/items';
+import { addItem, totalStats, type BagEntry } from '../rules/inventory';
 
 export type Gender = 'M' | 'F';
 
@@ -18,7 +20,10 @@ export interface SaveData {
   /** 배운 스킬 → 고른 원소 (원소 없는 스킬은 null) */
   learned: Record<string, Element | null>;
   skillLevels: Record<string, number>;
-  inventory: { hp: number; mp: number; reset: number };
+  /** 가방 (얻은 순서대로) */
+  bag: BagEntry[];
+  /** 장비 칸 → 아이템 id */
+  equip: Partial<Record<EquipSlot, string>>;
   map: MapId;
   quests: Record<string, { active: boolean; count: number }>;
   /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
@@ -29,14 +34,16 @@ export interface SaveData {
 }
 
 export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
-  return {
+  const s: SaveData = {
     version: 1, name, cls, gender, level: 1, exp: 0, gold: 0,
     stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
     learned: {}, skillLevels: {},
-    inventory: { hp: 3, mp: 3, reset: 0 },
+    bag: [], equip: {},
     map: 'school',
     quests: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
+  for (const it of START_ITEMS) addItem(s, it.id, it.n);
+  return s;
 }
 
 /**
@@ -58,13 +65,22 @@ export function createSave(name: string, cls: ClassId, gender: Gender, add: Reco
 /** 예전 저장 데이터에 새 항목이 없으면 기본값으로 채운다 */
 export function normalizeSave(s: SaveData): SaveData {
   const d = newSave(s.name, s.cls, s.gender);
-  return { ...d, ...s, inventory: { ...d.inventory, ...s.inventory }, stats: { ...d.stats, ...s.stats } };
+  const out: SaveData = { ...d, ...s, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip } };
+  // 예전 소지품 { hp, mp, reset } → 가방
+  const old = (s as unknown as { inventory?: Record<string, number> }).inventory;
+  if (!s.bag) {
+    out.bag = [];
+    if (old) for (const [id, n] of Object.entries(old)) addItem(out, id, n);
+    else out.bag = d.bag;
+  }
+  delete (out as unknown as { inventory?: unknown }).inventory;
+  return out;
 }
 
 export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number }
 
 export function deriveStats(s: SaveData): DerivedStats {
-  const c = CLASSES[s.cls], st = s.stats;
+  const c = CLASSES[s.cls], st = totalStats(s);
   return {
     maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6),
     maxMp: Math.round(c.mp + (s.level - 1) * 5),

@@ -2,7 +2,8 @@
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
-import { ITEMS, type ItemId } from '@shared/data/items';
+import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
+import { countItem } from '@shared/rules/inventory';
 import { QUESTS } from '@shared/data/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
@@ -10,6 +11,7 @@ import { canAttend, learned, nextToLearn, skillLevel, type ActionResult, type Me
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { DialogHost, el, esc } from './Dialog';
+import { itemIcon } from './icons';
 import profMagePortrait from '../../../assets/temp/magician_professer_portrait.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 
@@ -233,12 +235,13 @@ export class NpcDialog {
     const b = this.body!, s = this.session.save;
     b.innerHTML = '';
     b.appendChild(el('p', 'line', `"어서 와~ 필요한 거 있으면 골라봐!" <span class="gold">💰 ${s.gold} G</span>`));
-    for (const id of Object.keys(ITEMS) as ItemId[]) {
-      const it = ITEMS[id], card = el('div', 'card shop');
-      card.appendChild(el('div', 'grow', `${it.icon} <b>${it.name}</b> <span class="gold">${it.price} G</span><br><span class="note">${it.desc} · 가진 개수 ${s.inventory[id]}</span>`));
-      for (const n of it.bulk) {
+    for (const id of SHOP_ITEMS) {
+      const it = ITEMS[id], card = el('div', 'card shop'), price = it.price ?? 0;
+      card.appendChild(itemIcon(id));
+      card.appendChild(el('div', 'grow', `<b>${it.name}</b> <span class="gold">${price} G</span><br><span class="note">${it.desc} · 가진 개수 ${countItem(s, id)}</span>`));
+      for (const n of it.bulk ?? [1]) {
         const btn = el('button', 'sm go', `${n}개`, () => this.act({ type: 'buy', item: id, n })) as HTMLButtonElement;
-        btn.disabled = s.gold < it.price * n;
+        btn.disabled = s.gold < price * n;
         card.appendChild(btn);
       }
       b.appendChild(card);

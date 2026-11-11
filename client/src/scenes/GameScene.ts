@@ -11,6 +11,8 @@ import { ELEMENTS } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
+import { ICON_URLS } from '../ui/icons';
+import { itemDef } from '@shared/data/items';
 import { AVATAR_HEAD, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -54,6 +56,8 @@ export class GameScene extends Phaser.Scene {
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private coinG!: Phaser.GameObjects.Graphics;
+  /** 땅에 떨어진 물건 그림 (id → 아이콘) */
+  private dropSprites = new Map<string, { item: string; obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text }>();
   private fade = 1;
   private viewW = 960;
   private zoom = 1;
@@ -66,6 +70,7 @@ export class GameScene extends Phaser.Scene {
     preloadAvatar(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
+    for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
   }
 
   create() {
@@ -380,13 +385,18 @@ export class GameScene extends Phaser.Scene {
     // 골드: 빙글빙글 도는 동전, 사라지기 5초 전부터 깜빡임
     const cg = this.coinG;
     cg.clear();
+    const drops = new Set<string>();
     for (const c of world.coins) {
-      if (c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2) continue;
+      const blink = c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2 === 1;
+      if (c.item) { drops.add(c.id); this.drawDrop(c.id, c.item, c.x + c.w / 2, c.y + c.h, c.t, blink); continue; }
+      if (blink) continue;
       const spin = Math.abs(Math.cos(this.time.now / 250 + c.x));
       const rx = 7 * (0.35 + 0.65 * spin);
       cg.fillStyle(0xffd84a).fillEllipse(c.x + 7, c.y + 7, rx * 2, 14);
       cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
     }
+
+    for (const [id, d] of this.dropSprites) if (!drops.has(id)) { d.obj.destroy(); this.dropSprites.delete(id); }
 
     const me = this.deps.session.me();
     // 천붕 준비: 몸 주위 원
@@ -394,6 +404,22 @@ export class GameScene extends Phaser.Scene {
       const el = me.data.learned.cheonbung;
       g.fillStyle(el ? hex(ELEMENTS[el].color) : 0xffffff, 0.3).fillCircle(me.x + me.w / 2, me.y + me.h / 2, 34);
     }
+  }
+
+  /** 떨어진 물건: 아이콘 그림(없으면 이모지)이 바닥 위에서 살짝 위아래로 흔들림. (x, y) = 아래 가운데 */
+  private drawDrop(id: string, item: string, x: number, y: number, t: number, blink: boolean) {
+    let d = this.dropSprites.get(id);
+    if (!d || d.item !== item) {
+      d?.obj.destroy();
+      const img = itemDef(item)?.img, key = `ico:${img}`;
+      const obj = img && this.textures.exists(key)
+        ? this.add.image(0, 0, key).setOrigin(0.5, 1)
+        : this.add.text(0, 0, itemDef(item)?.icon ?? '?', { fontSize: '22px' }).setOrigin(0.5, 1).setResolution(this.zoom);
+      if (obj instanceof Phaser.GameObjects.Image) obj.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      d = { item, obj: obj.setDepth(4.6) };
+      this.dropSprites.set(id, d);
+    }
+    d.obj.setPosition(x, y - 2 - 3 * (1 + Math.sin(t * 4))).setVisible(!blink);
   }
 
   /** 투사체·소용돌이 + 내 캐릭터 주변 표시 (마법진, 충전 바, 조준, 사슬) */

@@ -101,7 +101,10 @@ export interface Coin {
   x: number; y: number; w: number; h: number;
   vx: number; vy: number;
   onGround: boolean; drop: number; plat: import('./physics').Solid | null;
+  /** 골드 액수 (item 이 있으면 그 물건 개수) */
   amt: number;
+  /** 떨어진 물건 (없으면 골드) */
+  item?: string;
   t: number;
 }
 

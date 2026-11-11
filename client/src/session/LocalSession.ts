@@ -22,6 +22,8 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
+  /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
+  usePotion(kind: 'hp' | 'mp'): void;
 }
 
 export class LocalSession implements Session {
@@ -59,6 +61,8 @@ export class LocalSession implements Session {
     }
     return r;
   }
+
+  usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
 
   /** 학교로 돌아가기 */
   returnHome(): boolean {

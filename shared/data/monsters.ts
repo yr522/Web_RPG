@@ -4,6 +4,8 @@ export const SLIME = {
   elemental: { name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18] as const },
   w: 42,
   h: 30,
+  /** 잡으면 확률로 떨어뜨리는 물건 (일반·원소 슬라임 같음) */
+  drops: [{ item: 'slime_gel', chance: 0.4 }] as const,
 };
 
 /** 슬라임 행동 수치 */
@@ -24,3 +26,5 @@ export const SLIME_AI = {
 };
 
 export const COIN = { life: 30, blinkLast: 5, size: 14 };
+/** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */
+export const ITEM_DROP = { size: 24 };
