@@ -1,7 +1,7 @@
 // 인벤토리 창 (I). 게임을 멈추지 않는 떠 있는 창.
 // 오른쪽: 가방 (전체·장비·소비·기타 탭), 왼쪽 위 버튼을 누르면 왼쪽에 장비창이 펼쳐진다.
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
-import { EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { BAG_SIZE, EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -12,8 +12,8 @@ import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.pn
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
 import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
 
-/** 가방은 최소 이만큼 칸을 보여 준다 (4줄 × 5칸 = 시안) */
-const COLS = 4, MIN_ROWS = 5;
+/** 가방: 한 줄 4칸, 한 번에 5줄이 보이고 나머지는 오른쪽 휠로 내려 본다 */
+const COLS = 4, VISIBLE_ROWS = 5;
 /** 두 번 터치 인정 시간 (ms) */
 const DOUBLE_TAP = 350;
 /** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
@@ -43,6 +43,7 @@ export class InventoryWindow {
   constructor(private session: Session, private hud: Hud) {
     // 장비창 (왼쪽)
     const eqBar = el('div', 'inv-bar', '<span class="inv-title">equipment</span>');
+    this.bindDrag(eqBar);
     this.equipPanel.appendChild(eqBar);
     const eqTabs = el('div', 'inv-tabs');
     eqTabs.appendChild(el('button', 'inv-tab on', 'armor'));
@@ -58,6 +59,7 @@ export class InventoryWindow {
     // 가방 (오른쪽)
     const main = el('div', 'inv-panel inv-main');
     const bar = el('div', 'inv-bar');
+    this.bindDrag(bar);
     this.toggleBtn = el('button', 'inv-btn', '', () => this.setExpanded(!this.expanded)) as HTMLButtonElement;
     bar.appendChild(this.toggleBtn);
     bar.appendChild(el('span', 'inv-title', 'inventory'));
@@ -69,8 +71,9 @@ export class InventoryWindow {
       this.tabsEl.appendChild(b);
     }
     main.appendChild(this.tabsEl);
-    const body = el('div', 'inv-body');
+    const body = el('div', 'inv-body inv-bag');
     body.appendChild(this.grid);
+    body.appendChild(this.makeScrollbar());
     main.appendChild(body);
 
     this.root.appendChild(this.equipPanel);
@@ -83,22 +86,70 @@ export class InventoryWindow {
       if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest?.('.inv-cell')) this.tip.hide();
     }, true);
     this.setExpanded(false);
+    // 화면 크기가 바뀌면 창이 화면 밖으로 나가지 않게
+    addEventListener('resize', () => this.keepInside());
+  }
+
+  /** 윗줄(제목줄)을 꾹 눌러 끌면 창을 옮긴다. 버튼 위에서는 안 끌림 */
+  private bindDrag(bar: HTMLElement) {
+    let drag: { id: number; dx: number; dy: number } | null = null;
+    bar.addEventListener('pointerdown', e => {
+      if ((e.target as HTMLElement).closest('button') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault();
+      const r = this.root.getBoundingClientRect();
+      this.moveTo(r.left, r.top);
+      drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top };
+      try { bar.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+      this.root.classList.add('dragging');
+    });
+    bar.addEventListener('pointermove', e => {
+      if (drag?.id === e.pointerId) this.moveTo(e.clientX - drag.dx, e.clientY - drag.dy);
+    });
+    const end = (e: PointerEvent) => {
+      if (drag?.id !== e.pointerId) return;
+      drag = null;
+      this.root.classList.remove('dragging');
+    };
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) bar.addEventListener(t, end);
+  }
+
+  /** 창 왼쪽 위를 (x, y) 로. 창이 화면 밖으로 나가지 않게 */
+  private moveTo(x: number, y: number) {
+    const r = this.root.getBoundingClientRect();
+    x = Math.max(0, Math.min(innerWidth - r.width, x));
+    y = Math.max(0, Math.min(innerHeight - r.height, y));
+    this.root.classList.add('moved');
+    this.root.style.left = `${x}px`;
+    this.root.style.top = `${y}px`;
+  }
+
+  private keepInside() {
+    if (!this.isOpen || !this.root.classList.contains('moved')) return;
+    const r = this.root.getBoundingClientRect();
+    this.moveTo(r.left, r.top);
   }
 
   get isOpen() { return this.root.classList.contains('open'); }
 
   toggle() { if (this.isOpen) this.close(); else this.open(); }
 
-  open() { this.root.classList.add('open'); this.sig = ''; this.update(); }
+  open() { this.root.classList.add('open'); this.sig = ''; this.update(); this.keepInside(); }
 
   close() { this.root.classList.remove('open'); this.tip.hide(); }
 
   private setExpanded(v: boolean) {
+    // 옮겨 둔 창이면 가방 쪽은 제자리에 두고 장비창이 왼쪽으로 펼쳐지게
+    const main = this.root.lastElementChild as HTMLElement | null;
+    const before = main?.getBoundingClientRect().left ?? 0;
     this.expanded = v;
     this.equipPanel.style.display = v ? '' : 'none';
     this.toggleBtn.textContent = v ? '▶' : '◀';
     this.sig = '';
     this.update();
+    if (this.isOpen && this.root.classList.contains('moved') && main) {
+      const r = this.root.getBoundingClientRect();
+      this.moveTo(r.left + before - main.getBoundingClientRect().left, r.top);
+    } else this.keepInside();
   }
 
   /** 매 프레임: 가방·장비가 바뀌었을 때만 다시 그린다 */
@@ -120,7 +171,7 @@ export class InventoryWindow {
     // 가방: 탭에 맞는 물건만, 얻은 순서대로
     this.grid.innerHTML = '';
     const list = s.bag.map((e, i) => ({ e, i })).filter(({ e }) => this.tab === 'all' || itemDef(e.id)?.kind === this.tab);
-    const cells = Math.max(MIN_ROWS * COLS, Math.ceil(list.length / COLS) * COLS);
+    const cells = Math.max(BAG_SIZE, VISIBLE_ROWS * COLS, Math.ceil(list.length / COLS) * COLS);
     for (let c = 0; c < cells; c++) {
       const it = list[c];
       const cell = el('div', 'inv-cell');
@@ -131,6 +182,7 @@ export class InventoryWindow {
       }
       this.grid.appendChild(cell);
     }
+    requestAnimationFrame(() => this.syncScroll());
 
     // 장비창
     if (this.expanded) {
@@ -147,6 +199,43 @@ export class InventoryWindow {
       }
     }
   }
+
+  /** 가방 오른쪽 휠 (모바일에서도 보이게 직접 그림). 휠 굴리기·손잡이 끌기·막대 누르기로 내려 본다 */
+  private makeScrollbar() {
+    const track = el('div', 'inv-sb'), thumb = el('div', 'inv-sb-thumb');
+    track.appendChild(thumb);
+    const g = this.grid;
+    const sync = () => {
+      const max = g.scrollHeight - g.clientHeight, th = track.clientHeight;
+      const h = max > 0 ? Math.max(20, th * g.clientHeight / g.scrollHeight) : th;
+      thumb.style.height = `${h}px`;
+      thumb.style.transform = `translateY(${max > 0 ? (th - h) * g.scrollTop / max : 0}px)`;
+    };
+    this.syncScroll = sync;
+    g.addEventListener('scroll', sync);
+    let drag: { id: number; y: number; top: number } | null = null;
+    const scrollTo = (thumbTop: number) => {
+      const max = g.scrollHeight - g.clientHeight, room = track.clientHeight - thumb.offsetHeight;
+      if (room > 0) g.scrollTop = Math.max(0, Math.min(1, thumbTop / room)) * max;
+    };
+    track.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const r = track.getBoundingClientRect();
+      if (e.target !== thumb) scrollTo(e.clientY - r.top - thumb.offsetHeight / 2);
+      drag = { id: e.pointerId, y: e.clientY, top: g.scrollTop };
+      try { track.setPointerCapture(e.pointerId); } catch { /* 무시 */ }
+    });
+    track.addEventListener('pointermove', e => {
+      if (drag?.id !== e.pointerId) return;
+      const max = g.scrollHeight - g.clientHeight, room = track.clientHeight - thumb.offsetHeight;
+      if (room > 0) g.scrollTop = drag.top + (e.clientY - drag.y) * max / room;
+    });
+    for (const t of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) track.addEventListener(t, e => { if (drag?.id === e.pointerId) drag = null; });
+    track.addEventListener('wheel', e => { g.scrollTop += e.deltaY; }, { passive: true });
+    return track;
+  }
+
+  private syncScroll = () => {};
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 행동 */
   private bindCell(cell: HTMLElement, key: string, id: string, action: () => void) {

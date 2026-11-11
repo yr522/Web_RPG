@@ -3,7 +3,7 @@
 import { CLASSES, SKILLS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { addItem, equipFromBag, removeItem, unequip } from './inventory';
+import { BAG_FULL, addItem, canAdd, equipFromBag, removeItem, unequip } from './inventory';
 import { QUESTS } from '../data/quests';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
@@ -87,6 +87,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       if (!it?.price || !it.bulk?.includes(a.n)) return fail('살 수 없는 물건이야');
       const cost = it.price * a.n;
       if (s.gold < cost) return fail('골드가 부족해');
+      if (!canAdd(s, a.item, a.n)) return fail(BAG_FULL);
       s.gold -= cost;
       addItem(s, a.item, a.n);
       return { ok: true, msg: `${it.icon} ${it.name} ${a.n}개 구매!` };

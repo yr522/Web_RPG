@@ -1,5 +1,5 @@
 // 인벤토리·장비. 저장 데이터(SaveData)만 다루고 화면은 모른다.
-import { EQUIP_SLOTS, itemDef, type EquipSlot } from '../data/items';
+import { BAG_SIZE, EQUIP_SLOTS, itemDef, type EquipSlot } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { SaveData } from '../sim/save';
 
@@ -14,13 +14,24 @@ export function countItem(s: SaveData, id: string) {
   return n;
 }
 
+/** 가방에 넣을 자리가 있는지 */
+export function canAdd(s: SaveData, id: string, n = 1) {
+  const need = stackable(id) ? (s.bag.some(e => e.id === id) ? 0 : 1) : n;
+  return s.bag.length + need <= BAG_SIZE;
+}
+
+export const BAG_FULL = '가방이 가득 찼어';
+
+/** 가방에 넣기. 자리가 없으면 아무것도 안 넣고 false */
 export function addItem(s: SaveData, id: string, n = 1) {
-  if (!itemDef(id) || n <= 0) return;
+  if (!itemDef(id) || n <= 0) return false;
+  if (!canAdd(s, id, n)) return false;
   if (stackable(id)) {
     const e = s.bag.find(x => x.id === id);
     if (e) e.n += n;
     else s.bag.push({ id, n });
   } else for (let i = 0; i < n; i++) s.bag.push({ id, n: 1 });
+  return true;
 }
 
 /** 가진 만큼만 뺀다. 다 빼면 true */
@@ -53,6 +64,7 @@ export function equipFromBag(s: SaveData, index: number): string | null {
 export function unequip(s: SaveData, slot: EquipSlot): string | null {
   const id = s.equip[slot];
   if (!id) return '빈 칸이야';
+  if (!canAdd(s, id)) return BAG_FULL;
   delete s.equip[slot];
   s.bag.push({ id, n: 1 });
   return null;
