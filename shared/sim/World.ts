@@ -4,7 +4,7 @@ import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
-import { addItem, countItem, removeItem } from '../rules/inventory';
+import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import { QUESTS } from '../data/quests';
 import { SLIME, SLIME_AI, COIN, ITEM_DROP } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
@@ -542,7 +542,8 @@ export class World implements SkillWorld {
       const p = players.find(pl => overlaps(pl, c));
       if (p) {
         if (c.item) {
-          addItem(p.data, c.item, c.amt);
+          // 가방이 가득 차면 줍지 않고 바닥에 남는다
+          if (!addItem(p.data, c.item, c.amt)) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
           this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
         } else {
           p.data.gold += c.amt;

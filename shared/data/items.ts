@@ -69,4 +69,7 @@ export const SHOP_ITEMS: ItemId[] = [
 /** 처음 시작할 때 가진 물건 */
 export const START_ITEMS: { id: ItemId; n: number }[] = [{ id: 'hp', n: 3 }, { id: 'mp', n: 3 }];
 
+/** 가방 칸 수 (4칸 × 15줄). 장비는 1칸에 1개, 나머지는 같은 것끼리 1칸 */
+export const BAG_SIZE = 60;
+
 export const POTION = { hp: 50, mp: 40, cooldown: 0.8 };
