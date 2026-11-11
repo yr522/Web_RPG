@@ -25,6 +25,8 @@ export class Input {
     addEventListener('keydown', e => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       const a = KEYMAP[e.code];
+      // 컷신 중: 단축키까지 전부 막음
+      if (this.cutLock) return;
       if (this._blocked) { if ((e.code === 'KeyC' || e.code === 'KeyI') && !e.repeat) this.onHotkey(e.code); return; }
       if (a) {
         e.preventDefault();
@@ -52,12 +54,21 @@ export class Input {
   isHeld(a: Action) { return this.held.has(a); }
 
   private _blocked = false;
+  private dialogOpen = false;
+  private cutLock = false;
   /** 창이 열려 있는 동안 게임 입력을 막는다 */
-  set blocked(v: boolean) {
-    this._blocked = v;
-    if (v) { for (const a of [...this.held]) this.set(a, false); this.pressed.clear(); }
-  }
+  set blocked(v: boolean) { this.dialogOpen = v; this.apply(); }
   get blocked() { return this._blocked; }
+  /** 컷신 중 플레이어 조작 막기 (창이 닫혀도 계속 막힘) */
+  set locked(v: boolean) { this.cutLock = v; this.apply(); }
+  get locked() { return this.cutLock; }
+  private apply() {
+    this._blocked = this.dialogOpen || this.cutLock;
+    if (this._blocked) {
+      for (const a of [...this.held]) { this.held.delete(a); this.onChange(a, false); }
+      this.pressed.clear();
+    }
+  }
 
   /** 틱마다 한 번 호출 */
   readCommand(): Command {

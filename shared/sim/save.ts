@@ -27,7 +27,10 @@ export interface SaveData {
   /** 다음에 새로 얻는 장비에 붙일 번호 */
   nextUid: number;
   map: MapId;
-  quests: Record<string, { active: boolean; count: number }>;
+  /** 퀘스트 상태. done = 한 번이라도 끝냄 */
+  quests: Record<string, { active: boolean; count: number; done?: boolean }>;
+  /** 이야기 진행 플래그 (이름 → 숫자). 대사 조건·효과에서 씀 */
+  flags: Record<string, number>;
   /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
   attendedCycle: number;
   /** 테스트용 시간 당기기 (ms) */
@@ -42,7 +45,7 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     learned: {}, skillLevels: {},
     bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
-    quests: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
+    quests: {}, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
   for (const it of START_ITEMS) addItem(s, it.id, it.n);
   return s;

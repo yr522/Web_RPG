@@ -458,3 +458,6 @@ html, body {
 .inv-cell.picked > .item-ico { opacity: .35; }
 .inv-cell.drop { border-color: #2f8fe0; border-style: dashed; }
 .inv-ghost { position: fixed; z-index: 41; transform: translate(-50%, -50%); pointer-events: none; opacity: .85; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5)); }
+
+/* 컷신: 화면 UI 숨기기 */
+body.ui-off #hud, body.ui-off .inv { visibility: hidden; }
