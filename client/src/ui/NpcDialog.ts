@@ -70,6 +70,21 @@ export class NpcDialog {
     this.host.open(box, () => { this.refresh = null; this.pickElem = null; });
   }
 
+  /** 예 / 아니오 묻기 (포탈 들어가기 전 등) */
+  confirm(text: string, onYes: () => void) {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    body.appendChild(el('p', 'line', esc(text)));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '예', () => { this.host.close(); onYes(); }));
+    opts.appendChild(el('button', 'opt', '아니오', () => this.host.close()));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
   openShop() {
     const box = this.frame('매점 모리', moriPortrait, '🛒');
     this.refresh = () => this.renderShop();
@@ -129,7 +144,7 @@ export class NpcDialog {
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         line = step.line;
-        nameEl.textContent = step.who === 'player' ? this.session.save.name : npc.name;
+        nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && TALK_NPCS[step.who]?.name) || npc.name;
         render();
         return;
       }

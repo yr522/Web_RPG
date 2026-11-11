@@ -1,15 +1,17 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b';
+export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem';
 
 /**
  * 움직임 종류
  * - slime: 돌아다니며 폴짝, 쫓아올 때 웅크렸다 크게 점프 (SLIME_AI)
  * - walker: 돌아다니다가 보이면 걸어서 쫓아옴 (점프 없음)
  * - charger: 걸어서 쫓아오다가 가끔 멈춰 부들부들 떨고 앞으로 돌진 (CHARGER_AI)
+ * - flyer: 공중에 떠서 플레이어 쪽으로 날아옴, 부딪히기만 (FLYER_AI)
+ * - golem: 보스. 천천히 쫓아오며 내려치기·돌진 (GOLEM_AI, 보안장치 오브 BOSS_ORB)
  */
-export type MonsterAi = 'slime' | 'walker' | 'charger';
+export type MonsterAi = 'slime' | 'walker' | 'charger' | 'flyer' | 'golem';
 
 export interface MonsterDef {
   name: string;
@@ -26,6 +28,8 @@ export interface MonsterDef {
   chase: number;
   /** 원소 몬스터 (원소 상성이 크게 먹음) */
   elemental?: boolean;
+  /** 보스: 맞아도 안 밀리고 경직 없음, 소용돌이에 안 끌려감 */
+  boss?: boolean;
   /** 잡으면 확률로 떨어뜨리는 물건. max = 이만큼 가지고 있으면(바닥에 떨어진 것 포함) 안 떨어뜨림, quest = 이 퀘스트를 하는 중일 때만 */
   drops?: readonly { item: string; chance: number; max?: number; quest?: string }[];
 }
@@ -45,6 +49,9 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
     name: '경비기계B', hp: 650, exp: 45, touch: 22, gold: [30, 45], w: 56, h: 58, ai: 'charger', speed: [35, 45], chase: 1.5,
     drops: [{ item: 'workshop_key', chance: 0.05, max: 1, quest: 'mg9' }],
   },
+  guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
+  guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
+  golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 92, h: 140, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
 };
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */
@@ -77,6 +84,35 @@ export const CHARGER_AI = {
   dashTime: 0.45,
   dashSpeed: 420,
 };
+
+/** 날아다니는 몬스터: 알아채는 거리(가로·세로 다), 둥실둥실 */
+export const FLYER_AI = { sight: 360, bob: 18, bobSpeed: 2.5 };
+
+/** 마법 골렘 (보스) */
+export const GOLEM_AI = {
+  /** 다음 패턴까지 */
+  every: [2, 3] as const,
+  /** 1. 전방 내려치기: 플레이어가 앞쪽 이 거리 안이면. 예고 후 앞쪽 범위(폭·높이)에 피해 */
+  slamRange: 170,
+  slamWindup: 0.8,
+  slamW: 190,
+  slamH: 150,
+  slamDmg: 45,
+  slamRecover: 0.7,
+  /** 2. 돌진: 플레이어가 멀면 이 확률로. 예고 후 앞으로 맵 끝까지, 맞으면 기절 */
+  chargeChance: 0.45,
+  chargeWindup: 0.9,
+  chargeSpeed: 300,
+  chargeDmg: 30,
+  stunTime: 3,
+  /** 3. 오브에 이만큼 맞으면 기절 + 받는 피해 배수 */
+  groggyHits: 3,
+  groggyTime: 6,
+  groggyMult: 2,
+};
+
+/** 골렘 방 천장의 보안장치 (푸른 오브): 주기적으로 플레이어를 조준 → 그 방향으로 발사. 골렘도 맞음 */
+export const BOSS_ORB = { every: 4.5, aimTime: 1.1, speed: 520, r: 12, dmg: 25 };
 
 export const COIN = { life: 30, blinkLast: 5, size: 14 };
 /** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */

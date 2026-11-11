@@ -47,6 +47,8 @@ export interface QuestDef {
   auto?: boolean;
   /** 보고하면 바로 받는 다음 퀘스트 (자동 수락) */
   next?: string;
+  /** 끝났을 때 "퀘스트 완료!" 대신 띄울 큰 글씨 */
+  doneBanner?: string;
   /** 하는 동안 밤으로 고정 */
   nightLock?: boolean;
   /** 하는 동안 따라다니는 NPC (연출, 무적. 플레이어 직업이 그 NPC 와 같으면 안 나옴) */
@@ -69,7 +71,7 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'mg5', name: '마법사와 숲으로', desc: '밤의 숲 깊은 곳으로', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, next: 'mg6', nightLock: true,
+    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, next: 'mg6', nightLock: true, doneBanner: '"…접근하지 마라."',
     companion: { npc: 'mage_friend', notCls: 'mage' },
   },
   {
@@ -85,9 +87,18 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'visit', map: 'workshop_gate' }], reward: {}, auto: true, next: 'mg9',
   },
   {
-    // 공방 안이 생기면 입구에서 이 물건을 쓰고 들어감 (지금은 여기까지)
-    id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템 얻기', giver: 'mage_friend', where: 'guard_b',
-    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: {},
+    // 공방 퀘스트 템이 있으면 공방 입구의 포탈이 열림 → 들어가면 끝 (템은 이때 씀)
+    id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템을 얻어 공방 안으로', giver: 'mage_friend',
+    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }, { kind: 'visit', map: 'workshop' }], reward: {}, auto: true, next: 'mg10',
+  },
+  {
+    id: 'mg10', name: '공방 지하', desc: '공방 지하의 경비기계 전부 처치', giver: 'mage_friend', where: 'under_trial',
+    goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: {}, auto: true, next: 'mg11',
+    doneBanner: '강력한 기운이 느껴진다',
+  },
+  {
+    id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, auto: true,
   },
 
   {

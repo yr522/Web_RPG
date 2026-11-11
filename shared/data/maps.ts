@@ -7,14 +7,20 @@ export const GROUND_Y = 470;
 
 export interface Platform { x: number; y: number; w: number; h?: number }
 /** when: 이 조건이 맞을 때만 보이고 탈 수 있음 (npcs.ts 의 Cond) */
-export interface Portal { x: number; to: MapId; toX: number; label: string; when?: Cond }
+export interface Portal {
+  x: number; to: MapId; toX: number; label: string; when?: Cond;
+  /** 포탈이 서 있는 높이 (발 높이, 없으면 땅) / 도착 높이 (없으면 땅) */
+  y?: number; toY?: number;
+  /** 들어가기 전에 물어봄 */
+  confirm?: string;
+}
 /** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
-export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number }
+export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean }
 
-export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet';
+export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under' | 'golem_room';
 
 export interface MapDef {
   name: string;
@@ -27,6 +33,12 @@ export interface MapDef {
   bg?: { img: string; groundY: number };
   /** 조건이 맞으면 같은 자리의 다른 맵으로 바뀜 (몬스터 없는 맵 → 있는 맵 등) */
   becomes?: { when: Cond; to: MapId };
+  /** 세로로 긴 맵: 맵 맨 위 y (음수, 없으면 한 화면) */
+  top?: number;
+  /** 배경을 그림·하늘 대신 한 가지 색으로 */
+  bgColor?: number;
+  /** 보스 방 천장 보안장치 위치 */
+  orb?: { x: number; y: number };
   /** 몬스터가 없는 안전 지대: 체력이 천천히 회복 */
   safe?: boolean;
   platforms: Platform[];
@@ -40,6 +52,19 @@ export interface MapDef {
 const friend = (c: Cond): Cond => ({ all: [{ not: { cls: 'mage' } }, c] });
 
 const slimes = (xs: [number, number?][]): Spawn[] => xs.map(([x, y]) => ({ x, mob: 'slime', y }));
+
+/** 공방 지하 모양: 맨 위 가운데 발판(시작) + 양옆 발판 3개씩 (가운데는 비움) + 바닥. 발판 간격은 점프로 오를 수 있게 */
+const UNDER = (() => {
+  const top = GROUND_Y - 125 * 4;
+  const rows = [GROUND_Y - 125, GROUND_Y - 250, GROUND_Y - 375];
+  const platforms: Platform[] = [{ x: 400, y: top, w: 240 }];
+  for (const y of rows) platforms.push({ x: 40, y, w: 300 }, { x: 700, y, w: 300 });
+  const spawns: Spawn[] = [
+    { x: 120, mob: 'guard_c', y: rows[0] - 60 }, { x: 800, mob: 'guard_c', y: rows[1] - 60 }, { x: 150, mob: 'guard_c', y: rows[2] - 60 }, { x: 760, mob: 'guard_c' },
+    { x: 300, mob: 'guard_d', y: rows[1] - 40 }, { x: 860, mob: 'guard_d', y: rows[2] + 60 }, { x: 500, mob: 'guard_d', y: rows[0] - 60 }, { x: 260, mob: 'guard_d', y: GROUND_Y - 120 },
+  ];
+  return { width: 1040, top, platforms, spawns };
+})();
 
 export const MAPS: Record<MapId, MapDef> = {
   school: {
@@ -119,7 +144,11 @@ export const MAPS: Record<MapId, MapDef> = {
   workshop_gate: {
     name: '공방 입구', width: 1088, bg: { img: 'workshop_gate', groundY: 722 },
     platforms: [],
-    portals: [{ x: 1010, to: 'guard_b', toX: 180, label: '경비기계B 지역' }],
+    portals: [
+      { x: 1010, to: 'guard_b', toX: 180, label: '경비기계B 지역' },
+      // 공방 퀘스트 템이 있으면 열림
+      { x: 684, to: 'workshop', toX: 1030, label: '공방 내부', when: { any: [{ has: 'workshop_key' }, { quest: 'mg9', state: 'done' }] } },
+    ],
     npcs: [{ id: 'mage_friend', x: 560, when: friend({ quest: 'mg7', state: 'done' }) }],
     signs: [],
     spawns: [],
@@ -142,5 +171,49 @@ export const MAPS: Record<MapId, MapDef> = {
     npcs: [{ id: 'bed', x: 300 }],
     signs: [],
     spawns: [],
+  },
+  // 공방 내부 (배경 그림 1774×887, 발 줄 716)
+  workshop: {
+    name: '공방 내부', width: 1164, bg: { img: 'workshop', groundY: 716 }, safe: true,
+    platforms: [],
+    portals: [
+      { x: 1100, to: 'workshop_gate', toX: 600, label: '공방 입구' },
+      // 지하: 처음엔 시험(갇힘), 골렘을 잡은 뒤로는 보통 사냥터
+      { x: 120, to: 'under_trial', toX: 520, toY: UNDER.top, label: '공방 지하', when: { not: { quest: 'mg11', state: 'done' } } },
+      { x: 120, to: 'under', toX: 520, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
+    ],
+    npcs: [{ id: 'mage_friend', x: 860, when: friend({ quest: 'mg10', state: 'active' }) }],
+    signs: [],
+    spawns: [],
+  },
+  // 공방 지하 (세로로 긴 맵, 배경 색만): 위 발판에서 시작 → 양옆 발판 3개씩 → 바닥 가운데 골렘 방 포탈
+  // 시험: 들어오면 갇힘 (나가는 포탈 없음), 몬스터 한 번씩만. 다 잡으면 바닥 가운데 포탈이 열림. 골렘을 잡으면 보통 사냥터로 바뀜
+  under_trial: {
+    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    platforms: UNDER.platforms,
+    portals: [
+      { x: 500, to: 'golem_room', toX: 200, label: '???', when: { quest: 'mg10', state: 'done' }, confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
+    ],
+    npcs: [],
+    signs: [],
+    spawns: UNDER.spawns.map(sp => ({ ...sp, once: true })),
+    becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
+  },
+  under: {
+    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    platforms: UNDER.platforms,
+    portals: [{ x: 520, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' }],
+    npcs: [],
+    signs: [],
+    spawns: UNDER.spawns,
+  },
+  // 골렘 방 (슬라임 맵 크기). 골렘은 한 번만, 잡으면 나가는 포탈
+  golem_room: {
+    name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
+    platforms: [],
+    portals: [{ x: 120, to: 'under', toX: 500, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
+    npcs: [],
+    signs: [],
+    spawns: [{ x: 900, mob: 'golem', once: true }],
   },
 };

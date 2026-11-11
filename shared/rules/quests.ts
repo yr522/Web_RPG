@@ -2,7 +2,7 @@
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
 import { questDef, type QuestDef } from '../data/quests';
 import { MAPS, type MapId } from '../data/maps';
-import type { MonsterId } from '../data/monsters';
+import { MONSTERS, type MonsterId } from '../data/monsters';
 import { TALK_NPCS } from '../data/npcs';
 import { mapNpcs } from './story';
 import { itemDef } from '../data/items';
@@ -119,7 +119,7 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   // 다음 퀘스트 바로 받기
   let nextMsg: string | undefined;
   if (q.next) nextMsg = acceptQuest(s, q.next).msg;
-  return { ...res, ok: true, banner: res.banner ?? `퀘스트 완료!${parts.length ? ` ${parts.join(' · ')}` : ''}`, msg: nextMsg ?? res.msg };
+  return { ...res, ok: true, banner: res.banner ?? q.doneBanner ?? `퀘스트 완료!${parts.length ? ` ${parts.join(' · ')}` : ''}`, msg: nextMsg ?? res.msg };
 }
 
 /** 다 한 자동 보고 퀘스트를 보고 (다음 퀘스트가 바로 끝나면 이어서). 결과들을 돌려준다 */
@@ -205,7 +205,15 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
         return id ? { map: id } : null;
       }
       case 'learn': return npcPlace('prof', s);
-      case 'collect': case 'level': case 'equip': continue;
+      case 'collect': {
+        // 그 물건을 떨어뜨리는 몬스터가 있는 맵
+        const item = g.item;
+        const mob = (Object.keys(MONSTERS) as MonsterId[]).find(m => MONSTERS[m].drops?.some(d => d.item === item && (!d.quest || d.quest === q.id)));
+        const id = mob && (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => sp.mob === mob));
+        if (id) return { map: id };
+        continue;
+      }
+      case 'level': case 'equip': continue;
     }
   }
   return null;
