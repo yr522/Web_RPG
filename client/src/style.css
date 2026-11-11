@@ -429,8 +429,9 @@ html, body {
 }
 .inv-eq-grid { position: relative; display: grid; grid-template-columns: repeat(3, var(--cell)); gap: calc(5 * var(--s)) calc(9 * var(--s)); padding: calc(4 * var(--s)) calc(7 * var(--s)); }
 .inv-cell.eq { border-radius: calc(8 * var(--s)); }
-.inv-cell.eq.empty { background: #6e6e6e; }
-/* 빈 장비 칸 아이콘: 흰 선 그림이 잘 보이게 칸을 어둡게 */
+/* 장비 칸: 비어 있든 끼고 있든 반투명 배경 (뒤 캐릭터 그림이 비침) */
+.inv-cell.eq { background: rgba(179, 179, 179, .8); }
+/* 빈 장비 칸 부위 아이콘 */
 .inv-slot-ico { width: var(--ico); height: var(--ico); image-rendering: pixelated; pointer-events: none; }
 .inv-gap { width: var(--cell); height: var(--cell); }
 
