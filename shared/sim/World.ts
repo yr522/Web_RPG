@@ -7,7 +7,7 @@ import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import type { QuestDef } from '../data/quests';
 import { TALK_NPCS } from '../data/npcs';
-import { collectReady, questsOnKill, questsOnVisit } from '../rules/quests';
+import { newlyReady, questsOnKill, questsOnVisit, reportTo } from '../rules/quests';
 import { SLIME, SLIME_AI, COIN, ITEM_DROP } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
@@ -76,7 +76,7 @@ export class World implements SkillWorld {
 
   /** 퀘스트를 다 했을 때 큰 글씨 알림 (누구에게 보고하는지) */
   private questReady(p: PlayerState, q: QuestDef) {
-    const who = q.giver === 'prof' ? '교수님' : TALK_NPCS[q.giver]?.name ?? q.giver;
+    const to = reportTo(q), who = to === 'prof' ? '교수님' : TALK_NPCS[to]?.name ?? to;
     this.events.push({ type: 'banner', playerId: p.id, text: `퀘스트 완료! ${who}께 가자`, color: '#9ef0a0' });
   }
 
@@ -574,9 +574,10 @@ export class World implements SkillWorld {
       if (p) {
         if (c.item) {
           // 가방이 가득 차면 줍지 않고 바닥에 남는다
-          const before = collectReady(p.data);
-          if (!addItem(p.data, c.item, c.amt)) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
-          for (const q of collectReady(p.data)) if (!before.includes(q)) this.questReady(p, q);
+          let added = false;
+          const ready = newlyReady(p.data, () => { added = addItem(p.data, c.item!, c.amt); });
+          if (!added) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
+          for (const q of ready) this.questReady(p, q);
           this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
         } else {
           p.data.gold += c.amt;

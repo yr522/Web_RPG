@@ -1,5 +1,6 @@
 // 퀘스트 (기획서 6장).
 // - 교수님 반복 퀘스트: giver 'prof', repeat true → 교수님 퀘스트 메뉴에 나옴
+// - 목표(goals)는 여러 개 가능, 전부 해야 보고
 // - 이야기 퀘스트: 대화 NPC 대사의 { do: { quest: 'give', id } } 로 받고, { do: { quest: 'report', id } } 로 보고
 import type { MapId } from './maps';
 
@@ -25,7 +26,8 @@ export interface QuestDef {
   id: string;
   name: string;
   desc: string;
-  goal: QuestGoal;
+  /** 목표들. 여러 개면 전부 해야 보고할 수 있다 (동시에 진행) */
+  goals: QuestGoal[];
   reward: QuestReward;
   /** 누가 주는지: 'prof'(교수님 메뉴) 또는 대화 NPC id */
   giver: string;
@@ -38,28 +40,28 @@ export interface QuestDef {
 export const QUESTS: QuestDef[] = [
   {
     id: 'q1', name: '슬라임 퇴치', desc: '학교 뒷숲에서 일반 슬라임 8마리 처치', giver: 'prof', repeat: true,
-    goal: { kind: 'kill', target: 'normal', n: 8 }, reward: { exp: lv => 60 + lv * 12 },
+    goals: [{ kind: 'kill', target: 'normal', n: 8 }], reward: { exp: lv => 60 + lv * 12 },
   },
   {
     id: 'q2', name: '원소 슬라임 조사', desc: '원소 슬라임 서식지에서 원소 슬라임 5마리 처치', giver: 'prof', repeat: true,
-    goal: { kind: 'kill', target: 'elemental', n: 5 }, reward: { exp: lv => 100 + lv * 18 },
+    goals: [{ kind: 'kill', target: 'elemental', n: 5 }], reward: { exp: lv => 100 + lv * 18 },
   },
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움) ----
   {
     id: 'test_gel', name: '테스트 퀘스트: 점액 모으기', desc: '슬라임 점액 3개를 테스트 NPC 에게', giver: 'story_test',
-    goal: { kind: 'collect', item: 'slime_gel', n: 3 }, reward: { exp: 50, gold: 100, items: [{ id: 'hp', n: 2 }] }, where: 'field',
+    goals: [{ kind: 'collect', item: 'slime_gel', n: 3 }], reward: { exp: 50, gold: 100, items: [{ id: 'hp', n: 2 }] }, where: 'field',
   },
   {
     id: 'test_visit', name: '테스트 퀘스트: 서식지 가 보기', desc: '원소 슬라임 서식지에 가 보기', giver: 'story_test',
-    goal: { kind: 'visit', map: 'field2' }, reward: { exp: 30 },
+    goals: [{ kind: 'visit', map: 'field2' }], reward: { exp: 30 },
   },
   {
     id: 'test_talk', name: '테스트 퀘스트: 말 걸기', desc: '테스트 NPC 에게 말 걸기', giver: 'story_test',
-    goal: { kind: 'talk', npc: 'story_test' }, reward: { gold: 50 },
+    goals: [{ kind: 'talk', npc: 'story_test' }], reward: { gold: 50 },
   },
   {
     id: 'test_boss', name: '테스트 퀘스트: 이름표 몬스터', desc: '컷신에서 나온 테스트 슬라임 처치 (다른 슬라임은 안 셈)', giver: 'story_test',
-    goal: { kind: 'kill', target: 'any', n: 1, tag: 'test_boss' }, reward: { exp: 40 },
+    goals: [{ kind: 'kill', target: 'any', n: 1, tag: 'test_boss' }], reward: { exp: 40 },
   },
 ];
 
