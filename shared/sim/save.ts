@@ -3,7 +3,7 @@ import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, START_STAT, type C
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 import { START_ITEMS, type EquipSlot } from '../data/items';
-import { addItem, totalStats, type BagEntry } from '../rules/inventory';
+import { addItem, emptyBag, migrateBag, totalStats, type Bag } from '../rules/inventory';
 
 export type Gender = 'M' | 'F';
 
@@ -20,10 +20,12 @@ export interface SaveData {
   /** 배운 스킬 → 고른 원소 (원소 없는 스킬은 null) */
   learned: Record<string, Element | null>;
   skillLevels: Record<string, number>;
-  /** 가방 (얻은 순서대로) */
-  bag: BagEntry[];
-  /** 장비 칸 → 아이템 id */
-  equip: Partial<Record<EquipSlot, string>>;
+  /** 가방 (BAG_SIZE 칸, 빈 칸 = null) */
+  bag: Bag;
+  /** 장비 칸 → 끼고 있는 가방 장비의 uid (장비는 껴도 가방에 남아 있다) */
+  equip: Partial<Record<EquipSlot, number>>;
+  /** 다음에 새로 얻는 장비에 붙일 번호 */
+  nextUid: number;
   map: MapId;
   quests: Record<string, { active: boolean; count: number }>;
   /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
@@ -38,7 +40,7 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     version: 1, name, cls, gender, level: 1, exp: 0, gold: 0,
     stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
     learned: {}, skillLevels: {},
-    bag: [], equip: {},
+    bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
     quests: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
@@ -66,13 +68,10 @@ export function createSave(name: string, cls: ClassId, gender: Gender, add: Reco
 export function normalizeSave(s: SaveData): SaveData {
   const d = newSave(s.name, s.cls, s.gender);
   const out: SaveData = { ...d, ...s, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip } };
-  // 예전 소지품 { hp, mp, reset } → 가방
+  // 예전 소지품 { hp, mp, reset } → 가방, 예전 가방·장비 형태 → 지금 형태
   const old = (s as unknown as { inventory?: Record<string, number> }).inventory;
-  if (!s.bag) {
-    out.bag = [];
-    if (old) for (const [id, n] of Object.entries(old)) addItem(out, id, n);
-    else out.bag = d.bag;
-  }
+  if (!s.bag) out.bag = old ? [] : d.bag;
+  migrateBag(out, old);
   delete (out as unknown as { inventory?: unknown }).inventory;
   return out;
 }

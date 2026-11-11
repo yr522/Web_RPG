@@ -1,7 +1,10 @@
 // 인벤토리 창 (I). 게임을 멈추지 않는 떠 있는 창.
 // 오른쪽: 가방 (전체·장비·소비·기타 탭), 왼쪽 위 버튼을 누르면 왼쪽에 장비창이 펼쳐진다.
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
+// 가방 칸은 끌어다 놓아 옮길 수 있다 (빈 칸이면 옮기고, 물건이 있으면 자리 바꿈). 아래 정렬 버튼으로 자동 정렬.
+// 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
 import { BAG_SIZE, EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { equippedEntry, equippedSlot } from '@shared/rules/inventory';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -16,6 +19,8 @@ import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_ar
 const COLS = 4, VISIBLE_ROWS = 5;
 /** 두 번 터치 인정 시간 (ms) */
 const DOUBLE_TAP = 350;
+/** 이만큼(px) 움직이면 끌기 시작 */
+const DRAG_START = 6;
 /** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
 const EQUIP_GRID: (EquipSlot | null)[] = [
   null, 'hat', null,
@@ -39,6 +44,10 @@ export class InventoryWindow {
   private tip = new ItemTip();
   private lastTap = { key: '', t: 0 };
   private resetArmed = 0;
+  /** 마지막으로 누른 포인터 종류 (모바일 길게 누르기가 우클릭으로 처리되지 않게) */
+  private lastPointer = 'mouse';
+  /** 끌기 중: 집은 칸(가방 번호), 따라다니는 아이콘 */
+  private drag: { pid: number; from: number; x: number; y: number; on: boolean; ghost: HTMLElement | null } | null = null;
 
   constructor(private session: Session, private hud: Hud) {
     // 장비창 (왼쪽)
@@ -55,6 +64,9 @@ export class InventoryWindow {
     eqBody.appendChild(fig);
     eqBody.appendChild(this.equipGrid);
     this.equipPanel.appendChild(eqBody);
+    const eqFoot = el('div', 'inv-bar inv-foot');
+    this.bindDrag(eqFoot);
+    this.equipPanel.appendChild(eqFoot);
 
     // 가방 (오른쪽)
     const main = el('div', 'inv-panel inv-main');
@@ -75,6 +87,14 @@ export class InventoryWindow {
     body.appendChild(this.grid);
     body.appendChild(this.makeScrollbar());
     main.appendChild(body);
+    // 아래 여백줄: 오른쪽에 자동 정렬 버튼
+    const foot = el('div', 'inv-bar inv-foot');
+    this.bindDrag(foot);
+    foot.appendChild(el('span', 'inv-title'));
+    const sortBtn = el('button', 'inv-btn inv-sort', '<i></i><i></i><i></i>', () => this.result(this.session.act({ type: 'sortBag' })));
+    sortBtn.title = '자동 정렬';
+    foot.appendChild(sortBtn);
+    main.appendChild(foot);
 
     this.root.appendChild(this.equipPanel);
     this.root.appendChild(main);
@@ -83,8 +103,12 @@ export class InventoryWindow {
 
     // 모바일: 칸 밖 아무 데나 터치하면 설명 닫기
     document.addEventListener('pointerdown', e => {
+      this.lastPointer = e.pointerType;
       if (e.pointerType !== 'mouse' && !(e.target as HTMLElement).closest?.('.inv-cell')) this.tip.hide();
     }, true);
+    addEventListener('pointermove', e => this.dragMove(e));
+    addEventListener('pointerup', e => this.dragEnd(e));
+    addEventListener('pointercancel', e => { if (this.drag?.pid === e.pointerId) this.dragCancel(); });
     this.setExpanded(false);
     // 화면 크기가 바뀌면 창이 화면 밖으로 나가지 않게
     addEventListener('resize', () => this.keepInside());
@@ -154,7 +178,7 @@ export class InventoryWindow {
 
   /** 매 프레임: 가방·장비가 바뀌었을 때만 다시 그린다 */
   update() {
-    if (!this.isOpen) return;
+    if (!this.isOpen || this.drag?.on) return;
     const s = this.session.save;
     const sig = JSON.stringify([s.bag, s.equip, this.tab, this.expanded]);
     if (sig === this.sig) return;
@@ -168,17 +192,24 @@ export class InventoryWindow {
     this.tip.hide();
     for (const b of this.tabsEl.children) (b as HTMLElement).classList.toggle('on', (b as HTMLElement).dataset.tab === this.tab);
 
-    // 가방: 탭에 맞는 물건만, 얻은 순서대로
+    // 가방: 전체 탭은 실제 칸 그대로(빈 칸 유지), 다른 탭은 그 종류만 앞에서부터
     this.grid.innerHTML = '';
-    const list = s.bag.map((e, i) => ({ e, i })).filter(({ e }) => this.tab === 'all' || itemDef(e.id)?.kind === this.tab);
-    const cells = Math.max(BAG_SIZE, VISIBLE_ROWS * COLS, Math.ceil(list.length / COLS) * COLS);
+    const list = this.tab === 'all'
+      ? s.bag.map((e, i) => ({ e, i }))
+      : s.bag.map((e, i) => ({ e, i })).filter(({ e }) => e && itemDef(e.id)?.kind === this.tab);
+    const cells = Math.max(BAG_SIZE, VISIBLE_ROWS * COLS);
     for (let c = 0; c < cells; c++) {
       const it = list[c];
       const cell = el('div', 'inv-cell');
-      if (it) {
-        cell.appendChild(itemIcon(it.e.id));
-        if (it.e.n > 1) cell.appendChild(el('span', 'inv-n', String(it.e.n)));
-        this.bindCell(cell, `bag${it.i}:${it.e.id}`, it.e.id, () => this.useBag(it.i, it.e.id));
+      if (it) cell.dataset.index = String(it.i);
+      const e = it?.e;
+      if (e && it) {
+        cell.classList.add('has');
+        cell.appendChild(itemIcon(e.id));
+        if (e.n > 1) cell.appendChild(el('span', 'inv-n', String(e.n)));
+        if (equippedSlot(s, e.uid)) { cell.classList.add('on'); cell.appendChild(el('span', 'inv-on', 'on')); }
+        this.bindCell(cell, `bag${it.i}:${e.id}:${e.uid ?? ''}`, e.id, () => this.useBag(it.i, e.id));
+        this.bindItemDrag(cell, it.i);
       }
       this.grid.appendChild(cell);
     }
@@ -189,15 +220,83 @@ export class InventoryWindow {
       this.equipGrid.innerHTML = '';
       for (const slot of EQUIP_GRID) {
         if (!slot) { this.equipGrid.appendChild(el('div', 'inv-gap')); continue; }
-        const id = s.equip[slot];
-        const cell = el('div', 'inv-cell eq' + (id ? '' : ' empty'));
-        if (id) {
-          cell.appendChild(itemIcon(id));
-          this.bindCell(cell, `eq:${slot}:${id}`, id, () => this.result(this.session.act({ type: 'unequip', slot })));
+        const e = equippedEntry(s, slot);
+        const cell = el('div', 'inv-cell eq' + (e ? '' : ' empty'));
+        if (e) {
+          cell.appendChild(itemIcon(e.id));
+          this.bindCell(cell, `eq:${slot}:${e.uid}`, e.id, () => this.result(this.session.act({ type: 'unequip', slot })));
         } else cell.appendChild(el('span', 'inv-label', EQUIP_SLOTS[slot]));
         this.equipGrid.appendChild(cell);
       }
     }
+  }
+
+  // ---------- 끌어다 놓기 ----------
+  private bindItemDrag(cell: HTMLElement, index: number) {
+    cell.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      this.dragCancel();
+      this.drag = { pid: e.pointerId, from: index, x: e.clientX, y: e.clientY, on: false, ghost: null };
+    });
+  }
+
+  private dragMove(e: PointerEvent) {
+    const d = this.drag;
+    if (!d || d.pid !== e.pointerId) return;
+    if (!d.on) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_START) return;
+      // 끌기 시작: 집은 칸 표시 + 아이콘이 손가락(마우스)을 따라다님
+      const entry = this.session.save.bag[d.from];
+      if (!entry) { this.drag = null; return; }
+      d.on = true;
+      this.tip.hide();
+      this.cellAt(d.from)?.classList.add('picked');
+      d.ghost = el('div', 'inv-ghost');
+      const icoW = this.cellAt(d.from)?.querySelector('.item-ico')?.getBoundingClientRect().width;
+      if (icoW) d.ghost.style.setProperty('--ico', `${icoW}px`);
+      d.ghost.appendChild(itemIcon(entry.id));
+      // 창(.inv)에는 그림자 효과가 있어 안에 넣으면 위치가 어긋나므로 문서에 바로 붙인다
+      document.body.appendChild(d.ghost);
+    }
+    e.preventDefault();
+    d.ghost!.style.left = `${e.clientX}px`;
+    d.ghost!.style.top = `${e.clientY}px`;
+    const target = this.dropTarget(e);
+    for (const c of this.grid.querySelectorAll('.drop')) if (c !== target) c.classList.remove('drop');
+    if (target && Number(target.dataset.index) !== d.from) target.classList.add('drop');
+  }
+
+  private dragEnd(e: PointerEvent) {
+    const d = this.drag;
+    if (!d || d.pid !== e.pointerId) return;
+    if (d.on) {
+      const target = this.dropTarget(e);
+      this.dragCancel();
+      // 끌기 직후의 터치는 두 번 터치로 치지 않음
+      this.lastTap = { key: '', t: 0 };
+      if (target) {
+        const to = Number(target.dataset.index);
+        if (to !== d.from) this.result(this.session.act({ type: 'moveItem', from: d.from, to }));
+      }
+    } else this.drag = null;
+  }
+
+  private dragCancel() {
+    this.drag?.ghost?.remove();
+    this.drag = null;
+    for (const c of this.grid.querySelectorAll('.picked, .drop')) c.classList.remove('picked', 'drop');
+    this.sig = '';
+  }
+
+  /** 포인터 아래의 가방 칸 (가방 번호가 있는 칸만) */
+  private dropTarget(e: PointerEvent): HTMLElement | null {
+    const hit = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const cell = hit?.closest<HTMLElement>('.inv-grid .inv-cell');
+    return cell?.dataset.index !== undefined ? cell : null;
+  }
+
+  private cellAt(index: number) {
+    return this.grid.querySelector<HTMLElement>(`.inv-cell[data-index="${index}"]`);
   }
 
   /** 가방 오른쪽 휠 (모바일에서도 보이게 직접 그림). 휠 굴리기·손잡이 끌기·막대 누르기로 내려 본다 */
@@ -241,9 +340,11 @@ export class InventoryWindow {
   private bindCell(cell: HTMLElement, key: string, id: string, action: () => void) {
     cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY); });
     cell.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') this.tip.hide(); });
-    cell.addEventListener('contextmenu', e => { e.preventDefault(); action(); });
+    cell.addEventListener('contextmenu', e => { e.preventDefault(); if (this.lastPointer === 'mouse') action(); });
     cell.addEventListener('pointerup', e => {
       if (e.pointerType === 'mouse') return;
+      // 끌기를 놓는 순간은 터치로 치지 않음 (칸의 pointerup 이 창 전체보다 먼저 온다)
+      if (this.drag?.on) return;
       const now = performance.now();
       if (this.lastTap.key === key && now - this.lastTap.t < DOUBLE_TAP) {
         this.lastTap = { key: '', t: 0 };
@@ -257,7 +358,7 @@ export class InventoryWindow {
     });
   }
 
-  /** 가방 칸 우클릭: 장비는 장착, 포션·주문서는 사용 */
+  /** 가방 칸 우클릭: 장비는 장착·해제, 포션·주문서는 사용 */
   private useBag(index: number, id: string) {
     const d = itemDef(id);
     if (!d) return;
