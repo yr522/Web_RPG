@@ -3,7 +3,8 @@ export const GROUND_Y = 470;
 
 export interface Platform { x: number; y: number; w: number; h?: number }
 export interface Portal { x: number; to: MapId; toX: number; label: string }
-export interface Npc { id: 'prof' | 'shop'; x: number }
+/** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC */
+export interface Npc { id: string; x: number }
 export interface Sign { x: number; text: string }
 export type Spawn = [x: number, element?: string | null, y?: number];
 
@@ -27,7 +28,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '마법 학교', width: 1700, building: true, safe: true,
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [{ x: 1610, to: 'field', toX: 270, label: '학교 뒷숲' }],
-    npcs: [{ id: 'prof', x: 860 }, { id: 'shop', x: 1160 }],
+    npcs: [{ id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 }],
     signs: [{ x: 1480, text: '학교 뒷숲 →' }, { x: 200, text: '기숙사 (준비 중)' }],
     spawns: [],
   },

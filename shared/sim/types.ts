@@ -30,7 +30,9 @@ export type GameEvent =
   | { type: 'mapEnter'; playerId: EntityId; map: MapId }
   | { type: 'notice'; playerId: EntityId; text: string }
   /** NPC 앞에서 ↑ */
-  | { type: 'interact'; playerId: EntityId; npc: 'prof' | 'shop' }
+  | { type: 'interact'; playerId: EntityId; npc: string }
+  /** 머리 위 말풍선 (who = 플레이어 id 또는 'npc:<NPC id>'). 시나리오 장면용 */
+  | { type: 'say'; who: string; text: string; life?: number }
   /** 머리 위에 떠오르는 글자 (피해, 회복 등) */
   | { type: 'float'; x: number; y: number; text: string; color: string; size?: number; life?: number }
   /** 화면 가운데 큰 글씨 */

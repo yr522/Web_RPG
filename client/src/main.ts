@@ -56,7 +56,7 @@ async function boot() {
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
   const charWindow = new CharWindow(dialogs, session, hud);
-  const openNpc = (id: 'prof' | 'shop') => (id === 'shop' ? npcDialog.openShop() : npcDialog.openProfessor());
+  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? npcDialog.openProfessor() : npcDialog.openTalk(id));
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
