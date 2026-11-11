@@ -441,3 +441,20 @@ html, body {
 .item-tip b { display: block; font-size: 16px; margin-bottom: 2px; }
 .item-tip span { font-size: 13px; font-weight: 300; }
 .stat .eqb { width: 26px; color: #7fd0ff; font-size: 12px; font-weight: 700; }
+
+/* 인벤토리 아래 여백줄 (윗줄과 같은 파란 줄) · 자동 정렬 버튼 (네모 안 가로줄 셋) */
+.inv-foot { height: calc(22 * var(--s)); }
+.inv-sort { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(2 * var(--s)); }
+.inv-sort i { display: block; width: 60%; height: max(1px, 1.5 * var(--s)); background: #fff; border-radius: 1px; }
+/* 끼고 있는 장비 칸: 주황 + 오른쪽 위 on */
+.inv-cell.on { background: #f2b450; border-color: #ffe2a8; }
+.inv-on {
+  position: absolute; right: calc(2 * var(--s)); top: 0; font-size: max(8px, 9 * var(--s)); font-weight: 700; color: #fff;
+  text-shadow: 0 0 2px #7a3d00, 0 0 2px #7a3d00; pointer-events: none; line-height: 1.2;
+}
+/* 끌어다 놓기: 집은 칸, 놓을 칸, 따라다니는 아이콘 */
+.inv-cell.has { touch-action: none; cursor: grab; }
+.inv-cell.picked { border-color: #2f8fe0; box-shadow: inset 0 0 0 calc(2 * var(--s)) #2f8fe0; }
+.inv-cell.picked > .item-ico { opacity: .35; }
+.inv-cell.drop { border-color: #2f8fe0; border-style: dashed; }
+.inv-ghost { position: fixed; z-index: 41; transform: translate(-50%, -50%); pointer-events: none; opacity: .85; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5)); }

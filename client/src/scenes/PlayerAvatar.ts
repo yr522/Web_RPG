@@ -14,6 +14,9 @@ import swordArm from '../../../assets/img/sprites/bones/attack_sword/player_bone
 import bowBody from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_body.png';
 import bowHead from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_head.png';
 import bowArm from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_frontarm.png';
+import staffBody from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_body.png';
+import staffHead from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_head.png';
+import staffArm from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_frontarm.png';
 
 /** 파츠 한 칸 크기 (에셋 규격: 96×96) */
 export const CELL = 96;
@@ -32,18 +35,20 @@ type Part = (typeof PARTS)[number];
 /**
  * 모션 시트. 지금은 모든 직업이 같은 뼈대(bone) 그림을 임시로 쓴다.
  * - walk: 0 기본 · 1·2 걷기 · 3 공중 · 4 앉기
- * - sword: 0 휘두르기 전 · 1 휘두름 (마법사도 임시로 이 그림)
+ * - sword: 0 휘두르기 전 · 1 휘두름
+ * - staff: 0 마법 쏘기 전 · 1 쏨 (검과 같은 방식으로 씀)
  * - bow: 0 활 당기기 시작 · 1 당기는 중 · 2 화살 발사됨
  */
 export const SHEETS = {
   walk: { body: walkBody, head: walkHead, front_arm: walkArm },
   sword: { body: swordBody, head: swordHead, front_arm: swordArm },
   bow: { body: bowBody, head: bowHead, front_arm: bowArm },
+  staff: { body: staffBody, head: staffHead, front_arm: staffArm },
 } as const satisfies Record<string, Record<Part, string>>;
 export type SheetName = keyof typeof SHEETS;
 
 /** 직업별 공격 그림 */
-export const ATTACK_SHEET: Record<ClassId, SheetName> = { warrior: 'sword', mage: 'sword', archer: 'bow' };
+export const ATTACK_SHEET: Record<ClassId, SheetName> = { warrior: 'sword', mage: 'staff', archer: 'bow' };
 
 const texKey = (sheet: SheetName, part: Part) => `pl_${sheet}_${part}`;
 
@@ -59,7 +64,7 @@ const LOOPS = {
 } as const;
 type LoopName = keyof typeof LOOPS;
 
-/** 검 휘두름: 판정이 나온 뒤 이 시간 동안 휘두른 그림 */
+/** 검 휘두름·마법 쏨: 판정이 나온 뒤 이 시간 동안 휘두른(쏜) 그림 */
 const SWING_SHOW = 0.07;
 
 interface Pose { sheet: SheetName; frame: number }
