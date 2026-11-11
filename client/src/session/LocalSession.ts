@@ -7,7 +7,10 @@ import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
 import type { Element } from '@shared/data/elements';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
-import { newlyReady, questReadyText } from '@shared/rules/quests';
+import { autoReport, newlyReady, nightLocked, questReadyText } from '@shared/rules/quests';
+import { MAPS } from '@shared/data/maps';
+import { checkCond } from '@shared/rules/story';
+import { nightOf } from '@shared/sim/clock';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -53,17 +56,37 @@ export class LocalSession implements Session {
     this.prev = { x: p.x, y: p.y };
     this.save.map = map;
     void this.store.save(this.save);
+    this.checkBecomes();
   }
 
-  nowMs() { return Date.now() + this.save.timeOffset; }
+  /** 지금 맵이 조건에 따라 다른 맵으로 바뀌어야 하면 같은 자리로 옮김 (몬스터 없는 숲 → 있는 숲) */
+  private checkBecomes() {
+    const b = MAPS[this.world.mapId].becomes;
+    if (!b || !checkCond(this.save, b.when)) return;
+    const me = this.me();
+    this.pending.push(...this.world.takeEvents());
+    this.enter(b.to, me.x, { hp: me.hp, mp: me.mp });
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: b.to });
+  }
+
+  nowMs() {
+    const t = Date.now() + this.save.timeOffset;
+    // 밤 고정 퀘스트 중에는 그날 밤 한가운데에 멈춤
+    return nightLocked(this.save) ? nightOf(t) : t;
+  }
 
   act(action: MenuAction): ActionResult {
     let r: ActionResult = { ok: false };
     // 레벨·스킬·장비 목표처럼 행동으로 끝나는 퀘스트 알림
     const ready = newlyReady(this.save, () => { r = applyAction(this.save, action, this.nowMs()); });
     for (const q of ready) {
+      if (q.auto) continue;
       if (!r.banner) r.banner = questReadyText(q);
       else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q), color: '#9ef0a0' });
+    }
+    // 자동 보고 퀘스트 (다음 퀘스트를 받자마자 끝나는 경우 포함)
+    for (const a of autoReport(this.save)) {
+      if (a.banner) this.pending.push({ type: 'banner', playerId: this.playerId, text: a.banner, color: '#9ef0a0' });
     }
     if (r.ok) {
       this.world.refreshStats(this.me(), r.fullHeal);
@@ -111,6 +134,8 @@ export class LocalSession implements Session {
         }
       }
     }
+    this.checkBecomes();
+    out.push(...this.pending.splice(0));
     this.alpha = this.acc / TICK;
     this.saveTimer += realDt;
     if (this.saveTimer > 5) { this.saveTimer = 0; void this.store.save(this.save); }

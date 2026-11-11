@@ -83,7 +83,7 @@ export class NpcDialog {
    */
   openTalk(id: string): Promise<void> {
     const npc = TALK_NPCS[id];
-    const pick = npc && pickTalk(this.session.save, id);
+    const pick = npc && pickTalk(this.session.save, id, this.session.nowMs());
     if (!npc || !pick) return Promise.resolve();
     const box = this.frame(npc.name, null, npc.icon);
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;

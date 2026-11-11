@@ -4,12 +4,23 @@ import type { SaveData } from '../sim/save';
 import { acceptQuest, questState, reportQuest } from './quests';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
 import { itemDef } from '../data/items';
+import { MAPS, type MapId } from '../data/maps';
+import { timeInfo } from '../sim/clock';
+
+const PHASE_IDS = ['morning', 'day', 'night'] as const;
+
+/** 지금 이 맵에 보이는 NPC (조건이 맞는 것만) */
+export const mapNpcs = (s: SaveData, map: MapId) => MAPS[map].npcs.filter(n => !n.when || checkCond(s, n.when));
+/** 지금 이 맵에서 탈 수 있는 포탈 (조건이 맞는 것만) */
+export const mapPortals = (s: SaveData, map: MapId) => MAPS[map].portals.filter(p => !p.when || checkCond(s, p.when));
 import type { ActionResult } from './progress';
 
-export function checkCond(s: SaveData, c: Cond): boolean {
-  if ('all' in c) return c.all.every(x => checkCond(s, x));
-  if ('any' in c) return c.any.some(x => checkCond(s, x));
-  if ('not' in c) return !checkCond(s, c.not);
+/** 조건 검사. 시간대 조건은 nowMs 가 있어야 맞을 수 있음 */
+export function checkCond(s: SaveData, c: Cond, nowMs?: number): boolean {
+  if ('all' in c) return c.all.every(x => checkCond(s, x, nowMs));
+  if ('any' in c) return c.any.some(x => checkCond(s, x, nowMs));
+  if ('not' in c) return !checkCond(s, c.not, nowMs);
+  if ('time' in c) return nowMs !== undefined && PHASE_IDS[timeInfo(nowMs).phase] === c.time;
   if ('quest' in c) return questState(s, c.quest) === c.state;
   if ('level' in c) return (c.level.gte === undefined || s.level >= c.level.gte) && (c.level.lt === undefined || s.level < c.level.lt);
   if ('has' in c) return countItem(s, c.has) >= (c.n ?? 1);
@@ -19,10 +30,10 @@ export function checkCond(s: SaveData, c: Cond): boolean {
 }
 
 /** 지금 상황에 맞는 대사. talk = talks 번호 (-1 = 기본 대사) */
-export function pickTalk(s: SaveData, npc: string): { talk: number; steps: DialogueStep[] } | null {
+export function pickTalk(s: SaveData, npc: string, nowMs?: number): { talk: number; steps: DialogueStep[] } | null {
   const def = TALK_NPCS[npc];
   if (!def) return null;
-  const i = def.talks?.findIndex(t => checkCond(s, t.when)) ?? -1;
+  const i = def.talks?.findIndex(t => checkCond(s, t.when, nowMs)) ?? -1;
   return i >= 0 ? { talk: i, steps: def.talks![i].steps } : { talk: -1, steps: def.dialogue };
 }
 
