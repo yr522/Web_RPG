@@ -11,7 +11,9 @@ import { ELEMENTS } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
-import { PlayerAvatar, preloadAvatar } from './PlayerAvatar';
+import { AVATAR_HEAD, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { SpeechBubble } from './SpeechBubble';
+import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
 import { COIN } from '@shared/data/monsters';
 
@@ -21,7 +23,7 @@ const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
-export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: 'prof' | 'shop') => void }
+export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void }
 
 export class GameScene extends Phaser.Scene {
   private deps!: SceneDeps;
@@ -34,6 +36,10 @@ export class GameScene extends Phaser.Scene {
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
   private profMark: Phaser.GameObjects.Text | null = null;
+  /** 머리 위 말풍선: 'player' 또는 'npc:<id>' */
+  private bubbles = new Map<string, SpeechBubble>();
+  /** 다가오면 말풍선을 띄우는 NPC: 범위 안에 들어와 있는지 (나갔다 다시 와야 또 뜸) */
+  private npcNear = new Map<string, boolean>();
   private camX = 0;
   private hitstop = 0;
   private shake = 0;
@@ -112,6 +118,9 @@ export class GameScene extends Phaser.Scene {
   /** 맵이 바뀔 때마다 맵의 고정된 부분을 새로 만든다 */
   private buildMap() {
     this.mapLayer.removeAll(true);
+    for (const b of this.bubbles.values()) b.destroy();
+    this.bubbles.clear();
+    this.npcNear.clear();
     for (const t of this.enemyLabels.values()) t.destroy();
     this.enemyLabels.clear();
     for (const sp of this.enemySprites.values()) sp.destroy();
@@ -156,6 +165,13 @@ export class GameScene extends Phaser.Scene {
       if (n.id === 'prof') {
         this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
         this.mapLayer.add(this.profMark);
+      }
+      const talk = TALK_NPCS[n.id];
+      if (talk) {
+        // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
+        this.mapLayer.add(makeStaticAvatar(this, x, y, -1));
+        this.mapLayer.add(this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6));
+        continue;
       }
       if (n.id === 'shop') {
         g.fillStyle(0x6b4a2a).fillRect(x - 60, y - 46, 120, 46);
@@ -234,6 +250,7 @@ export class GameScene extends Phaser.Scene {
         if (ev.reaction) this.shake = Math.max(this.shake, 7);
       }
       if (ev.type === 'died') this.shake = 0;
+      if (ev.type === 'say') this.say(ev.who === session.playerId ? 'player' : ev.who, ev.text, ev.life);
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
@@ -258,9 +275,12 @@ export class GameScene extends Phaser.Scene {
     this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
+    this.updateSpeech(dt, px + me.w / 2, py + me.h);
     const portal = session.world.portalNear(me);
     const npc = session.world.map.npcs.find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
     if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
+    // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
+    else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
     else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
     else this.bubble.setVisible(false);
     if (this.bubble.visible && input.blocked) this.bubble.setVisible(false);
@@ -277,6 +297,30 @@ export class GameScene extends Phaser.Scene {
     if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
+  }
+
+  /** 머리 위 말풍선 띄우기. who = 'player' 또는 'npc:<NPC id>' */
+  say(who: string, text: string, life = 3) {
+    let b = this.bubbles.get(who);
+    if (!b) { b = new SpeechBubble(this, this.zoom); this.bubbles.set(who, b); }
+    b.show(text, life);
+  }
+
+  /** 말풍선 위치 갱신 + 대화 NPC 에 다가가면 말풍선 */
+  private updateSpeech(dt: number, meX: number, meFeet: number) {
+    for (const n of this.deps.session.world.map.npcs) {
+      const talk = TALK_NPCS[n.id];
+      if (!talk?.bubble) continue;
+      const near = Math.abs(n.x - meX) < NPC_BUBBLE_RANGE;
+      if (near && !this.npcNear.get(n.id)) this.say(`npc:${n.id}`, talk.bubble.text, talk.bubble.life);
+      this.npcNear.set(n.id, near);
+    }
+    for (const [who, b] of this.bubbles) {
+      if (who === 'player') { b.update(dt, meX, meFeet - AVATAR_HEAD - 4); continue; }
+      const n = this.deps.session.world.map.npcs.find(o => `npc:${o.id}` === who);
+      if (n) b.update(dt, n.x, GROUND_Y - AVATAR_HEAD - 4);
+      else b.hide();
+    }
   }
 
   private addFloat(x: number, y: number, text: string, color: string, size = 18, life = 0.9) {

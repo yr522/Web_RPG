@@ -22,6 +22,8 @@ export const FOOT_X = 49;
 export const FOOT_Y = 96;
 /** 화면 배율 (예전 임시 스프라이트와 비슷한 크기) */
 export const AVATAR_SCALE = 1.25;
+/** 발에서 머리 꼭대기까지 높이 (화면 px, 뼈대 그림 기준: 머리 맨 위 = 칸의 49번째 줄) → 말풍선 위치 */
+export const AVATAR_HEAD = (FOOT_Y - 49) * AVATAR_SCALE;
 
 /** 레이어 순서 (아래 → 위). 에셋 문서의 파츠 표와 같다. 아직 그림이 없는 파츠는 생기면 순서대로 끼워 넣는다. */
 export const PARTS = ['body', 'head', 'front_arm'] as const;
@@ -93,6 +95,15 @@ export function preloadAvatar(scene: Phaser.Scene) {
   for (const sheet of Object.keys(SHEETS) as SheetName[]) {
     for (const part of PARTS) scene.load.spritesheet(texKey(sheet, part), SHEETS[sheet][part], { frameWidth: CELL, frameHeight: CELL });
   }
+}
+
+/** 움직이지 않는 캐릭터 그림 (대화 NPC 임시 모습: 뼈대 기본 자세). (x, y) = 발 기준점 */
+export function makeStaticAvatar(scene: Phaser.Scene, x: number, y: number, face: 1 | -1) {
+  const parts = PARTS.map(part => {
+    scene.textures.get(texKey('walk', part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return scene.add.sprite(0, 0, texKey('walk', part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL);
+  });
+  return scene.add.container(x, y, parts).setScale(AVATAR_SCALE * face, AVATAR_SCALE);
 }
 
 export class PlayerAvatar {

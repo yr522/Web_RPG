@@ -1,9 +1,10 @@
-// NPC 대화창: 교수님(스킬 배우기 · 수업 · 퀘스트), 매점 모리(물약·주문서 구매).
+// NPC 대화창: 교수님(스킬 배우기 · 수업 · 퀘스트), 매점 모리(물약·주문서 구매), 대화 NPC(대사 + 선택지).
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import { ITEMS, type ItemId } from '@shared/data/items';
 import { QUESTS } from '@shared/data/quests';
+import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
 import { canAttend, learned, nextToLearn, skillLevel, type ActionResult, type MenuAction } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -67,6 +68,62 @@ export class NpcDialog {
     this.refresh = () => this.renderShop();
     this.refresh();
     this.host.open(box, () => { this.refresh = null; });
+  }
+
+  /**
+   * 대화 NPC: 대사를 한 줄씩 보여 주고(클릭 · ↑ · Space · Enter · Z 로 넘김),
+   * 선택지가 나오면 바로 앞 대사 아래에 교수님 메뉴와 같은 모양의 버튼으로 띄운다.
+   */
+  openTalk(id: string) {
+    const npc = TALK_NPCS[id];
+    if (!npc) return;
+    const box = this.frame(npc.name, null, npc.icon);
+    const body = this.body!;
+    let queue: DialogueStep[] = [...npc.dialogue];
+    let line: string | null = null;
+    let waitingChoice = false;
+
+    const render = () => {
+      body.innerHTML = '';
+      const next = queue[0];
+      if (line !== null) body.appendChild(el('p', 'line', `"${esc(line)}"`));
+      if (next && 'choices' in next) {
+        waitingChoice = true;
+        const opts = el('div', 'opts');
+        for (const c of next.choices) {
+          opts.appendChild(el('button', 'opt', esc(c.label), () => {
+            queue = [...c.reply, ...queue.slice(1)];
+            waitingChoice = false;
+            advance();
+          }));
+        }
+        body.appendChild(opts);
+      } else {
+        waitingChoice = false;
+        body.appendChild(el('div', 'talk-next', '▼'));
+      }
+    };
+    const advance = () => {
+      const step = queue[0];
+      if (!step) { this.host.close(); return; }
+      if ('choices' in step) { render(); return; }
+      queue.shift();
+      line = step.line;
+      render();
+    };
+    // 대사 넘기기: 창 아무 곳이나 클릭 (선택지·닫기 버튼 제외) 또는 키
+    box.addEventListener('click', e => {
+      if (waitingChoice || (e.target as HTMLElement).closest('button')) return;
+      advance();
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || waitingChoice) return;
+      if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'KeyZ') { e.preventDefault(); advance(); }
+    };
+    addEventListener('keydown', onKey);
+    box.classList.add('talk');
+    advance();
+    this.host.open(box, () => removeEventListener('keydown', onKey));
   }
 
   // ---------- 교수님 ----------
