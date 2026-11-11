@@ -2,6 +2,7 @@
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
 import { questDef, type QuestDef } from '../data/quests';
 import { MAPS, type MapId } from '../data/maps';
+import { TALK_NPCS } from '../data/npcs';
 import { itemDef } from '../data/items';
 import type { SaveData } from '../sim/save';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
@@ -23,14 +24,25 @@ export function goalProgress(s: SaveData, q: QuestDef, i: number): { cur: number
     case 'collect': return { cur: Math.min(countItem(s, g.item), g.n), need: g.n };
     case 'visit': return { cur: Math.min(c, 1), need: 1 };
     case 'talk': return { cur: 0, need: 1 };
+    case 'level': return { cur: Math.min(s.level, g.n), need: g.n };
+    case 'learn': return { cur: (g.skill ? g.skill in s.learned : Object.keys(s.learned).length > 0) ? 1 : 0, need: 1 };
+    case 'equip': return { cur: equipped(s, g.item) ? 1 : 0, need: 1 };
   }
 }
 
-/** 숫자를 보여 줄 목표들의 진행도 (HUD·퀘스트 목록 표시용. 말 걸기·가 보기는 숫자 없이) */
+/** 장비를 끼고 있는지 (item 이 없으면 아무 장비나) */
+function equipped(s: SaveData, item?: string) {
+  return Object.values(s.equip).some(uid => {
+    const e = s.bag.find(x => x?.uid === uid);
+    return !!e && (!item || e.id === item);
+  });
+}
+
+/** 숫자를 보여 줄 목표들의 진행도 (HUD·퀘스트 목록 표시용. 처치·모으기·레벨만, 나머지는 숫자 없이) */
 export function questProgressText(s: SaveData, q: QuestDef) {
   const out: string[] = [];
   q.goals.forEach((g, i) => {
-    if (g.kind === 'talk' || g.kind === 'visit') return;
+    if (g.kind !== 'kill' && g.kind !== 'collect' && g.kind !== 'level') return;
     const p = goalProgress(s, q, i);
     out.push(`${p.cur}/${p.need}`);
   });
@@ -44,6 +56,12 @@ function goalsDone(s: SaveData, q: QuestDef) {
     const p = goalProgress(s, q, i);
     return p.cur >= p.need;
   });
+}
+
+/** 퀘스트를 다 했을 때 큰 글씨 알림 */
+export function questReadyText(q: QuestDef) {
+  const to = reportTo(q);
+  return `퀘스트 완료! ${to === 'prof' ? '교수님' : TALK_NPCS[to]?.name ?? to}께 가자`;
 }
 
 /** 보고할 NPC: 말 걸기 목표가 있으면 그 NPC, 없으면 준 사람 */
@@ -63,6 +81,11 @@ export function acceptQuest(s: SaveData, id: string): ActionResult {
   const q = questDef(id);
   if (!q) return fail('없는 퀘스트야');
   if (questState(s, id) !== 'none') return fail('이미 받은 퀘스트야');
+  // 받을 때 주는 물건 (가방 자리부터 확인)
+  const give = q.start?.items ?? [];
+  const room = structuredClone(s);
+  for (const it of give) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
+  for (const it of give) addItem(s, it.id, it.n);
   // 가기 목표: 이미 그 맵에 있으면 바로 완료
   const counts = q.goals.map(g => (g.kind === 'visit' && s.map === g.map ? 1 : 0));
   s.quests[id] = { active: true, counts, done: s.quests[id]?.done };
@@ -109,11 +132,11 @@ export function readyQuestIds(s: SaveData): string[] {
   return activeQuests(s).filter(q => goalsDone(s, q)).map(q => q.id);
 }
 
-/** change 를 하고 나서 새로 보고할 수 있게 된 퀘스트들 */
+/** change 를 하고 나서 새로 보고할 수 있게 된 퀘스트들 (방금 받자마자 끝난 퀘스트는 빼고: 전달 퀘스트 등) */
 export function newlyReady(s: SaveData, change: () => void): QuestDef[] {
-  const before = readyQuestIds(s);
+  const before = readyQuestIds(s), wasActive = activeQuests(s).map(q => q.id);
   change();
-  return readyQuestIds(s).filter(id => !before.includes(id)).map(id => questDef(id)!);
+  return readyQuestIds(s).filter(id => !before.includes(id) && wasActive.includes(id)).map(id => questDef(id)!);
 }
 
 /** 몬스터 처치 → 처치 목표 숫자. 방금 보고할 수 있게 된 퀘스트들을 돌려준다 */
@@ -157,7 +180,8 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
         const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => want === 'any' || (want === 'elemental') === !!sp[1]));
         return id ? { map: id } : null;
       }
-      case 'collect': return null;
+      case 'learn': return npcPlace('prof');
+      case 'collect': case 'level': case 'equip': continue;
     }
   }
   return null;

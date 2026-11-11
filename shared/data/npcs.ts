@@ -4,7 +4,7 @@
 //   { line: '대사' }                  → 대사 한 줄 (누르면 다음)
 //   { line: '대사', who: 'player' }   → 플레이어가 하는 말 (이름 자리에 플레이어 이름)
 //   { choices: [ { label, reply } ] } → 선택지. 고르면 reply 대사들이 이어서 나온다
-//   { do: 효과 }                       → 화면에 안 보이고 효과만 (퀘스트 주기·보고, 플래그 바꾸기)
+//   { do: 효과 }                       → 화면에 안 보이고 효과만 (퀘스트 주기·보고, 플래그 바꾸기, 물건·골드 주고받기)
 //   { cutscene: '컷신 id' }            → 대화창을 닫고 컷신 재생 (cutscenes.ts)
 // 대사가 끝나면 창이 닫히고, 다시 말을 걸면 처음부터.
 //
@@ -15,7 +15,11 @@ export type Effect =
   /** 퀘스트 주기 / 보고하기 (보상 받음) */
   | { quest: 'give' | 'report'; id: string }
   /** 이야기 플래그를 값으로 */
-  | { flag: string; set: number };
+  | { flag: string; set: number }
+  /** 물건 주기 (n 이 음수면 가져감). 가방에 자리가 없거나 물건이 모자라면 대사가 거기서 멈춤 */
+  | { item: string; n: number }
+  /** 골드 주기 (음수면 가져감, 모자라면 멈춤) */
+  | { gold: number };
 
 export type DialogueStep =
   | { line: string; who?: 'npc' | 'player' }
@@ -28,8 +32,18 @@ export type Cond =
   | { flag: string; eq?: number; gte?: number; lt?: number }
   /** 퀘스트 상태: 안 받음 / 하는 중 / 보고 가능 / 끝남 */
   | { quest: string; state: 'none' | 'active' | 'ready' | 'done' }
+  /** 레벨 비교 */
+  | { level: { gte?: number; lt?: number } }
+  /** 가방에 물건이 n 개 이상 있을 때 */
+  | { has: string; n?: number }
+  /** 직업 (검사 warrior / 마법사 mage / 궁수 archer) */
+  | { cls: 'warrior' | 'mage' | 'archer' }
   /** 모두 맞을 때 */
-  | { all: Cond[] };
+  | { all: Cond[] }
+  /** 하나라도 맞을 때 */
+  | { any: Cond[] }
+  /** 안 맞을 때 */
+  | { not: Cond };
 
 export interface TalkNpcDef {
   name: string;
@@ -50,6 +64,13 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
   test: {
     name: '테스트 NPC',
     icon: '💬',
+    // 이야기 테스트의 편지 전달 받는 쪽 (시나리오가 들어오면 지움)
+    talks: [
+      {
+        when: { quest: 'test_deliver', state: 'ready' },
+        steps: [{ line: '이야기 테스트: 편지 받음' }, { do: { quest: 'report', id: 'test_deliver' } }],
+      },
+    ],
     dialogue: [
       { line: '대화 테스트입니다. 1' },
       { line: '대화 테스트입니다. 2' },
@@ -97,7 +118,22 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
         when: { quest: 'test_boss', state: 'ready' },
         steps: [{ do: { quest: 'report', id: 'test_boss' } }, { do: { flag: 'story_test', set: 3 } }, { line: '이야기 테스트: 몬스터 테스트 끝' }],
       },
-      { when: { flag: 'story_test', gte: 3 }, steps: [{ line: '이야기 테스트: 다 끝남 (다시 하려면 테스트 기능에서 초기화)' }] },
+      // 전달 테스트: 편지를 받아 테스트 NPC 에게 → 목표 여러 개 테스트 (장비 끼기 + 레벨 + 처치)
+      {
+        when: { all: [{ flag: 'story_test', eq: 3 }, { quest: 'test_deliver', state: 'none' }] },
+        steps: [{ line: '이야기 테스트: 편지 전달 시작' }, { do: { quest: 'give', id: 'test_deliver' } }],
+      },
+      { when: { any: [{ quest: 'test_deliver', state: 'active' }, { quest: 'test_deliver', state: 'ready' }] }, steps: [{ line: '이야기 테스트: 편지는 테스트 NPC 에게' }] },
+      {
+        when: { all: [{ flag: 'story_test', eq: 3 }, { quest: 'test_deliver', state: 'done' }, { quest: 'test_multi', state: 'none' }] },
+        steps: [{ line: '이야기 테스트: 목표 여러 개 시작' }, { do: { quest: 'give', id: 'test_multi' } }],
+      },
+      { when: { quest: 'test_multi', state: 'active' }, steps: [{ line: '이야기 테스트: 목표 여러 개 아직' }] },
+      {
+        when: { quest: 'test_multi', state: 'ready' },
+        steps: [{ do: { quest: 'report', id: 'test_multi' } }, { do: { flag: 'story_test', set: 4 } }, { line: '이야기 테스트: 목표 여러 개 끝' }],
+      },
+      { when: { flag: 'story_test', gte: 4 }, steps: [{ line: '이야기 테스트: 다 끝남 (다시 하려면 테스트 기능에서 초기화)' }] },
     ],
     dialogue: [
       { line: '이야기 테스트: 처음' },

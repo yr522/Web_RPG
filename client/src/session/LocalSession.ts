@@ -7,6 +7,7 @@ import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
 import type { Element } from '@shared/data/elements';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
+import { newlyReady, questReadyText } from '@shared/rules/quests';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -57,7 +58,13 @@ export class LocalSession implements Session {
   nowMs() { return Date.now() + this.save.timeOffset; }
 
   act(action: MenuAction): ActionResult {
-    const r = applyAction(this.save, action, this.nowMs());
+    let r: ActionResult = { ok: false };
+    // 레벨·스킬·장비 목표처럼 행동으로 끝나는 퀘스트 알림
+    const ready = newlyReady(this.save, () => { r = applyAction(this.save, action, this.nowMs()); });
+    for (const q of ready) {
+      if (!r.banner) r.banner = questReadyText(q);
+      else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q), color: '#9ef0a0' });
+    }
     if (r.ok) {
       this.world.refreshStats(this.me(), r.fullHeal);
       if (action.type === 'useReset') this.world.resetCombat(this.me());

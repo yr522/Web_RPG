@@ -1,12 +1,19 @@
-// 이야기 진행: 대사 조건 검사, 대사 효과(퀘스트 주기·보고, 플래그) 처리.
+// 이야기 진행: 대사 조건 검사, 대사 효과(퀘스트 주기·보고, 플래그, 물건·골드) 처리.
 import { TALK_NPCS, type Cond, type DialogueStep, type Effect } from '../data/npcs';
 import type { SaveData } from '../sim/save';
 import { acceptQuest, questState, reportQuest } from './quests';
+import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
+import { itemDef } from '../data/items';
 import type { ActionResult } from './progress';
 
 export function checkCond(s: SaveData, c: Cond): boolean {
   if ('all' in c) return c.all.every(x => checkCond(s, x));
+  if ('any' in c) return c.any.some(x => checkCond(s, x));
+  if ('not' in c) return !checkCond(s, c.not);
   if ('quest' in c) return questState(s, c.quest) === c.state;
+  if ('level' in c) return (c.level.gte === undefined || s.level >= c.level.gte) && (c.level.lt === undefined || s.level < c.level.lt);
+  if ('has' in c) return countItem(s, c.has) >= (c.n ?? 1);
+  if ('cls' in c) return s.cls === c.cls;
   const v = s.flags[c.flag] ?? 0;
   return (c.eq === undefined || v === c.eq) && (c.gte === undefined || v >= c.gte) && (c.lt === undefined || v < c.lt);
 }
@@ -39,6 +46,16 @@ export function findEffect(npc: string, talk: number, path: number[]): Effect | 
 
 export function applyEffect(s: SaveData, e: Effect): ActionResult {
   if ('quest' in e) return e.quest === 'give' ? acceptQuest(s, e.id) : reportQuest(s, e.id);
+  if ('item' in e) {
+    const name = itemDef(e.item)?.name ?? e.item;
+    if (e.n >= 0) return addItem(s, e.item, e.n) ? { ok: true, msg: `+${name} ×${e.n}` } : { ok: false, msg: BAG_FULL };
+    return removeItem(s, e.item, -e.n) ? { ok: true } : { ok: false, msg: `${name}이(가) 모자라` };
+  }
+  if ('gold' in e) {
+    if (s.gold + e.gold < 0) return { ok: false, msg: '골드가 부족해' };
+    s.gold += e.gold;
+    return { ok: true, msg: e.gold > 0 ? `+${e.gold} G` : undefined };
+  }
   s.flags[e.flag] = e.set;
   return { ok: true };
 }

@@ -1,6 +1,7 @@
 // 퀘스트 (기획서 6장).
 // - 교수님 반복 퀘스트: giver 'prof', repeat true → 교수님 퀘스트 메뉴에 나옴
 // - 목표(goals)는 여러 개 가능, 전부 해야 보고
+// - 전달 퀘스트: start 로 물건을 주고, 목표 = [모아 오기(그 물건), 말 걸기(받을 사람)]
 // - 이야기 퀘스트: 대화 NPC 대사의 { do: { quest: 'give', id } } 로 받고, { do: { quest: 'report', id } } 로 보고
 import type { MapId } from './maps';
 
@@ -13,7 +14,13 @@ export type QuestGoal =
   /** 누구에게 말 걸기 (그 NPC 대사에 { do: { quest: 'report' } } 가 있어야 끝남) */
   | { kind: 'talk'; npc: string }
   /** 어느 맵에 가 보기 */
-  | { kind: 'visit'; map: MapId };
+  | { kind: 'visit'; map: MapId }
+  /** 레벨 n 달성 */
+  | { kind: 'level'; n: number }
+  /** 스킬 배우기 (skill 이 없으면 아무 스킬이나 하나) */
+  | { kind: 'learn'; skill?: string }
+  /** 장비 끼기 (item 이 있으면 그 장비, 없으면 아무 장비나) */
+  | { kind: 'equip'; item?: string };
 
 export interface QuestReward {
   /** 숫자 또는 레벨에 따라 바뀌는 값 */
@@ -29,6 +36,8 @@ export interface QuestDef {
   /** 목표들. 여러 개면 전부 해야 보고할 수 있다 (동시에 진행) */
   goals: QuestGoal[];
   reward: QuestReward;
+  /** 받을 때 주는 물건 (전달 퀘스트: 이 물건을 모아 오기 목표 + 말 걸기 목표로 전달). 가방에 자리가 없으면 못 받음 */
+  start?: { items: { id: string; n: number }[] };
   /** 누가 주는지: 'prof'(교수님 메뉴) 또는 대화 NPC id */
   giver: string;
   /** 끝난 뒤 다시 받을 수 있는지 */
@@ -62,6 +71,15 @@ export const QUESTS: QuestDef[] = [
   {
     id: 'test_boss', name: '테스트 퀘스트: 이름표 몬스터', desc: '컷신에서 나온 테스트 슬라임 처치 (다른 슬라임은 안 셈)', giver: 'story_test',
     goals: [{ kind: 'kill', target: 'any', n: 1, tag: 'test_boss' }], reward: { exp: 40 },
+  },
+  {
+    id: 'test_deliver', name: '테스트 퀘스트: 편지 전달', desc: '테스트 편지를 테스트 NPC 에게', giver: 'story_test',
+    start: { items: [{ id: 'test_letter', n: 1 }] },
+    goals: [{ kind: 'collect', item: 'test_letter', n: 1 }, { kind: 'talk', npc: 'test' }], reward: { gold: 30 },
+  },
+  {
+    id: 'test_multi', name: '테스트 퀘스트: 여러 목표', desc: '장비 끼기 + 레벨 3 + 일반 슬라임 2마리', giver: 'story_test',
+    goals: [{ kind: 'equip' }, { kind: 'level', n: 3 }, { kind: 'kill', target: 'normal', n: 2 }], reward: { exp: 30 },
   },
 ];
 

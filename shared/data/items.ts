@@ -44,6 +44,7 @@ const ITEM_LIST = {
   hp: { name: 'HP 포션', kind: 'use', icon: '🧪', price: 30, desc: 'HP 50 회복 (1번 키)', bulk: [1, 10] },
   mp: { name: 'MP 포션', kind: 'use', icon: '💧', price: 30, desc: 'MP 40 회복 (2번 키)', bulk: [1, 10] },
   reset: { name: '스킬트리 초기화 주문서', kind: 'use', icon: '📜', price: 1000, desc: '배운 스킬을 모두 초기화. 교수님께 원소를 다시 골라 배울 수 있어. 스킬 레벨은 유지돼.', bulk: [1] },
+  test_letter: { name: '테스트 편지', kind: 'etc', icon: '✉️', desc: '이야기 테스트용 편지' },
   slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액' },
   // 테스트용 장비 (매점 모리)
   test_hat: testEquip('테스트 모자', 'hat'),

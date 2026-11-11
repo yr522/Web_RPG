@@ -121,8 +121,11 @@ export class NpcDialog {
         const step = it.step;
         if ('choices' in step) { render(); return; }
         queue.shift();
-        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸)
-        if ('do' in step) { this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }); continue; }
+        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸). 실패하면(가방 가득 등) 대화를 거기서 끝냄
+        if ('do' in step) {
+          if (!this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }).ok) { this.host.close(); return; }
+          continue;
+        }
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         line = step.line;
