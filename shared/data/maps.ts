@@ -1,5 +1,5 @@
 // 맵 데이터 (기획서 8장). 좌표 단위는 월드 픽셀, 화면 높이 540 기준.
-// 학교에서 왼쪽으로 쭉 들어가는 구성: 학교 → 뒷숲 → 원소 슬라임 서식지 → 갈림길 → (가운데 포탈) 경비기계 A·B 지역 → 공방 입구 → 공방 내부
+// 학교에서 왼쪽으로 쭉 들어가는 구성: 학교 → 뒷숲 → 원소 슬라임 서식지 → 갈림길 → (가운데 포탈) 경비기계 A·B 지역 → 공방 입구
 import type { Element } from './elements';
 import type { MonsterId } from './monsters';
 export const GROUND_Y = 470;
@@ -12,12 +12,17 @@ export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number }
 
-export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'workshop';
+export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate';
 
 export interface MapDef {
   name: string;
   width: number;
   building?: boolean;
+  /**
+   * 배경 그림 (assets/img/bg/ 아래 파일 이름, .png 빼고). groundY = 그림에서 발이 닿는 줄(픽셀).
+   * 그 줄이 땅 높이에 오도록 그림 크기를 맞춘다. 맵 폭은 그림 폭에 맞춰 둔다.
+   */
+  bg?: { img: string; groundY: number };
   /** 몬스터가 없는 안전 지대: 체력이 천천히 회복 */
   safe?: boolean;
   platforms: Platform[];
@@ -100,20 +105,9 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [{ x: 1080, mob: 'guard_b' }, { x: 820, mob: 'guard_b' }, { x: 560, mob: 'guard_b' }, { x: 320, mob: 'guard_b' }],
   },
   workshop_gate: {
-    name: '공방 입구', width: 1100,
+    name: '공방 입구', width: 1088, bg: { img: 'workshop_gate', groundY: 722 },
     platforms: [],
-    portals: [
-      { x: 1020, to: 'guard_b', toX: 180, label: '경비기계B 지역' },
-      { x: 120, to: 'workshop', toX: 1090, label: '공방 내부' },
-    ],
-    npcs: [],
-    signs: [],
-    spawns: [],
-  },
-  workshop: {
-    name: '공방 내부', width: 1200,
-    platforms: [{ x: 300, y: 360, w: 180 }, { x: 720, y: 360, w: 180 }],
-    portals: [{ x: 1120, to: 'workshop_gate', toX: 220, label: '공방 입구' }],
+    portals: [{ x: 1010, to: 'guard_b', toX: 180, label: '경비기계B 지역' }],
     npcs: [],
     signs: [],
     spawns: [],

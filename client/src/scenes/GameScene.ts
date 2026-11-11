@@ -57,6 +57,9 @@ const MOB_HEAD = 46;
 /** 길 안내 화살표: 플레이어 머리 위, 가야 할 쪽 */
 const GUIDE = { hideWithin: 50, color: 0xffd84a };
 
+/** 맵 배경 그림 (assets/img/bg/*.png) */
+const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+
 /** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
 function mobTexture(mob: MonsterId, elem: unknown) {
   if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
@@ -116,6 +119,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
+    for (const [path, url] of Object.entries(BG_FILES)) this.load.image(`bg:${path.split('/').pop()!.replace(/\.png$/, '')}`, url);
   }
 
   create() {
@@ -195,6 +199,12 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
         g.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
       }
+    }
+    // 배경 그림: 그림 속 땅 줄이 땅 높이에 오게
+    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
+      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
+      g.fillStyle(0x0c1420).fillRect(-EDGE, -EDGE, EDGE, GROUND_Y + EDGE).fillRect(map.width, -EDGE, EDGE, GROUND_Y + EDGE);
+      this.mapLayer.add(this.add.image(0, 0, `bg:${map.bg.img}`).setOrigin(0, 0).setScale(GROUND_Y / map.bg.groundY));
     }
     for (const s of map.signs) {
       g.fillStyle(0x5a4630).fillRect(s.x - 3, GROUND_Y - 50, 6, 50);
