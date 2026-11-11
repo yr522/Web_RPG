@@ -58,4 +58,7 @@ export const CREATE_STAT_POINTS = 5;
 export const NAME_MAX = 10;
 export const DEFAULT_NAME = '견습생';
 
+/** 마법사 기본 공격(기본 공격·마력탄): 쏘는 순간 뒤로 밀려남. dist(px)를 time(초) 동안 미끄러지듯. 공중에서도 */
+export const MAGE_RECOIL = { dist: 10, time: 0.06 };
+
 export const expNeed = (level: number) => 40 + (level - 1) * 25;
