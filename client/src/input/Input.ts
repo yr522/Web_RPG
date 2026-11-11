@@ -25,7 +25,7 @@ export class Input {
     addEventListener('keydown', e => {
       if ((e.target as HTMLElement | null)?.tagName === 'INPUT') return;
       const a = KEYMAP[e.code];
-      if (this._blocked) { if (e.code === 'KeyC' && !e.repeat) this.onHotkey(e.code); return; }
+      if (this._blocked) { if ((e.code === 'KeyC' || e.code === 'KeyI') && !e.repeat) this.onHotkey(e.code); return; }
       if (a) {
         e.preventDefault();
         if (!e.repeat) this.set(a, true);

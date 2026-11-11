@@ -3,9 +3,10 @@
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
-import { POTION } from '../data/items';
+import { POTION, itemDef } from '../data/items';
+import { addItem, countItem, removeItem } from '../rules/inventory';
 import { QUESTS } from '../data/quests';
-import { SLIME, SLIME_AI, COIN } from '../data/monsters';
+import { SLIME, SLIME_AI, COIN, ITEM_DROP } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -436,6 +437,7 @@ export class World implements SkillWorld {
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
     const [g0, g1] = e.elemental ? SLIME.elemental.gold : SLIME.normal.gold;
     this.dropGold(cx(e), cy(e), g0 + Math.floor(this.rng() * (g1 - g0 + 1)));
+    for (const d of SLIME.drops) if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
     for (const q of QUESTS) {
       const st = s.quests[q.id];
       if (st?.active && st.count < q.need && (q.target === 'elemental') === e.elemental) {
@@ -522,6 +524,14 @@ export class World implements SkillWorld {
     }
   }
 
+  private dropItem(x: number, y: number, item: string) {
+    const sz = ITEM_DROP.size;
+    this.coins.push({
+      id: `c${this.nextId++}`, x: x - sz / 2, y: y - sz / 2, w: sz, h: sz,
+      vx: (this.rng() - 0.5) * 120, vy: -420 - this.rng() * 80, onGround: false, drop: 0, plat: null, amt: 1, item, t: 0,
+    });
+  }
+
   private stepCoins(dt: number) {
     const players = [...this.players.values()];
     this.coins = this.coins.filter(c => {
@@ -531,8 +541,13 @@ export class World implements SkillWorld {
       // 캐릭터 몸이 닿아야 획득 (자동 줍기 없음)
       const p = players.find(pl => overlaps(pl, c));
       if (p) {
-        p.data.gold += c.amt;
-        this.float(cx(c), c.y - 6, `+${c.amt} G`, '#ffd84a', 15, 0.8);
+        if (c.item) {
+          addItem(p.data, c.item, c.amt);
+          this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
+        } else {
+          p.data.gold += c.amt;
+          this.float(cx(c), c.y - 6, `+${c.amt} G`, '#ffd84a', 15, 0.8);
+        }
         return false;
       }
       return c.t < COIN.life;
@@ -558,13 +573,12 @@ export class World implements SkillWorld {
     return this.map.portals.find(o => Math.abs(o.x - cx(p)) < 40) ?? null;
   }
 
-  private usePotion(p: PlayerState, kind: 'hp' | 'mp') {
+  usePotion(p: PlayerState, kind: 'hp' | 'mp') {
     if (p.potionCd > 0) return;
-    const inv = p.data.inventory;
-    if (inv[kind] <= 0) return this.warn(p, `${kind === 'hp' ? 'HP' : 'MP'} 포션이 없어`);
+    if (countItem(p.data, kind) <= 0) return this.warn(p, `${kind === 'hp' ? 'HP' : 'MP'} 포션이 없어`);
     if (kind === 'hp' && p.hp >= p.stats.maxHp) return this.warn(p, 'HP가 가득 찼어');
     if (kind === 'mp' && p.mp >= p.stats.maxMp) return this.warn(p, 'MP가 가득 찼어');
-    inv[kind]--;
+    removeItem(p.data, kind);
     p.potionCd = POTION.cooldown;
     if (kind === 'hp') { p.hp = Math.min(p.stats.maxHp, p.hp + POTION.hp); this.float(cx(p), p.y - 10, `+${POTION.hp} HP`, '#ff8a8a', 16); }
     else { p.mp = Math.min(p.stats.maxMp, p.mp + POTION.mp); this.float(cx(p), p.y - 10, `+${POTION.mp} MP`, '#8ab0ff', 16); }

@@ -9,6 +9,7 @@ import { GameScene, VIEW_H } from './scenes/GameScene';
 import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
+import { InventoryWindow } from './ui/InventoryWindow';
 import { showCreateScreen } from './ui/CreateScreen';
 import { setupMobileGate } from './ui/MobileGate';
 
@@ -59,6 +60,8 @@ async function boot() {
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
   const charWindow = new CharWindow(dialogs, session, hud);
+  const invWindow = new InventoryWindow(session, hud);
+  hud.onUpdate.push(() => invWindow.update());
   const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? npcDialog.openProfessor() : npcDialog.openTalk(id));
 
   const toggleFullscreen = () => {
@@ -68,12 +71,14 @@ async function boot() {
   hud.onMenu = id => {
     if (id === 'full') toggleFullscreen();
     else if (id === 'char') charWindow.toggle();
+    else if (id === 'inv') invWindow.toggle();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     else hud.toast('메뉴는 준비 중이에요');
   };
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
-    if (code === 'Escape') hud.onMenu('menu');
+    if (code === 'KeyI') hud.onMenu('inv');
+    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

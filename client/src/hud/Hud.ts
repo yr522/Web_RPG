@@ -4,6 +4,7 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUESTS } from '@shared/data/quests';
+import { countItem } from '@shared/rules/inventory';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 
@@ -18,6 +19,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C' },
+  { id: 'inv', label: '인벤토리', key: 'I' },
   { id: 'home', label: '귀환', key: '' },
   { id: 'full', label: '전체 화면', key: '' },
   { id: 'menu', label: '메뉴', key: 'Esc' },
@@ -33,6 +35,8 @@ export class Hud {
   private cache: Record<string, string> = {};
   private bannerTimer = 0;
   onMenu: (id: MenuId) => void = () => {};
+  /** 매 프레임 같이 갱신할 창들 (인벤토리 등) */
+  onUpdate: (() => void)[] = [];
 
   constructor(private input: Input, readonly mode: UiMode) {
     this.root.id = 'hud';
@@ -250,8 +254,8 @@ export class Hud {
     this.set('expT', this.els.exp.querySelector('span')!, 'text', `EXP ${(100 * save.exp / need).toFixed(2)}%`);
     this.set('expW', this.els.exp.querySelector('i')!, 'width', `${(100 * save.exp / need).toFixed(2)}%`);
 
-    this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(save.inventory.hp));
-    this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(save.inventory.mp));
+    this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(countItem(save, 'hp')));
+    this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(countItem(save, 'mp')));
 
     const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
@@ -288,5 +292,6 @@ export class Hud {
       }
       this.set('cd' + k, el.querySelector<HTMLElement>('.cd')!, 'height', `${v.cd * 100}%`);
     }
+    for (const f of this.onUpdate) f();
   }
 }

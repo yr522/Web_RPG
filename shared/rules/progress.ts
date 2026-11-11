@@ -2,7 +2,8 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { ITEMS, type ItemId } from '../data/items';
+import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { addItem, equipFromBag, removeItem, unequip } from './inventory';
 import { QUESTS } from '../data/quests';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
@@ -15,6 +16,9 @@ export type MenuAction =
   | { type: 'attend'; skill: string }
   | { type: 'stat'; stat: StatId }
   | { type: 'useReset' }
+  /** 가방 index 칸의 장비 끼기 */
+  | { type: 'equip'; index: number }
+  | { type: 'unequip'; slot: EquipSlot }
   | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' };
 
 export interface ActionResult {
@@ -79,12 +83,12 @@ export function canAttend(s: SaveData, nowMs: number): string | null {
 export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionResult {
   switch (a.type) {
     case 'buy': {
-      const it = ITEMS[a.item];
-      if (!it || !it.bulk.includes(a.n)) return fail('살 수 없는 물건이야');
+      const it: ItemDef | undefined = SHOP_ITEMS.includes(a.item) ? ITEMS[a.item] : undefined;
+      if (!it?.price || !it.bulk?.includes(a.n)) return fail('살 수 없는 물건이야');
       const cost = it.price * a.n;
       if (s.gold < cost) return fail('골드가 부족해');
       s.gold -= cost;
-      s.inventory[a.item] += a.n;
+      addItem(s, a.item, a.n);
       return { ok: true, msg: `${it.icon} ${it.name} ${a.n}개 구매!` };
     }
     case 'questAccept': {
@@ -131,10 +135,17 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       return { ok: true, statsChanged: true };
     }
     case 'useReset': {
-      if (s.inventory.reset <= 0) return fail('초기화 주문서가 없어');
-      s.inventory.reset--;
+      if (!removeItem(s, 'reset')) return fail('초기화 주문서가 없어');
       s.learned = {};
       return { ok: true, banner: '스킬트리 초기화! 교수님께 다시 배우자' };
+    }
+    case 'equip': {
+      const why = equipFromBag(s, a.index);
+      return why ? fail(why) : { ok: true, statsChanged: true };
+    }
+    case 'unequip': {
+      const why = unequip(s, a.slot);
+      return why ? fail(why) : { ok: true, statsChanged: true };
     }
     case 'debug': {
       if (a.what === 'nextPhase') { s.timeOffset += timeInfo(nowMs).remain + 50; return { ok: true }; }

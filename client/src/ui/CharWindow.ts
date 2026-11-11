@@ -2,6 +2,7 @@
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { learned, skillLevel } from '@shared/rules/progress';
+import { countItem, equipBonus } from '@shared/rules/inventory';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { DialogHost, el, esc } from './Dialog';
@@ -36,10 +37,12 @@ export class CharWindow {
     b.appendChild(el('p', 'note', `EXP ${s.exp} / ${expNeed(s.level)} · 처치 ${s.kills}`));
 
     b.appendChild(el('h3', '', `능력치 · 남은 포인트 <span class="pts">${s.statPts}</span>`));
+    const bonus = equipBonus(s);
     for (const k of Object.keys(STATS) as StatId[]) {
       const row = el('div', 'stat');
       row.appendChild(el('b', '', STATS[k].name + (cls.main === k ? ' ★' : '')));
       row.appendChild(el('span', 'v', String(s.stats[k])));
+      row.appendChild(el('span', 'eqb', bonus[k] ? `+${bonus[k]}` : ''));
       const plus = el('button', 'plus', '+', () => { this.session.act({ type: 'stat', stat: k }); this.render(); }) as HTMLButtonElement;
       plus.disabled = s.statPts <= 0;
       row.appendChild(plus);
@@ -51,8 +54,8 @@ export class CharWindow {
 
     b.appendChild(el('h3', '', `소지품 · <span class="gold">💰 ${s.gold} G</span>`));
     const inv = el('div', 'card');
-    inv.appendChild(el('div', '', `🧪 HP 포션 ×${s.inventory.hp} · 💧 MP 포션 ×${s.inventory.mp} · 📜 초기화 주문서 ×${s.inventory.reset}`));
-    if (s.inventory.reset > 0) {
+    inv.appendChild(el('div', '', `🧪 HP 포션 ×${countItem(s, 'hp')} · 💧 MP 포션 ×${countItem(s, 'mp')} · 📜 초기화 주문서 ×${countItem(s, 'reset')}`));
+    if (countItem(s, 'reset') > 0) {
       inv.appendChild(el('button', 'sm', this.armedReset ? '정말 쓸까? 한 번 더 누르면 사용' : '📜 초기화 주문서 사용', () => {
         if (!this.armedReset) { this.armedReset = true; this.render(); return; }
         this.armedReset = false;
