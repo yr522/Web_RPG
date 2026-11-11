@@ -20,6 +20,8 @@ import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png'
 import { COIN } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
+/** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
+const EDGE = 400;
 export const VIEW_H = 620;
 const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
@@ -140,8 +142,9 @@ export class GameScene extends Phaser.Scene {
 
     for (const p of world.solids) {
       if (p.ground) {
-        g.fillStyle(0x2b2a3f).fillRect(0, p.y, map.width, p.h);
-        g.fillStyle(map.building ? 0x7a6a8a : 0x4a7a4a).fillRect(0, p.y, map.width, 6);
+        // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
+        g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
+        g.fillStyle(map.building ? 0x7a6a8a : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
       } else {
         g.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
         g.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
@@ -228,7 +231,9 @@ export class GameScene extends Phaser.Scene {
 
   private cameraTarget(cx: number, face: number) {
     const w = this.deps.session.world.map.width;
-    return Math.max(0, Math.min(Math.max(0, w - this.viewW), cx - this.viewW / 2 + face * 60));
+    // 맵이 화면보다 좁으면 가운데에 고정
+    if (w <= this.viewW) return (w - this.viewW) / 2;
+    return Math.max(0, Math.min(w - this.viewW, cx - this.viewW / 2 + face * 60));
   }
 
   private lastFrame = performance.now();
