@@ -1,6 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
+import { MAGE_RECOIL } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -18,6 +19,9 @@ function castAction(p: PlayerState, name: string, time: number, onCast: () => vo
   p.action = { name: 'cast', skill: name, t: 0, dur: time * castMult(p), superArmor: true, cast: true, update: () => { p.vx = 0; }, end: onCast };
 }
 
+/** 기본 공격 반동: 쏘는 순간(공격 그림 2번째 칸) 바라보는 반대쪽으로 밀려남 */
+const recoil = (p: PlayerState) => { p.push = -p.face * MAGE_RECOIL.dist; };
+
 const GIDUNG_RANGE = 460;
 
 export const MAGE: ClassSkills = {
@@ -30,7 +34,7 @@ export const MAGE: ClassSkills = {
     basic(w, p) {
       p.action = {
         name: 'basic', t: 0, dur: 0.2,
-        events: [{ at: 0.08, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 18, y: cy(p) - 4, vx: p.face * 520, vy: 0, range: 220, size: 14, coef: 0.6, elem: null, kb: 100, skill: 'basic' }); } }],
+        events: [{ at: 0.08, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 18, y: cy(p) - 4, vx: p.face * 520, vy: 0, range: 220, size: 14, coef: 0.6, elem: null, kb: 100, skill: 'basic' }); recoil(p); } }],
         update: () => { if (p.onGround) p.vx = 0; },
         end: () => { p.lockT = 0.2; },
       };
@@ -40,7 +44,7 @@ export const MAGE: ClassSkills = {
       const el = w.elemOf(p, 'madan'), cm = castMult(p);
       p.action = {
         name: 'cast', skill: 'madan', t: 0, dur: 0.22 * cm, superArmor: true, cast: true, castEnd: 0.18 * cm,
-        events: [{ at: 0.18 * cm, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 20, y: cy(p) - 4, vx: p.face * 640, vy: 0, range: 400, size: 18, coef: 1.3, elem: el, kb: 160, skill: 'madan' }); } }],
+        events: [{ at: 0.18 * cm, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 20, y: cy(p) - 4, vx: p.face * 640, vy: 0, range: 400, size: 18, coef: 1.3, elem: el, kb: 160, skill: 'madan' }); recoil(p); } }],
         update: () => { p.vx = 0; },
         end: () => { p.lockT = 0.28 * cm; },
       };

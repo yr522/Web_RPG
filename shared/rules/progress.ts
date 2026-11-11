@@ -3,7 +3,7 @@
 import { CLASSES, SKILLS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, equipFromBag, removeItem, unequip } from './inventory';
+import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
 import { QUESTS } from '../data/quests';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
@@ -16,9 +16,12 @@ export type MenuAction =
   | { type: 'attend'; skill: string }
   | { type: 'stat'; stat: StatId }
   | { type: 'useReset' }
-  /** 가방 index 칸의 장비 끼기 */
+  /** 가방 index 칸의 장비 끼기 / 벗기 */
   | { type: 'equip'; index: number }
   | { type: 'unequip'; slot: EquipSlot }
+  /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
+  | { type: 'moveItem'; from: number; to: number }
+  | { type: 'sortBag' }
   | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' };
 
 export interface ActionResult {
@@ -141,12 +144,20 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       return { ok: true, banner: '스킬트리 초기화! 교수님께 다시 배우자' };
     }
     case 'equip': {
-      const why = equipFromBag(s, a.index);
+      const why = toggleEquip(s, a.index);
       return why ? fail(why) : { ok: true, statsChanged: true };
     }
     case 'unequip': {
       const why = unequip(s, a.slot);
       return why ? fail(why) : { ok: true, statsChanged: true };
+    }
+    case 'moveItem': {
+      const why = moveItem(s, a.from, a.to);
+      return why ? fail(why) : { ok: true };
+    }
+    case 'sortBag': {
+      sortBag(s);
+      return { ok: true };
     }
     case 'debug': {
       if (a.what === 'nextPhase') { s.timeOffset += timeInfo(nowMs).remain + 50; return { ok: true }; }

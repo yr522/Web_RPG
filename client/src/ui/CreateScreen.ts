@@ -34,6 +34,7 @@ const STATS: { id: StatId; name: string }[] = [
 const PREVIEW: Record<SheetName, { frame: number; time: number }[]> = {
   walk: [{ frame: 0, time: 1 }],
   sword: [{ frame: 0, time: 0.35 }, { frame: 1, time: 0.5 }],
+  staff: [{ frame: 0, time: 0.35 }, { frame: 1, time: 0.5 }],
   bow: [{ frame: 0, time: 0.25 }, { frame: 1, time: 0.6 }, { frame: 2, time: 0.35 }],
 };
 
