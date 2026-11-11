@@ -13,7 +13,12 @@ import type { Fx } from '@shared/sim/types';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
-import { AVATAR_HEAD, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
+import type { Motion } from '@shared/data/cutscenes';
+import { QUESTS } from '@shared/data/quests';
+import { questTarget } from '@shared/rules/quests';
+import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
@@ -27,10 +32,28 @@ const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
-export interface SceneDeps { session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void }
+export interface SceneDeps {
+  session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
+  /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
+  talk: (npc: string) => Promise<void>;
+}
 
-export class GameScene extends Phaser.Scene {
+/** 대화 NPC 그림 (컷신에서 걷기·모션) */
+interface NpcActor { root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; home: number; x: number; face: 1 | -1; to: number | null; speed: number; pose: Motion | null; t: number }
+/** 길 안내 화살표: 플레이어 머리 위, 가야 할 쪽 */
+const GUIDE = { hideWithin: 50, color: 0xffd84a };
+
+export class GameScene extends Phaser.Scene implements Stage {
   private deps!: SceneDeps;
+  private npcActors = new Map<string, NpcActor>();
+  private cut!: CutscenePlayer;
+  private guideG!: Phaser.GameObjects.Graphics;
+  /** 카메라 확대 배율 (컷신), 컷신 카메라 이동 */
+  private camZoom = 1;
+  private camMove: { fromX: number; toX: number | null; fromZ: number; toZ: number; t: number; dur: number } | null = null;
+  /** 컷신 카메라가 잡고 있는 화면 가운데 (null = 플레이어 따라가기) */
+  private camHold: number | null = null;
+  private uiOn = true;
   private bg!: Phaser.GameObjects.Graphics;
   private fx!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
@@ -87,6 +110,8 @@ export class GameScene extends Phaser.Scene {
     this.underG = this.add.graphics().setDepth(4.8);
     this.projG = this.add.graphics().setDepth(6.5);
     this.player = new PlayerAvatar(this).setDepth(5);
+    this.guideG = this.add.graphics().setDepth(7.2);
+    this.cut = new CutscenePlayer(this, this.deps.session, this.deps.input, this.deps.talk);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
@@ -159,6 +184,7 @@ export class GameScene extends Phaser.Scene {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
     }
     this.profMark = null;
+    this.npcActors.clear();
     for (const n of map.npcs) {
       const x = n.x, y = GROUND_Y;
       // 터치·클릭으로 대화
@@ -177,8 +203,10 @@ export class GameScene extends Phaser.Scene {
       const talk = TALK_NPCS[n.id];
       if (talk) {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
-        this.mapLayer.add(makeStaticAvatar(this, x, y, -1));
-        this.mapLayer.add(this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6));
+        const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        this.mapLayer.add(root);
+        this.mapLayer.add(label);
+        this.npcActors.set(n.id, { root, label, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0 });
         continue;
       }
       if (n.id === 'shop') {
@@ -245,7 +273,8 @@ export class GameScene extends Phaser.Scene {
     const dt = Math.min(0.25, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
     // 타격감: 맞는 순간 아주 잠깐 멈칫(hitstop)
-    const events = this.hitstop > 0 ? [] : session.update(dt, () => input.readCommand());
+    this.cut.update(dt);
+    const events = this.hitstop > 0 ? [] : session.update(dt, () => this.cut.command() ?? input.readCommand());
     this.hitstop = Math.max(0, this.hitstop - dt);
     for (const ev of events) {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
@@ -265,11 +294,13 @@ export class GameScene extends Phaser.Scene {
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
-    const target = this.cameraTarget(px + me.w / 2, me.face);
-    this.camX += (target - this.camX) * Math.min(1, dt * 6);
+    const camY = this.updateCamera(dt, px + me.w / 2, me.face);
     this.shake = Math.max(0, this.shake - 30 * dt);
     const sx = (Math.random() - 0.5) * this.shake, sy = (Math.random() - 0.5) * this.shake;
-    this.cameras.main.setScroll(Math.round((this.camX + sx) * this.zoom) / this.zoom, Math.round(sy * this.zoom) / this.zoom);
+    const z = this.zoom * this.camZoom;
+    if (this.cameras.main.zoom !== z) this.cameras.main.setZoom(z);
+    this.cameras.main.setScroll(Math.round((this.camX + sx) * z) / z, Math.round((camY + sy) * z) / z);
+    this.updateNpcActors(dt);
 
     const pal = palette(session.nowMs());
     this.drawBackground(pal);
@@ -286,6 +317,7 @@ export class GameScene extends Phaser.Scene {
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
     this.updateSpeech(dt, px + me.w / 2, py + me.h);
+    this.drawGuide(px + me.w / 2, py + me.h);
     const portal = session.world.portalNear(me);
     const npc = session.world.map.npcs.find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
     if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
@@ -293,7 +325,7 @@ export class GameScene extends Phaser.Scene {
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
     else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
     else this.bubble.setVisible(false);
-    if (this.bubble.visible && input.blocked) this.bubble.setVisible(false);
+    if (this.bubble.visible && (input.blocked || this.cut.running)) this.bubble.setVisible(false);
 
     if (this.profMark) {
       const news = professorHasNews(session.save, session.nowMs());
@@ -309,6 +341,100 @@ export class GameScene extends Phaser.Scene {
     hud.update(session);
   }
 
+  // ===================== 컷신 =====================
+  playCutscene(id: string) { void this.cut.play(id); }
+
+  /** 카메라: 평소엔 플레이어를 따라가고, 컷신이 잡으면 그 자리·배율로 부드럽게. 화면 위쪽 y 를 돌려준다 */
+  private updateCamera(dt: number, meX: number, face: number) {
+    const followLeft = this.cameraTarget(meX, face);
+    if (this.camMove) {
+      const m = this.camMove;
+      m.t = Math.min(m.dur, m.t + dt);
+      const k = m.dur > 0 ? m.t / m.dur : 1, e = k * k * (3 - 2 * k);
+      const toX = m.toX ?? followLeft + this.viewW / 2;
+      const center = m.fromX + (toX - m.fromX) * e;
+      this.camZoom = m.fromZ + (m.toZ - m.fromZ) * e;
+      this.camX = this.clampCam(center);
+      if (m.t >= m.dur) { this.camHold = m.toX; this.camMove = null; }
+    } else if (this.camHold !== null) {
+      this.camX = this.clampCam(this.camHold);
+    } else {
+      this.camX += (followLeft - this.camX) * Math.min(1, dt * 6);
+    }
+    // 확대하면 보이는 높이가 줄어듦: 땅이 화면 아래쪽에 오도록
+    const vh = VIEW_H / this.camZoom;
+    return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
+  }
+
+  /** 화면 가운데 x → 화면 왼쪽 x (맵 밖으로 안 나가게) */
+  private clampCam(center: number) {
+    const vw = this.viewW / this.camZoom, w = this.deps.session.world.map.width;
+    if (w <= vw) return (w - vw) / 2;
+    return Math.max(0, Math.min(w - vw, center - vw / 2));
+  }
+
+  camTo(x: number | null, zoom: number, time: number) {
+    const vw = this.viewW / this.camZoom;
+    this.camMove = { fromX: this.camX + vw / 2, toX: x, fromZ: this.camZoom, toZ: zoom, t: 0, dur: time };
+    this.camHold = null;
+  }
+
+  npcX(id: string) { return this.npcActors.get(id)?.x ?? null; }
+  npcWalk(id: string, to: number, speed: number) {
+    const a = this.npcActors.get(id);
+    if (!a) return;
+    a.to = to; a.speed = speed; a.face = to > a.x ? 1 : -1;
+  }
+  npcMoving(id: string) { return this.npcActors.get(id)?.to != null; }
+  npcPose(id: string, motion: Motion | null) { const a = this.npcActors.get(id); if (a) a.pose = motion; }
+  npcFace(id: string, dir: 1 | -1) { const a = this.npcActors.get(id); if (a) a.face = dir; }
+  npcReset() {
+    for (const a of this.npcActors.values()) { a.x = a.home; a.to = null; a.pose = null; a.face = -1; }
+  }
+  setUi(v: boolean) {
+    this.uiOn = v;
+    document.body.classList.toggle('ui-off', !v);
+  }
+
+  /** NPC 걷기·모션 (뼈대 걷기 그림: 0 서기 · 1·2 걷기 · 3 공중 · 4 앉기) */
+  private updateNpcActors(dt: number) {
+    for (const a of this.npcActors.values()) {
+      let frame = 0;
+      if (a.to !== null) {
+        const d = a.to - a.x, step = a.speed * dt;
+        if (Math.abs(d) <= step) { a.x = a.to; a.to = null; } else a.x += Math.sign(d) * step;
+        a.t += dt;
+        frame = a.to === null ? 0 : 1 + (Math.floor(a.t / 0.22) % 2);
+      } else if (a.pose === 'crouch') frame = 4;
+      else if (a.pose === 'jump') frame = 3;
+      a.root.setPosition(a.x, GROUND_Y).setScale(AVATAR_SCALE * a.face, AVATAR_SCALE);
+      for (const sp of a.root.list as Phaser.GameObjects.Sprite[]) sp.setFrame(frame);
+      a.label.setPosition(a.x, GROUND_Y + 6);
+    }
+  }
+
+  /** 길 안내: 하는 중인 퀘스트의 목적지(다른 맵이면 그쪽 포탈) 방향으로 머리 위 화살표 */
+  private drawGuide(meX: number, meFeet: number) {
+    const g = this.guideG;
+    g.clear();
+    if (this.cut.running || !this.uiOn) return;
+    const { session } = this.deps, save = session.save, here = session.world.mapId;
+    let tx: number | null = null;
+    for (const q of QUESTS) {
+      if (!save.quests[q.id]?.active) continue;
+      const t = questTarget(save, q);
+      if (!t) continue;
+      if (t.map !== here) tx = nextPortal(here, t.map)?.x ?? null;
+      else tx = t.x ?? null;
+      if (tx !== null) break;
+    }
+    if (tx === null || Math.abs(tx - meX) < GUIDE.hideWithin) return;
+    const dir = tx > meX ? 1 : -1, bob = Math.sin(this.time.now / 150) * 3 * dir;
+    const x = meX + dir * 26 + bob, y = meFeet - AVATAR_HEAD - 2;
+    g.fillStyle(GUIDE.color).lineStyle(2, 0x3a2a00).beginPath()
+      .moveTo(x + dir * 9, y).lineTo(x - dir * 5, y - 8).lineTo(x - dir * 5, y + 8).closePath().fillPath().strokePath();
+  }
+
   /** 머리 위 말풍선 띄우기. who = 'player' 또는 'npc:<NPC id>' */
   say(who: string, text: string, life = 3) {
     let b = this.bubbles.get(who);
@@ -321,14 +447,14 @@ export class GameScene extends Phaser.Scene {
     for (const n of this.deps.session.world.map.npcs) {
       const talk = TALK_NPCS[n.id];
       if (!talk?.bubble) continue;
-      const near = Math.abs(n.x - meX) < NPC_BUBBLE_RANGE;
+      const near = Math.abs(this.npcX(n.id)! - meX) < NPC_BUBBLE_RANGE;
       if (near && !this.npcNear.get(n.id)) this.say(`npc:${n.id}`, talk.bubble.text, talk.bubble.life);
       this.npcNear.set(n.id, near);
     }
     for (const [who, b] of this.bubbles) {
       if (who === 'player') { b.update(dt, meX, meFeet - AVATAR_HEAD - 4); continue; }
       const n = this.deps.session.world.map.npcs.find(o => `npc:${o.id}` === who);
-      if (n) b.update(dt, n.x, GROUND_Y - AVATAR_HEAD - 4);
+      if (n) b.update(dt, this.npcX(n.id) ?? n.x, GROUND_Y - AVATAR_HEAD - 4);
       else b.hide();
     }
   }

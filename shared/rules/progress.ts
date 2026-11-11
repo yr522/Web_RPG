@@ -4,7 +4,9 @@ import { CLASSES, SKILLS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId }
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
-import { QUESTS } from '../data/quests';
+import { QUESTS, questDef } from '../data/quests';
+import { acceptQuest, questState, reportQuest } from './quests';
+import { applyEffect, findEffect } from './story';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
 
@@ -22,7 +24,9 @@ export type MenuAction =
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
   | { type: 'sortBag' }
-  | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' };
+  /** 대화 중 효과 (퀘스트 주기·보고, 플래그). 위치는 story.ts 의 findEffect 참고 */
+  | { type: 'storyDo'; npc: string; talk: number; path: number[] }
+  | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' | 'resetStory' };
 
 export interface ActionResult {
   ok: boolean;
@@ -66,8 +70,9 @@ export function professorHasNews(s: SaveData, nowMs: number) {
   const ni = nextToLearn(s);
   if (ni >= 0 && s.level >= UNLOCK_LEVELS[ni]) return true;
   for (const q of QUESTS) {
-    const st = s.quests[q.id];
-    if (!st?.active || st.count >= q.need) return true;
+    if (q.giver !== 'prof') continue;
+    const st = questState(s, q.id);
+    if (st === 'none' || st === 'ready') return true;
   }
   return canAttend(s, nowMs) === null;
 }
@@ -96,20 +101,13 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       return { ok: true, msg: `${it.icon} ${it.name} ${a.n}개 구매!` };
     }
     case 'questAccept': {
-      const q = QUESTS.find(x => x.id === a.id);
-      if (!q) return fail('없는 퀘스트야');
-      if (s.quests[q.id]?.active) return fail('이미 받은 퀘스트야');
-      s.quests[q.id] = { active: true, count: 0 };
-      return { ok: true, msg: `퀘스트 시작: ${q.name}` };
+      // 메뉴로 받는 건 교수님 퀘스트만 (이야기 퀘스트는 대사로)
+      if (questDef(a.id)?.giver !== 'prof') return fail('없는 퀘스트야');
+      return acceptQuest(s, a.id);
     }
     case 'questReport': {
-      const q = QUESTS.find(x => x.id === a.id), st = q && s.quests[q.id];
-      if (!q || !st?.active) return fail('받은 퀘스트가 아니야');
-      if (st.count < q.need) return fail('아직 덜 했어');
-      const reward = q.exp(s.level);
-      s.quests[q.id] = { active: false, count: 0 };
-      const r = gainExp(s, reward);
-      return { ...r, banner: r.banner ?? `퀘스트 완료! EXP +${reward}` };
+      if (questDef(a.id)?.giver !== 'prof') return fail('없는 퀘스트야');
+      return reportQuest(s, a.id);
     }
     case 'learn': {
       const cls = CLASSES[s.cls], i = cls.skills.indexOf(a.skill);
@@ -159,7 +157,17 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       sortBag(s);
       return { ok: true };
     }
+    case 'storyDo': {
+      const e = findEffect(a.npc, a.talk, a.path);
+      return e ? applyEffect(s, e) : fail('없는 대사야');
+    }
     case 'debug': {
+      if (a.what === 'resetStory') {
+        // 이야기 테스트 처음부터 (플래그 + 이야기 퀘스트)
+        s.flags = {};
+        for (const q of QUESTS) if (q.giver !== 'prof') delete s.quests[q.id];
+        return { ok: true, msg: '이야기 초기화' };
+      }
       if (a.what === 'nextPhase') { s.timeOffset += timeInfo(nowMs).remain + 50; return { ok: true }; }
       if (a.what === 'gold') { s.gold += 1000; return { ok: true, msg: '+1000 G' }; }
       return gainExp(s, expNeed(s.level) - s.exp);

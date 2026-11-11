@@ -28,7 +28,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '마법 학교', width: 1700, building: true, safe: true,
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [{ x: 1610, to: 'field', toX: 270, label: '학교 뒷숲' }],
-    npcs: [{ id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 }],
+    npcs: [{ id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 }],
     signs: [{ x: 1480, text: '학교 뒷숲 →' }, { x: 200, text: '기숙사 (준비 중)' }],
     spawns: [],
   },

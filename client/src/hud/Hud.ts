@@ -4,6 +4,8 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUESTS } from '@shared/data/quests';
+import { TALK_NPCS } from '@shared/data/npcs';
+import { questProgress, questState } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
@@ -266,9 +268,11 @@ export class Hud {
     const active = QUESTS.filter(q => save.quests[q.id]?.active);
     const qEls = this.els.quests.children;
     for (let i = 0; i < qEls.length; i++) {
-      const q = active[i], st = q && save.quests[q.id];
-      const done = !!q && st!.count >= q.need;
-      const txt = q ? `${q.name} ${Math.min(st!.count, q.need)}/${q.need}${done ? ' ✔ 교수님께!' : ''}` : '퀘스트 없음';
+      const q = active[i];
+      const done = !!q && questState(save, q.id) === 'ready';
+      const pr = q && questProgress(save, q);
+      const who = q && (q.giver === 'prof' ? '교수님' : TALK_NPCS[q.giver]?.name ?? q.giver);
+      const txt = q ? `${q.name}${q.goal.kind === 'talk' || q.goal.kind === 'visit' ? '' : ` ${pr!.cur}/${pr!.need}`}${done ? ` ✔ ${who}께!` : ''}` : '퀘스트 없음';
       if (this.cache['q' + i] !== txt) {
         this.cache['q' + i] = txt;
         const e = qEls[i] as HTMLElement;
