@@ -2,6 +2,7 @@
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
 import { questDef, type QuestDef } from '../data/quests';
 import { MAPS, type MapId } from '../data/maps';
+import type { MonsterId } from '../data/monsters';
 import { TALK_NPCS } from '../data/npcs';
 import { itemDef } from '../data/items';
 import type { SaveData } from '../sim/save';
@@ -140,15 +141,14 @@ export function newlyReady(s: SaveData, change: () => void): QuestDef[] {
 }
 
 /** 몬스터 처치 → 처치 목표 숫자. 방금 보고할 수 있게 된 퀘스트들을 돌려준다 */
-export function questsOnKill(s: SaveData, elemental: boolean, tag?: string): QuestDef[] {
+export function questsOnKill(s: SaveData, mob: MonsterId, tag?: string): QuestDef[] {
   return newlyReady(s, () => {
     for (const q of activeQuests(s)) {
       const st = s.quests[q.id];
       q.goals.forEach((g, i) => {
         if (g.kind !== 'kill' || (st.counts[i] ?? 0) >= g.n) return;
         // 이름표 목표는 그 이름표 몬스터만, 보통 목표는 이름표 몬스터도 같이 셈
-        const t = g.target;
-        const match = g.tag ? g.tag === tag : t === 'any' || (t === 'elemental') === elemental;
+        const match = g.tag ? g.tag === tag : !g.mob || g.mob === mob;
         if (match) st.counts[i] = (st.counts[i] ?? 0) + 1;
       });
     }
@@ -176,8 +176,8 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
       case 'visit': return { map: g.map };
       case 'kill': {
         if (g.tag) return null;
-        const want = g.target;
-        const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => want === 'any' || (want === 'elemental') === !!sp[1]));
+        const want = g.mob;
+        const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => !want || sp.mob === want));
         return id ? { map: id } : null;
       }
       case 'learn': return npcPlace('prof');

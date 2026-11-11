@@ -1,3 +1,4 @@
+import type { MonsterId } from '../data/monsters';
 // 시뮬레이션 안의 것들 (플레이어, 몬스터, 공격 판정)
 import type { Body } from './physics';
 import type { Command, EntityId } from './types';
@@ -74,6 +75,8 @@ export interface PlayerState extends Body {
 
 export interface Enemy extends Body {
   id: EntityId;
+  /** 몬스터 종류 (monsters.ts) */
+  mob: MonsterId;
   elem: Element | null;
   elemental: boolean;
   hp: number;
@@ -89,7 +92,7 @@ export interface Enemy extends Body {
   spawnX: number;
   spawnY: number;
   speed: number;
-  /** 큰 점프 패턴: 'none' → 'crouch'(웅크림) → 'leap'(점프) */
+  /** 특수 패턴: 'none' → 'crouch'(웅크림·예고) → 'leap'(슬라임 점프 / 돌진형 돌진) */
   leap: 'none' | 'crouch' | 'leap';
   leapT: number;
   /** 다음 큰 점프까지 */

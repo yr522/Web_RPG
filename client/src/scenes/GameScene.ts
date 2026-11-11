@@ -22,7 +22,7 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { COIN } from '@shared/data/monsters';
+import { COIN, MONSTERS, type MonsterId } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
@@ -56,6 +56,12 @@ const ACTOR_JUMP = { h: 50, time: 0.5 };
 const MOB_HEAD = 46;
 /** 길 안내 화살표: 플레이어 머리 위, 가야 할 쪽 */
 const GUIDE = { hideWithin: 50, color: 0xffd84a };
+
+/** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
+function mobTexture(mob: MonsterId, elem: unknown) {
+  if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
+  return mob;
+}
 
 export class GameScene extends Phaser.Scene implements Stage {
   private deps!: SceneDeps;
@@ -114,6 +120,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   create() {
     this.makeGraySlime();
+    this.makeTempMobs();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
@@ -542,7 +549,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       let sp = this.enemySprites.get(e.id);
       if (!sp) {
         // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
-        sp = this.add.sprite(0, 0, e.elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+        sp = this.add.sprite(0, 0, mobTexture(e.mob, e.elem), 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
         if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
         this.enemySprites.set(e.id, sp);
       }
@@ -559,7 +566,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
       else sp.clearTint();
       if (!label) {
-        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : MONSTERS[e.mob].name, 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
         this.enemyLabels.set(e.id, label);
       }
       label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
@@ -693,6 +700,40 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * e, oy + Math.sin(ang) * e);
       }
     }
+  }
+
+  /** 그림이 아직 없는 몬스터의 임시 그림 (왼쪽을 봄, 프레임 0 기본 · 1 이동 · 2 패턴 예고) */
+  private makeTempMobs() {
+    const make = (key: string, fw: number, fh: number, draw: (r: (x: number, y: number, w: number, h: number, c: string) => void, f: number) => void) => {
+      const c = document.createElement('canvas');
+      c.width = fw * 3; c.height = fh;
+      const ctx = c.getContext('2d')!;
+      for (let f = 0; f < 3; f++) draw((x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(f * fw + x, y, w, h); }, f);
+      const tex = this.textures.addCanvas(key, c)!;
+      for (let f = 0; f < 3; f++) tex.add(f, 0, f * fw, 0, fw, fh);
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    };
+    // 경비기계A: 홀쭉한 몸 + 외눈 + 두 다리
+    make('guard_a', 32, 36, (r, f) => {
+      r(15, 0, 2, 5, '#9aa3ad'); r(14, 0, 4, 2, '#e0484a');
+      r(7, 5, 18, 14, '#1d2128'); r(8, 6, 16, 12, '#6f7c8a'); r(8, 6, 16, 3, '#8d9aa8');
+      r(9, 10, 8, 4, '#1d2128'); r(10, 11, 4, 2, f === 2 ? '#ffd0d0' : '#ff4a4a');
+      r(9, 19, 14, 9, '#1d2128'); r(10, 20, 12, 7, '#56616e');
+      const k = f === 1 ? 2 : 0;
+      r(10 - k, 28, 4, 8, '#1d2128'); r(18 + k, 28, 4, 8, '#1d2128');
+      r(11 - k, 28, 2, 7, '#8d9aa8'); r(19 + k, 28, 2, 7, '#8d9aa8');
+    });
+    // 경비기계B: 넓적한 몸 + 쌍눈 + 앞으로 내민 충각, 바퀴
+    make('guard_b', 40, 40, (r, f) => {
+      r(6, 6, 30, 22, '#1d1a14'); r(7, 7, 28, 20, '#a07a3a'); r(7, 7, 28, 4, '#c49a52');
+      r(10, 12, 12, 5, '#1d1a14');
+      const eye = f === 2 ? '#fff2a0' : '#ffb020';
+      r(11, 13, 4, 3, eye); r(17, 13, 4, 3, eye);
+      r(0, 18, 8, 5, '#1d1a14'); r(1, 19, 7, 3, '#c9ccd2');
+      r(6, 28, 30, 6, '#1d1a14');
+      const off = f === 1 ? 1 : 0;
+      for (let i = 0; i < 3; i++) { r(8 + i * 10, 32, 8, 8, '#1d1a14'); r(10 + i * 10 - off, 34, 4, 4, '#6b6f78'); }
+    });
   }
 
   /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
