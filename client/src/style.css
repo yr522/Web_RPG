@@ -286,6 +286,11 @@ html, body {
   width: calc(240 * var(--cu)); height: auto; opacity: .5; filter: blur(.5px);
   -webkit-mask-image: linear-gradient(#000 55%, transparent 100%); mask-image: linear-gradient(#000 55%, transparent 100%);
 }
+/* 전신 일러스트: 반신 배너와 비슷한 크기로 확대 (아래는 잘림), 흐려지는 높이는 반신 배너와 같게 */
+.cc-banner.full {
+  width: calc(384 * var(--cu));
+  -webkit-mask-image: linear-gradient(#000 40%, transparent 72%); mask-image: linear-gradient(#000 40%, transparent 72%);
+}
 .cc-story {
   position: absolute; z-index: 2; left: calc(14 * var(--cu)); right: calc(14 * var(--cu)); top: calc(290 * var(--cu));
   margin: 0; padding: calc(12 * var(--cu)) calc(14 * var(--cu));
