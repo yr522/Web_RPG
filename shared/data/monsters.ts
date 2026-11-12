@@ -1,7 +1,7 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'golem_story';
+export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem';
 
 /**
  * 움직임 종류
@@ -51,10 +51,7 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   },
   guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
   guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
-  // 보스 메뉴로 들어가는 골렘 (보통 난이도)
   golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
-  // 이야기에서 처음 잡는 골렘 (스토리 난이도): 잡자마자 장면으로 넘어가니 골드는 안 떨어뜨림. 나머지 수치는 지금은 보통과 같음
-  golem_story: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [0, 0], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
 };
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */

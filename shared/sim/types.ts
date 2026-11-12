@@ -26,7 +26,7 @@ export const emptyCommand = (): Command => ({
 });
 
 export type GameEvent =
-  | { type: 'portal'; playerId: EntityId; to: MapId; toX: number; toY?: number; confirm?: string }
+  | { type: 'portal'; playerId: EntityId; to: MapId; toX: number; toY?: number; confirm?: string; boss?: string }
   | { type: 'mapEnter'; playerId: EntityId; map: MapId }
   | { type: 'notice'; playerId: EntityId; text: string }
   /** NPC 앞에서 ↑ */

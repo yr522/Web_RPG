@@ -37,6 +37,8 @@ export interface SceneDeps {
   session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
   /** 예 / 아니오 묻기 */
   confirm: (text: string, yes: () => void) => void;
+  /** 보스 입장 포탈: 난이도 고르기 */
+  chooseBoss: (boss: string, text?: string) => void;
   /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
   talk: (npc: string) => Promise<void>;
 }
@@ -69,7 +71,6 @@ const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true,
 /** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
 function mobTexture(mob: MonsterId, elem: unknown) {
   if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
-  if (mob === 'golem_story') return 'golem';
   return mob;
 }
 
@@ -377,7 +378,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
       if (ev.type === 'interact') this.deps.openNpc(ev.npc);
-      if (ev.type === 'portal' && ev.confirm) {
+      if (ev.type === 'portal' && ev.boss) this.deps.chooseBoss(ev.boss, ev.confirm);
+      else if (ev.type === 'portal' && ev.confirm) {
         const { to, toX, toY } = ev;
         this.deps.confirm(ev.confirm, () => session.takePortal(to, toX, toY));
       }

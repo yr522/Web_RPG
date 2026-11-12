@@ -8,6 +8,7 @@ import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
 import { mapNpcs, mapPortals } from '../rules/story';
+import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_ORB, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
@@ -53,8 +54,12 @@ export class World implements SkillWorld {
   orbShots: { id: string; x: number; y: number; vx: number; vy: number }[] = [];
   private nextId = 1;
 
-  constructor(readonly mapId: MapId, seed = Date.now()) {
+  /** 난이도 배수 (보스 방에서 고른 난이도, 그 밖은 보통) */
+  readonly diff: (typeof DIFFICULTIES)[Difficulty];
+
+  constructor(readonly mapId: MapId, seed = Date.now(), difficulty: Difficulty = 'normal') {
     this.rng = mulberry32(seed);
+    this.diff = DIFFICULTIES[difficulty];
     this.map = MAPS[mapId];
     this.solids = [
       { x: 0, y: GROUND_Y, w: this.map.width, h: 200, ground: true },
@@ -134,7 +139,7 @@ export class World implements SkillWorld {
     const sy = y ?? GROUND_Y - def.h;
     const e: Enemy = {
       id: `e${this.nextId++}`, mob, x, y: sy, w: def.w, h: def.h, vx: 0, vy: 0, onGround: false, drop: 0, plat: null,
-      elem, elemental: !!def.elemental, maxHp: def.hp, hp: def.hp,
+      elem, elemental: !!def.elemental, maxHp: Math.round(def.hp * this.diff.hp), hp: Math.round(def.hp * this.diff.hp),
       dir: this.rng() < 0.5 ? -1 : 1, turnT: 1 + this.rng() * 2, hopT: this.rng() * 2, stun: 0, record: null,
       dead: false, deadT: 0, spawnX: x, spawnY: sy, speed: this.range(def.speed), leap: 'none', leapT: 0,
       leapCd: this.patternCd(mob), pulled: false,
@@ -193,7 +198,7 @@ export class World implements SkillWorld {
       const npc = this.npcNear(p);
       if (npc) { this.events.push({ type: 'interact', playerId: p.id, npc: npc.id }); return; }
       const portal = this.portalNear(p);
-      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm }); return; }
+      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss }); return; }
     }
 
     // 스킬 입력. 공격이 완전히 끝나기 전 입력은 무효, 끝나기 0.2초 전 입력만 끝나자마자 실행(버퍼)
@@ -277,7 +282,7 @@ export class World implements SkillWorld {
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
-        const dmg = charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch;
+        const dmg = this.mobDmg(charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch);
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
         if (charging) { p.stunT = GOLEM_AI.stunTime; this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, 1.2); }
@@ -498,7 +503,7 @@ export class World implements SkillWorld {
     s.kills++;
     this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const def = MONSTERS[e.mob];
-    const r = gainExp(s, def.exp);
+    const r = gainExp(s, Math.round(def.exp * this.diff.exp));
     this.float(cx(e), e.y - 46, r.msg!, '#9ef0a0', 14, 1.0);
     if (r.banner) {
       this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#ffe066' });
@@ -506,7 +511,7 @@ export class World implements SkillWorld {
     }
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
     const [g0, g1] = def.gold;
-    this.dropGold(cx(e), cy(e), g0 + Math.floor(this.rng() * (g1 - g0 + 1)));
+    this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold));
     for (const d of def.drops ?? []) {
       if (d.quest && questState(s, d.quest) !== 'active') continue;
       // 최대 개수: 가방 + 바닥에 떨어져 있는 것
@@ -703,7 +708,7 @@ export class World implements SkillWorld {
     for (const p of this.players.values()) {
       // 몸통 접촉으로 생긴 무적은 무시 (붙어 있으면 늘 접촉 무적이라 내려치기가 안 맞음)
       if (!overlaps(p, area) || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
-      this.hurtPlayer(p, GOLEM_AI.slamDmg, Math.sign(cx(p) - cx(e)) || e.dir);
+      this.hurtPlayer(p, this.mobDmg(GOLEM_AI.slamDmg), Math.sign(cx(p) - cx(e)) || e.dir);
     }
   }
 
@@ -759,7 +764,7 @@ export class World implements SkillWorld {
       for (const p of this.players.values()) {
         if (hit || !overlaps(box, p) || p.invT > 0 || (p.action && p.action.inv)) continue;
         hit = true;
-        this.hurtPlayer(p, BOSS_ORB.dmg, Math.sign(s.vx) || 1);
+        this.hurtPlayer(p, this.mobDmg(BOSS_ORB.dmg), Math.sign(s.vx) || 1);
       }
       if (hit) s.vx = NaN;
     }
@@ -767,6 +772,9 @@ export class World implements SkillWorld {
   }
 
   private range([a, b]: readonly [number, number]) { return a + this.rng() * (b - a); }
+
+  /** 몬스터가 주는 피해에 난이도 배수 */
+  private mobDmg(d: number) { return Math.max(1, Math.round(d * this.diff.dmg)); }
 
   // ===================== 골드 =====================
   /** 큰 금액은 동전 2개로 나눠 튀어나옴 */
