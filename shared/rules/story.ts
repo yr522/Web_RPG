@@ -2,6 +2,7 @@
 import { TALK_NPCS, type Cond, type DialogueStep, type Effect } from '../data/npcs';
 import type { SaveData } from '../sim/save';
 import { acceptQuest, questState, reportQuest } from './quests';
+import { QUESTS, type QuestDef } from '../data/quests';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
 import { itemDef } from '../data/items';
 import { MAPS, type MapId } from '../data/maps';
@@ -41,6 +42,30 @@ export function pickTalk(s: SaveData, npc: string, nowMs?: number): { talk: numb
 export function offersQuest(s: SaveData, npc: string, nowMs?: number): boolean {
   const pick = pickTalk(s, npc, nowMs);
   return !!pick && pick.talk >= 0 && pick.steps.some(st => 'do' in st && !!st.do && 'quest' in st.do && st.do.quest === 'give');
+}
+
+/** 대사(선택지 안까지)에 들어 있는 효과들 */
+function stepEffects(steps: DialogueStep[]): Effect[] {
+  return steps.flatMap(st => ('do' in st ? [st.do] : 'choices' in st ? st.choices.flatMap(c => stepEffects(c.reply)) : []));
+}
+
+/**
+ * 수락 대기 퀘스트: 지금 받을 수 있는데 안 받은 것.
+ * 교수님 메뉴 퀘스트 + 지금 말을 걸면 퀘스트를 주는 대화 NPC 의 퀘스트
+ * (보고하면서 바로 다음 퀘스트를 주는 대사는 빼고: 그건 보고하는 순간 받음)
+ * 메인 퀘스트가 위, 같으면 퀘스트 표 순서
+ */
+export function offeredQuests(s: SaveData, nowMs?: number): QuestDef[] {
+  const ids = new Set<string>();
+  for (const q of QUESTS) if (q.giver === 'prof' && questState(s, q.id) === 'none') ids.add(q.id);
+  for (const npc of Object.keys(TALK_NPCS)) {
+    const pick = pickTalk(s, npc, nowMs);
+    if (!pick || pick.talk < 0) continue;
+    const fx = stepEffects(pick.steps);
+    if (fx.some(e => 'quest' in e && e.quest === 'report')) continue;
+    for (const e of fx) if ('quest' in e && e.quest === 'give' && questState(s, e.id) === 'none') ids.add(e.id);
+  }
+  return QUESTS.filter(q => ids.has(q.id)).sort((a, b) => Number(!!b.main) - Number(!!a.main));
 }
 
 /**

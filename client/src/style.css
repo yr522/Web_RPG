@@ -31,8 +31,8 @@ html, body {
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; font-size: max(13px, 18 * var(--u)); }
 #hud.mobile { --u: max(min(100vh / 1040, 100vw / 1670), .45px); }
 /* 모바일: 조이스틱과 겹치지 않게 퀘스트 칸을 작게 */
-#hud.mobile .quests { top: calc(130 * var(--u) + 24px + var(--sat)); gap: 5px; }
-#hud.mobile .quest { min-height: 22px; min-width: 130px; padding: 2px 8px; font-size: 11px; }
+#hud.mobile .quests { top: calc(130 * var(--u) + 24px + var(--sat)); gap: 4px; }
+#hud.mobile .quest { --qf: 10px; min-width: 150px; }
 #hud button, #hud .mbtn, #hud .slot, #hud .potion, #hud .stick { pointer-events: auto; }
 
 .menu { position: absolute; left: calc(20 * var(--u) + var(--sal)); top: calc(12 * var(--u) + var(--sat)); display: flex; gap: calc(18 * var(--u)); }
@@ -44,13 +44,38 @@ html, body {
 .menu-btn span { display: block; padding: 0 2px; word-break: keep-all; }
 .menu-btn:active { background: rgba(70, 70, 90, .95); }
 
-.quests { position: absolute; left: calc(31 * var(--u) + var(--sal)); top: calc(224 * var(--u)); display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+.quests { position: absolute; left: calc(20 * var(--u) + var(--sal)); top: calc(224 * var(--u)); display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+/* 퀘스트 한 칸: 검정 반투명 배경이 좌우로 갈수록 투명해짐. 동그라미·글자는 안 흐려짐 */
 .quest {
-  width: calc(273 * var(--u)); min-width: 150px; min-height: max(28px, 56 * var(--u)); box-sizing: border-box;
-  background: rgba(110, 110, 120, .78); border-radius: 2px; padding: 4px 10px;
-  display: flex; align-items: center; font-size: max(11px, 18 * var(--u));
+  --qf: max(11px, 17 * var(--u)); --qc: #fff;
+  position: relative; isolation: isolate; width: calc(380 * var(--u)); min-width: 170px; box-sizing: border-box;
+  padding: calc(var(--qf) * .45) calc(var(--qf) * 3) calc(var(--qf) * .55) calc(var(--qf) * 2.6);
+  font-size: var(--qf); line-height: 1.35; text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
 }
-.quest.empty { opacity: .45; }
+.quest::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(0, 0, 0, .6);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 72%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 22%, #000 72%, transparent 100%);
+}
+.quest.main { --qc: #ffe600; }
+.q-dot {
+  position: absolute; left: calc(var(--qf) * .5); top: calc(var(--qf) * .45);
+  width: calc(var(--qf) * 1.6); height: calc(var(--qf) * 1.6); border-radius: 50%; background: var(--qc);
+}
+.q-head { display: flex; align-items: center; gap: calc(var(--qf) * .35); min-height: calc(var(--qf) * 1.7); }
+.q-name { color: var(--qc); font-weight: 700; font-size: 1.22em; line-height: 1.2; word-break: keep-all; }
+.q-goal { margin-left: calc(var(--qf) * .6); font-weight: 300; }
+.q-goal.done { text-decoration: line-through; opacity: .55; }
+/* 화면 왼쪽 칸의 핀: 제목 길이와 상관없이 오른쪽 고정 자리 */
+.quest .q-pin { position: absolute; right: calc(var(--qf) * 1.2); top: calc(var(--qf) * .65); }
+.q-pin {
+  flex: none; width: calc(var(--qf) * 1.3); height: calc(var(--qf) * 1.3); min-width: 14px; min-height: 14px; padding: 0;
+  background: none; border: none; cursor: pointer; opacity: .35;
+}
+.q-pin svg { display: block; width: 100%; height: 100%; fill: #fff; }
+.q-pin:hover { opacity: .7; }
+.q-pin.on { opacity: 1; }
+.q-pin.on svg { fill: #ff7b5c; }
 
 .info {
   position: absolute; right: calc(20 * var(--u) + var(--sar)); top: calc(16 * var(--u) + var(--sat));
@@ -245,7 +270,6 @@ html, body {
   .npc-body { font-size: 13px; }
   .opt { padding: 6px 10px; font-size: 13px; }
 }
-.quest.done { background: rgba(60, 130, 70, .85); }
 .slot.ready, .mbtn.ready { box-shadow: 0 0 16px 4px var(--ec); }
 .dlg-overlay:has(.win) { align-items: center; }
 .win {
@@ -515,3 +539,40 @@ body.ui-off #hud, body.ui-off .inv { visibility: hidden; }
 .cs-del { border: calc(2 * var(--cu)) solid rgba(255, 120, 120, .7); background: transparent; color: #ff9a9a !important; font-size: calc(15 * var(--cu)); }
 .cs-del.ask { background: #a33; color: #fff !important; }
 .cs-btns button:disabled { opacity: .35; cursor: default; }
+
+/* ===== 퀘스트 창 (인벤토리 창과 같은 틀) ===== */
+.qwin { right: auto; left: 50%; transform: translate(-50%, -50%); }
+.qw-body { flex: none; display: flex; gap: calc(4 * var(--s)); height: calc(300 * var(--s)); box-sizing: border-box; color: #222; }
+.qw-list {
+  width: calc(180 * var(--s)); flex: none; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: calc(3 * var(--s));
+  font-size: max(10px, 12 * var(--s));
+}
+.qw-item {
+  display: flex; align-items: center; gap: calc(5 * var(--s)); padding: calc(5 * var(--s)) calc(5 * var(--s)); flex: none;
+  background: #e2e2e2; border: calc(1.5 * var(--s)) solid #fff; border-radius: calc(3 * var(--s)); cursor: pointer;
+}
+.qw-item.on { background: #fff; border-color: #1673a3; }
+.qw-name { flex: 1; line-height: 1.25; word-break: keep-all; }
+.qw-dot {
+  flex: none; display: inline-block; width: calc(11 * var(--s)); height: calc(11 * var(--s)); border-radius: 50%;
+  background: #fff; box-shadow: 0 0 0 calc(1.5 * var(--s)) #777;
+}
+.main > .qw-dot { background: #ffe600; box-shadow: 0 0 0 calc(1.5 * var(--s)) #9a8400; }
+.qw-pin { margin-left: auto; width: calc(16 * var(--s)); height: calc(16 * var(--s)); opacity: .45; }
+.qw-pin svg { fill: #555; }
+.qw-pin.on svg { fill: #e0502e; }
+.qw-pin:disabled { opacity: .15; cursor: default; }
+.qw-detail {
+  width: calc(250 * var(--s)); flex: none; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
+  background: #f4f4f4; border-radius: calc(3 * var(--s)); padding: calc(8 * var(--s)) calc(10 * var(--s));
+  font-size: max(10px, 12 * var(--s)); line-height: 1.45;
+}
+.qw-title { display: flex; align-items: center; gap: calc(6 * var(--s)); font-size: 1.25em; margin-bottom: calc(6 * var(--s)); }
+.qw-title .qw-dot { width: calc(14 * var(--s)); height: calc(14 * var(--s)); }
+.qw-row { margin-bottom: calc(6 * var(--s)); }
+.qw-label { display: inline-block; font-weight: 700; color: #1673a3; margin-right: calc(6 * var(--s)); }
+div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
+.qw-desc { margin: calc(2 * var(--s)) 0 calc(6 * var(--s)); font-weight: 300; }
+.qw-goal { padding-left: calc(6 * var(--s)); }
+.qw-goal::before { content: '· '; }
+.qw-goal.done { text-decoration: line-through; color: #888; }
