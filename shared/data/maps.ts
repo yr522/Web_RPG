@@ -27,12 +27,23 @@ export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'g
 export interface MapDef {
   name: string;
   width: number;
-  building?: boolean;
   /**
    * 배경 그림 (assets/img/bg/ 아래 파일 이름, .png 빼고). groundY = 그림에서 발이 닿는 줄(픽셀).
    * 그림 맨 위가 맵 맨 위(top, 없으면 0)에, 그 줄이 땅 높이에 오도록 그림 크기를 맞춘다. 맵 폭은 그림 폭에 맞춰 둔다.
    */
   bg?: { img: string; groundY: number };
+  /**
+   * 시간대별 배경 그림 [아침, 낮, 밤] (assets/img/bg/, .png 빼고). 시간대가 바뀌기 직전에 부드럽게 섞인다.
+   * 맵 폭에 맞춰 늘리고, 그림의 groundY 줄(픽셀)이 땅 높이에 온다 (그림 위쪽은 화면 밖으로 넘어가도 됨)
+   */
+  bgTime?: { imgs: [string, string, string]; groundY: number };
+  /**
+   * 배경 위에 세우는 그림 (건물 등). x = 가운데, groundY = 그림에서 땅에 닿는 줄(픽셀), scale = 그림 배율.
+   * 시간대에 따라 색이 바뀜 (밤엔 어둡고 푸르게)
+   */
+  props?: { img: string; x: number; groundY: number; scale: number }[];
+  /** 땅(발 밑) 색. 없으면 기본 어두운 땅. 시간대에 따라 색이 바뀜 */
+  floor?: number;
   /** 플레이어·몬스터가 움직일 수 있는 범위 [왼쪽 x, 오른쪽 x] (없으면 맵 전체). 그림 양옆 전경까지는 못 가게 */
   walk?: [number, number];
   /** 조건이 맞으면 같은 자리의 다른 맵으로 바뀜 (몬스터 없는 맵 → 있는 맵 등) */
@@ -81,7 +92,11 @@ const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 58
 
 export const MAPS: Record<MapId, MapDef> = {
   school: {
-    name: '마법 학교', width: 1700, building: true, safe: true,
+    // 배경: 아침·낮·밤 그림 (그림 맨 아래 = 땅) + 가운데 학교 건물
+    name: '마법 학교', width: 1700, safe: true,
+    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 724 },
+    props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.65 }],
+    floor: 0xb4b2c4,
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [{ x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' }],
     npcs: [

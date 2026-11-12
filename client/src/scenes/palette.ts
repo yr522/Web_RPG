@@ -15,13 +15,25 @@ const mix = (a: number, b: number, f: number) => {
   return out;
 };
 
-export type Palette = Pal & { phase: DayPhase };
+/** 그림(건물·땅)에 덮는 시간대 색 (아침 · 낮 · 밤) */
+const IMG_TINT = [0xf4ecf2, 0xffffff, 0x7480b8];
+
+/** next = 다음 시간대, f = 다음 시간대로 섞인 정도 (0~1), imgTint = 그림에 덮을 색 */
+export type Palette = Pal & { phase: DayPhase; next: DayPhase; f: number; imgTint: number };
+
+/** 색 a 에 색 b(0xRRGGBB)를 곱함 (그림 tint 처럼) */
+export const tintColor = (a: number, b: number) => {
+  let out = 0;
+  for (const s of [16, 8, 0]) out |= Math.round((((a >> s) & 255) * ((b >> s) & 255)) / 255) << s;
+  return out;
+};
 
 export function palette(ms: number): Palette {
   const ti = timeInfo(ms), a = PAL[ti.phase], b = PAL[(ti.phase + 1) % 3];
   const f = ti.frac > 0.93 ? (ti.frac - 0.93) / 0.07 : 0;
   return {
-    phase: ti.phase,
+    phase: ti.phase, next: ((ti.phase + 1) % 3) as DayPhase, f,
+    imgTint: mix(IMG_TINT[ti.phase], IMG_TINT[(ti.phase + 1) % 3], f),
     top: mix(a.top, b.top, f), mid: mix(a.mid, b.mid, f), bot: mix(a.bot, b.bot, f),
     castle: mix(a.castle, b.castle, f), hill: mix(a.hill, b.hill, f), orb: mix(a.orb, b.orb, f),
     win: a.win + (b.win - a.win) * f, stars: a.stars + (b.stars - a.stars) * f, orbY: a.orbY + (b.orbY - a.orbY) * f,
