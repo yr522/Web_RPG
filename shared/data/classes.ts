@@ -59,6 +59,9 @@ export const NAME_MAX = 10;
 export const DEFAULT_NAME = '견습생';
 
 /** 마법사 기본 공격(기본 공격·마력탄): 쏘는 순간 뒤로 밀려남. dist(px)를 time(초) 동안 미끄러지듯. 공중에서도 */
+/** 체력이 0 이 되면 최대 이만큼(초) 쓰러져 있다가 깨어나는 곳으로 (그동안 조작 불가, 무적). [부활하기]를 누르면 바로 */
+export const DOWN_TIME = 20;
+
 export const MAGE_RECOIL = { dist: 20, time: 0.1 };
 /**
  * 마법사 기본 공격 타이밍 (초). 묵직하게: 처음 값의 2배.

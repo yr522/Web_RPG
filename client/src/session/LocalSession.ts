@@ -29,6 +29,8 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
+  /** 쓰러져 있을 때 [부활하기] */
+  revive(): void;
   /** 보스 메뉴: 열린 보스의 입장 포탈이 있는 맵으로 이동 */
   warpBoss(id: string): boolean;
   /** 보스 입장 포탈에서 난이도를 골라 보스 방으로 */
@@ -116,6 +118,8 @@ export class LocalSession implements Session {
   usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
   spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
   releaseHeld() { this.world.releaseHeld(); }
+
+  revive() { this.world.revive(this.playerId); }
 
   /** 학교로 돌아가기 */
   returnHome(): boolean {

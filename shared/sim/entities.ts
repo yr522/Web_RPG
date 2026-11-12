@@ -47,6 +47,8 @@ export interface PlayerState extends Body {
   /** 이번 틱 입력 */
   cmd: Command;
   potionCd: number;
+  /** 쓰러져 있는 남은 시간 (0 = 안 쓰러짐). 끝나면 died 이벤트 */
+  downT: number;
   /** 남은 밀려남 거리 (px, 부호 = 방향). 마법사 기본 공격 반동 */
   push: number;
   warnCd: number;

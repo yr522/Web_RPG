@@ -61,6 +61,8 @@ const LOOPS = {
   jump: { frames: [3], frameTime: 1 },
   /** 땅에서 ↓ */
   crouch: { frames: [4], frameTime: 1 },
+  /** 쓰러짐 (체력 0) */
+  down: { frames: [5], frameTime: 1 },
 } as const;
 type LoopName = keyof typeof LOOPS;
 /** 따라다니는 NPC 가 뛸 때 걷기 프레임 시간 배율 */
@@ -154,7 +156,7 @@ export class PlayerAvatar {
 
     if (!pose) {
       const walking = me.onGround && !me.action && Math.abs(me.vx) > 20;
-      const next: LoopName = !me.onGround ? 'jump' : me.crouch ? 'crouch' : walking ? 'walk' : 'idle';
+      const next: LoopName = me.downT > 0 ? 'down' : !me.onGround ? 'jump' : me.crouch ? 'crouch' : walking ? 'walk' : 'idle';
       if (next !== this.loop) { this.loop = next; this.t = 0; }
       this.t += dt;
       const l = LOOPS[this.loop];
