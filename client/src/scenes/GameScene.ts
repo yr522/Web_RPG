@@ -23,7 +23,14 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { BOSS_ORB, COIN, MONSTERS, type MonsterId } from '@shared/data/monsters';
+import { BOSS_ORB, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
+import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
+import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
+import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
+import coinGold from '../../../assets/img/icon/coin/gold_coin.png';
+
+/** 골드 동전 그림 (16×16 칸, 가로로 프레임) */
+const COIN_URLS = { bronze: coinBronze, iron: coinIron, silver: coinSilver, gold: coinGold };
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
@@ -111,7 +118,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private projG!: Phaser.GameObjects.Graphics;
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
-  private coinG!: Phaser.GameObjects.Graphics;
+  /** 떨어진 골드 동전 그림 (id → 그림) */
+  private coinSprites = new Map<string, Phaser.GameObjects.Sprite>();
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
   private dropSprites = new Map<string, { item: string; obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text }>();
   private fade = 1;
@@ -131,6 +139,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
+    for (const k of COIN_KINDS) this.load.spritesheet(`coin:${k.img}`, COIN_URLS[k.img], { frameWidth: 16, frameHeight: 16 });
     for (const [path, url] of Object.entries(BG_FILES)) this.load.image(`bg:${path.split('/').pop()!.replace(/\.png$/, '')}`, url);
   }
 
@@ -143,7 +152,6 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.mapLayer = this.add.container(0, 0).setDepth(1);
     this.fx = this.add.graphics().setDepth(2);
     this.combat = this.add.graphics().setDepth(4);
-    this.coinG = this.add.graphics().setDepth(4.5);
     this.fxG = this.add.graphics().setDepth(6);
     this.underG = this.add.graphics().setDepth(4.8);
     this.projG = this.add.graphics().setDepth(6.5);
@@ -713,20 +721,24 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
 
-    // 골드: 빙글빙글 도는 동전, 사라지기 5초 전부터 깜빡임
-    const cg = this.coinG;
-    cg.clear();
-    const drops = new Set<string>();
+    // 골드: 금액에 따라 동전·철전·은전·금전 그림이 계속 돎, 사라지기 5초 전부터 깜빡임
+    const drops = new Set<string>(), coins = new Set<string>();
+    const frame = Math.floor(this.time.now / 1000 * COIN_ANIM.fps) % COIN_ANIM.frames;
     for (const c of world.coins) {
       const blink = c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2 === 1;
       if (c.item) { drops.add(c.id); this.drawDrop(c.id, c.item, c.x + c.w / 2, c.y + c.h, c.t, blink); continue; }
-      if (blink) continue;
-      const spin = Math.abs(Math.cos(this.time.now / 250 + c.x));
-      const rx = 7 * (0.35 + 0.65 * spin);
-      cg.fillStyle(0xffd84a).fillEllipse(c.x + 7, c.y + 7, rx * 2, 14);
-      cg.lineStyle(1.5, 0xb8901a).strokeEllipse(c.x + 7, c.y + 7, rx * 2, 14);
+      coins.add(c.id);
+      const key = `coin:${coinKind(c.amt)}`;
+      let sp = this.coinSprites.get(c.id);
+      if (!sp) {
+        sp = this.add.sprite(0, 0, key, 0).setOrigin(0.5, 1).setDepth(4.5).setScale(COIN_ANIM.scale);
+        this.coinSprites.set(c.id, sp);
+      } else if (sp.texture.key !== key) sp.setTexture(key, 0);
+      sp.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      sp.setPosition(c.x + c.w / 2, c.y + c.h).setFrame(frame).setVisible(!blink);
     }
 
+    for (const [id, sp] of this.coinSprites) if (!coins.has(id)) { sp.destroy(); this.coinSprites.delete(id); }
     for (const [id, d] of this.dropSprites) if (!drops.has(id)) { d.obj.destroy(); this.dropSprites.delete(id); }
 
     const me = this.deps.session.me();

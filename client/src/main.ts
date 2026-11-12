@@ -11,6 +11,7 @@ import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
 import { QuestWindow } from './ui/QuestWindow';
+import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
@@ -65,6 +66,8 @@ async function boot() {
   const invWindow = new InventoryWindow(session, hud);
   hud.onUpdate.push(() => invWindow.update());
   const questWindow = new QuestWindow(session, hud);
+  const skillWindow = new SkillWindow(session, hud);
+  hud.onUpdate.push(() => skillWindow.update());
   hud.onUpdate.push(() => questWindow.update());
   hud.onRevive = () => session.revive();
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
@@ -81,6 +84,7 @@ async function boot() {
     else if (id === 'char') charWindow.toggle();
     else if (id === 'inv') invWindow.toggle();
     else if (id === 'quest') questWindow.toggle();
+    else if (id === 'skill') skillWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
@@ -89,7 +93,8 @@ async function boot() {
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
-    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'KeyK') hud.onMenu('skill');
+    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

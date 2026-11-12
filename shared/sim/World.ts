@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAGE_RECOIL, DOWN_TIME, type SlotKey } from '../data/classes';
+import { CLASSES, SKILLS, UNLOCK_LEVELS, MAGE_RECOIL, DOWN_TIME } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -13,7 +13,7 @@ import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_OR
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
-import { gainExp, learned, skillLevel } from '../rules/progress';
+import { gainExp, keySkill, learned, skillKeyOf, skillLevel } from '../rules/progress';
 import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Vortex } from './entities';
 import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
@@ -220,10 +220,10 @@ export class World implements SkillWorld {
 
     // 스킬 입력. 공격이 완전히 끝나기 전 입력은 무효, 끝나기 0.2초 전 입력만 끝나자마자 실행(버퍼)
     for (const key of cmd.skillPressed) {
-      const i = SLOT_KEYS.indexOf(key);
-      if (i >= 4) continue;
-      const name = this.activeSkill(p, i), a = p.action;
-      if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[i]}에 배울 수 있어`); continue; }
+      const bound = p.data.skillKeys[key];
+      if (!bound) continue;
+      const name = keySkill(p.data, key), a = p.action;
+      if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[this.slotOf(p, bound)]}에 배울 수 있어`); continue; }
       // 사슬 화살이 날아가는 중 한 번 더 누르면 끌려감
       if (name === 'sasl' && p.chainArrow && !p.chainArrow.dead && !(a && a.name === 'aim')) { startGrapple(this, p); continue; }
       // 조준·충전·돌진·끌려가는 중에는 다른 스킬 완전 무효
@@ -249,9 +249,11 @@ export class World implements SkillWorld {
       const b = p.buffer; p.buffer = null;
       if (this.time - b.t < 0.35) this.tryStart(p, b.name);
     }
-    // Z 를 누르고 있으면 기본기(기본 공격·일섬·마력탄) 연타
-    const z = this.activeSkill(p, 0);
-    if (!p.action && p.lockT <= 0 && z && cs.auto.includes(z) && cmd.skillHeld.includes('Z') && p.hurt <= 0) this.tryStart(p, z, true);
+    // 기본기(기본 공격·일섬·마력탄) 키를 누르고 있으면 연타
+    if (!p.action && p.lockT <= 0 && p.hurt <= 0) {
+      const z = cmd.skillHeld.map(k => keySkill(p.data, k)).find(n => n && cs.auto.includes(n));
+      if (z) this.tryStart(p, z, true);
+    }
 
     // 이동
     const walkMul = p.action ? cs.walk[p.action.name] : undefined;
@@ -322,13 +324,6 @@ export class World implements SkillWorld {
   }
 
   // ===================== 스킬 =====================
-  /** 슬롯(0~3)에 지금 쓸 수 있는 스킬. 첫 스킬을 배우기 전 Z 는 기본 공격 */
-  activeSkill(p: PlayerState, i: number): string | null {
-    const id = CLASSES[p.data.cls].skills[i];
-    if (learned(p.data, id)) return id;
-    return i === 0 ? 'basic' : null;
-  }
-
   private slotOf(p: PlayerState, skill: string) {
     return Math.max(0, CLASSES[p.data.cls].skills.indexOf(skill));
   }
@@ -398,7 +393,7 @@ export class World implements SkillWorld {
   }
   elemOf(p: PlayerState, skill: string) { return p.data.learned[skill] ?? null; }
   learned(p: PlayerState, skill: string) { return learned(p.data, skill); }
-  held(p: PlayerState, skill: string) { return p.cmd.skillHeld.includes(SLOT_KEYS[this.slotOf(p, skill)] as SlotKey); }
+  held(p: PlayerState, skill: string) { const k = skillKeyOf(p.data, skill); return !!k && p.cmd.skillHeld.includes(k); }
 
   warn(p: PlayerState, text: string) {
     if (p.warnCd > 0) return;
