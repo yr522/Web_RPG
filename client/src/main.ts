@@ -66,6 +66,7 @@ async function boot() {
   hud.onUpdate.push(() => invWindow.update());
   const questWindow = new QuestWindow(session, hud);
   hud.onUpdate.push(() => questWindow.update());
+  hud.onRevive = () => session.revive();
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
   const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;

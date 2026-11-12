@@ -116,6 +116,12 @@ export class World implements SkillWorld {
   }
 
   /** 스킬트리 초기화 등으로 배운 스킬이 바뀌면 진행 중인 전투 상태를 푼다 */
+  /** 쓰러져 있을 때 [부활하기]: 다음 틱에 바로 깨어남 */
+  revive(id: EntityId) {
+    const p = this.players.get(id);
+    if (p && p.downT > 0) p.downT = Math.min(p.downT, 1e-6);
+  }
+
   resetCombat(p: PlayerState) {
     p.cd = {}; p.action = null; p.buffer = null; p.lockT = 0; p.combo = 0; p.cbWindow = 0; p.lastHit = null;
     p.buffT = 0; p.chainArrow = null; p.ropeTo = null;

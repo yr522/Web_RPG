@@ -1,6 +1,6 @@
 // 화면 위 UI (HTML). UI 구상도(PC / 모바일)를 따른다.
 // 게임 상태를 읽어서 보여주기만 하고, 버튼 입력은 Input 으로 넘긴다.
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
+import { CLASSES, DOWN_TIME, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
@@ -53,6 +53,8 @@ export class Hud {
   /** 버프 아이콘: 걸린 순서대로 (끝나면 빠지고 앞으로 당겨짐) */
   private buffEls = new Map<BuffId, HTMLElement>();
   onMenu: (id: MenuId) => void = () => {};
+  /** 쓰러짐 창 [부활하기] */
+  onRevive: () => void = () => {};
   /** 퀘스트 핀 버튼 */
   onQuestPin: (id: string) => void = () => {};
   /** 매 프레임 같이 갱신할 창들 (인벤토리 등) */
@@ -92,6 +94,11 @@ export class Hud {
     this.els.info = r.appendChild(h('div', 'info'));
     this.els.banner = r.appendChild(h('div', 'banner'));
     this.els.toast = r.appendChild(h('div', 'toast'));
+
+    // 쓰러짐 창: 닫을 수 없음. [부활하기]로 바로, 안 누르면 시간이 다 되면 저절로
+    const down = h('div', 'down', '<div class="down-title">너의 죽음!</div><button class="down-btn">부활하기</button><div class="down-time"></div><div class="down-gauge"><i></i></div>');
+    down.querySelector('button')!.addEventListener('click', () => this.onRevive());
+    this.els.down = r.appendChild(down);
 
     // 아래: 버프 · 포션 · HP/MP · (PC) 스킬 슬롯
     const bottom = h('div', 'bottom');
@@ -234,10 +241,11 @@ export class Hud {
     t.classList.add('show');
   }
 
-  private set(key: string, el: HTMLElement, prop: 'text' | 'width' | 'height', value: string) {
+  private set(key: string, el: HTMLElement, prop: 'text' | 'width' | 'height' | 'class', value: string) {
     if (this.cache[key] === value) return;
     this.cache[key] = value;
     if (prop === 'text') el.textContent = value;
+    else if (prop === 'class') el.className = value;
     else el.style[prop] = value;
   }
 
@@ -265,6 +273,13 @@ export class Hud {
 
   update(s: Session) {
     const p = s.me(), save = s.save, st = p.stats;
+
+    const isDown = p.downT > 0;
+    this.set('down', this.els.down, 'class', isDown ? 'down on' : 'down');
+    if (isDown) {
+      this.set('downT', this.els.down.querySelector('.down-time')!, 'text', `자동 부활까지 ${Math.ceil(p.downT)}초`);
+      this.set('downW', this.els.down.querySelector('.down-gauge i')!, 'width', `${(100 * p.downT / DOWN_TIME).toFixed(2)}%`);
+    }
 
     const hpTxt = `${Math.ceil(p.hp)} / ${st.maxHp}`;
     this.set('hpW', this.els.hp.querySelector('i')!, 'width', `${(100 * p.hp / st.maxHp).toFixed(2)}%`);

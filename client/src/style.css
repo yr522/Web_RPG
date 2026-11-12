@@ -576,3 +576,22 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .qw-goal { padding-left: calc(6 * var(--s)); }
 .qw-goal::before { content: '· '; }
 .qw-goal.done { text-decoration: line-through; color: #888; }
+
+/* ===== 쓰러짐 창 (닫을 수 없음) ===== */
+.down {
+  display: none; position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%);
+  width: max(240px, 440 * var(--u)); box-sizing: border-box; padding: max(14px, 26 * var(--u)) max(18px, 34 * var(--u));
+  background: rgba(0, 0, 0, .6); border-radius: max(18px, 34 * var(--u));
+  flex-direction: column; align-items: center; gap: max(8px, 14 * var(--u)); pointer-events: auto;
+}
+.down.on { display: flex; }
+.down-title { font-family: var(--title); font-weight: 700; font-size: max(26px, 50 * var(--u)); color: #ffe600; line-height: 1.1; }
+#hud .down-btn {
+  pointer-events: auto; min-width: max(110px, 200 * var(--u)); padding: max(3px, 6 * var(--u)) max(12px, 20 * var(--u));
+  background: transparent; border: 2px solid #ffe600; color: #fff; font-family: inherit; font-weight: 700;
+  font-size: max(13px, 20 * var(--u)); cursor: pointer;
+}
+#hud .down-btn:hover { background: rgba(255, 230, 0, .15); }
+.down-time { color: #fff; font-weight: 700; font-size: max(12px, 18 * var(--u)); margin-top: max(4px, 8 * var(--u)); }
+.down-gauge { width: 100%; height: max(5px, 8 * var(--u)); background: #000; border-radius: 999px; overflow: hidden; }
+.down-gauge i { display: block; height: 100%; background: #ffe600; border-radius: 999px; }
