@@ -15,6 +15,8 @@ export interface Portal {
   confirm?: string;
   /** 보스 방 입장 포탈: 난이도를 골라 들어감 (bosses.ts 의 id). confirm 문구를 같이 보여 줌 */
   boss?: string;
+  /** 닫힌 포탈: ↑ 를 누르면 이 글만 뜨고 안 들어가짐 (나중에 열 곳. to 는 아무 맵이나) */
+  closed?: string;
 }
 /** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
@@ -22,7 +24,8 @@ export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean }
 
-export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene';
+export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
+  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow';
 
 export interface MapDef {
   name: string;
@@ -89,6 +92,18 @@ const UNDER = (() => {
 /** 골렘 방 배경 golem_room.png 1774×887, 땅 줄 714 → 폭 1168. 양옆 전경(그림 x 230 / 1545 밖)으로는 못 감 */
 const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 584 };
 
+/** 마법 학교 맵에서 건물 정문 자리 */
+const SCHOOL_DOOR_X = 1018;
+/** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
+const HALLWAY_DOORS = [261, 569, 880, 1197, 1516];
+/** 강의실 맵 (그림은 같고, 나가면 그 강의실 문 앞으로) */
+const classroom = (name: string, door: number): MapDef => ({
+  name, width: 994, safe: true, bg: { img: 'school_classroom', groundY: 790 },
+  platforms: [],
+  portals: [{ x: 70, to: 'school_hallway', toX: HALLWAY_DOORS[door], label: '학교 복도' }],
+  npcs: [], signs: [], spawns: [],
+});
+
 export const MAPS: Record<MapId, MapDef> = {
   school: {
     // 배경: 아침·낮·밤 그림 (그림 맨 아래 타일 = 땅) + 가운데 학교 건물.
@@ -97,7 +112,11 @@ export const MAPS: Record<MapId, MapDef> = {
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
-    portals: [{ x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' }],
+    portals: [
+      { x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' },
+      // 학교 건물 정문 → 학교 홀
+      { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
+    ],
     npcs: [
       { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
@@ -193,6 +212,34 @@ export const MAPS: Record<MapId, MapDef> = {
     becomes: { when: { quest: 'mg5', state: 'done' }, to: 'guard_a' },
   },
   // 내 기숙사 방 (임시 맵)
+  // ---- 마법 학교 안: 홀 → 복도 → 강의실 ----
+  school_hall: {
+    name: '학교 홀', width: 1034, safe: true, bg: { img: 'school_hall', groundY: 760 },
+    platforms: [],
+    portals: [
+      { x: 80, to: 'school', toX: SCHOOL_DOOR_X, label: '마법 학교' },
+      // 그림 속 아치 통로
+      { x: 299, to: 'school_hallway', toX: 70, label: '학교 복도' },
+    ],
+    npcs: [], signs: [], spawns: [],
+  },
+  school_hallway: {
+    name: '학교 복도', width: 1846, safe: true, bg: { img: 'school_hallway', groundY: 553 },
+    platforms: [],
+    portals: [
+      { x: 70, to: 'school_hall', toX: 299, label: '학교 홀' },
+      { x: HALLWAY_DOORS[0], to: 'classroom_sword', toX: 70, label: '검술과 강의실' },
+      { x: HALLWAY_DOORS[1], to: 'classroom_magic', toX: 70, label: '마법학과 강의실' },
+      { x: HALLWAY_DOORS[2], to: 'classroom_bow', toX: 70, label: '궁술과 강의실' },
+      // 나중에 직업이 늘면 열 강의실
+      { x: HALLWAY_DOORS[3], to: 'school_hallway', toX: HALLWAY_DOORS[3], label: '', closed: '지금은 들어갈 수 없다.' },
+      { x: HALLWAY_DOORS[4], to: 'school_hallway', toX: HALLWAY_DOORS[4], label: '', closed: '지금은 들어갈 수 없다.' },
+    ],
+    npcs: [], signs: [], spawns: [],
+  },
+  classroom_sword: classroom('검술과 강의실', 0),
+  classroom_magic: classroom('마법학과 강의실', 1),
+  classroom_bow: classroom('궁술과 강의실', 2),
   dorm: {
     name: '기숙사 방', width: 900, safe: true,
     platforms: [],

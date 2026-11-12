@@ -239,7 +239,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (p.ground) {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
-        g.fillStyle(0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
+        // 풀색 땅 윗줄 (배경 그림 맵은 그림 밖 양옆에 풀색 줄이 튀지 않게 땅과 같은 색)
+        g.fillStyle(map.bg ? 0x2b2a3f : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
       }
     }
     // 발판은 배경 그림 위에 그림
@@ -1068,9 +1069,11 @@ export class GameScene extends Phaser.Scene implements Stage {
     g.clear();
     for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId)) {
       const py = (p.y ?? GROUND_Y) - 48;
-      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, py, 48, 88);
+      // 닫힌 포탈은 흐린 회색
+      const [fill, line, a] = p.closed ? [0x9a9aa8, 0xb8b8c4, 0.45] : [0xa078ff, 0xbea0ff, 1];
+      g.fillStyle(fill, 0.25 * a).fillEllipse(p.x, py, 48, 88);
       for (let i = 0; i < 3; i++) {
-        g.lineStyle(4, 0xbea0ff, 0.8 - i * 0.2);
+        g.lineStyle(4, line, (0.8 - i * 0.2) * a);
         g.strokeEllipse(p.x, py, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
       }
     }
