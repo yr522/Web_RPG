@@ -37,6 +37,12 @@ export function pickTalk(s: SaveData, npc: string, nowMs?: number): { talk: numb
   return i >= 0 ? { talk: i, steps: def.talks![i].steps } : { talk: -1, steps: def.dialogue };
 }
 
+/** 이 NPC 가 지금 말을 걸면 퀘스트를 주는지 (길 안내용) */
+export function offersQuest(s: SaveData, npc: string, nowMs?: number): boolean {
+  const pick = pickTalk(s, npc, nowMs);
+  return !!pick && pick.talk >= 0 && pick.steps.some(st => 'do' in st && !!st.do && 'quest' in st.do && st.do.quest === 'give');
+}
+
 /**
  * 대사 안의 효과 위치: [단계 번호, 선택지 번호, 단계 번호, …].
  * 화면이 보낸 위치로 데이터에서 효과를 직접 찾는다 → 화면이 마음대로 효과를 만들 수 없다.

@@ -60,6 +60,8 @@ export interface TalkNpcDef {
   bubble?: { text: string; life: number };
   /** 사람이 아니라 물건 (임시 그림) */
   prop?: 'bed';
+  /** 이 NPC 가 줄 퀘스트가 있으면(지금 대사에 퀘스트 주기가 있으면) 길 안내 화살표가 이 NPC 를 가리킴 */
+  guide?: boolean;
 }
 
 /** 플레이어가 이 거리(월드 px) 안으로 들어오면 말풍선이 뜬다 */
@@ -92,29 +94,73 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
           { line: '그래…? 이상하다. 분명히 들렸는데.' },
           { line: '오늘 밤에도 들리면 깨우러 갈게. 일단 기숙사에서 푹 자 둬.' },
           { do: { quest: 'report', id: 'mg2' } },
+          { do: { quest: 'give', id: 'mg4' } },
         ],
       },
       { when: { quest: 'mg4', state: 'ready' }, steps: [{ line: '밤에 기숙사에서 자 둬. 소리가 들리면 깨우러 갈게.' }] },
-      // 6~8. 숲 깊은 곳에서 (자리를 옮겨 가며)
-      { when: { quest: 'mg6', state: 'active' }, steps: [{ line: '방금 그 목소리 들었지…? 기계들이 길을 막고 있어. 먼저 저것들부터 처리하자!' }] },
-      { when: { quest: 'mg7', state: 'active' }, steps: [{ line: '여기도 기계투성이야. 아까랑은 생김새가 달라. 조심해!' }] },
+      // 6. 경비기계A 지역
       {
-        when: { quest: 'mg9', state: 'active' },
+        when: { all: [{ quest: 'mg5', state: 'done' }, { quest: 'mg6', state: 'none' }] },
+        steps: [{ line: '방금 그 목소리 들었지…? 기계들이 길을 막고 있어. 먼저 저것들부터 처리하자!' }, { do: { quest: 'give', id: 'mg6' } }],
+      },
+      { when: { quest: 'mg6', state: 'active' }, steps: [{ line: '기계들이 아직 남아 있어. 조심해!' }] },
+      {
+        when: { quest: 'mg6', state: 'ready' },
+        steps: [{ line: '다 처리했구나! 길이 더 안쪽으로 이어져. 먼저 가 있을게.' }, { do: { quest: 'report', id: 'mg6' } }],
+      },
+      // 7. 경비기계B 지역
+      {
+        when: { all: [{ quest: 'mg6', state: 'done' }, { quest: 'mg7', state: 'none' }] },
+        steps: [{ line: '여기도 기계투성이야. 아까랑은 생김새가 달라. 이것들도 부탁해!' }, { do: { quest: 'give', id: 'mg7' } }],
+      },
+      { when: { quest: 'mg7', state: 'active' }, steps: [{ line: '아까 것들보다 단단해 보여. 조심해!' }] },
+      {
+        when: { quest: 'mg7', state: 'ready' },
+        steps: [{ line: '고마워! 저 안쪽에 뭔가 있는 것 같아. 먼저 가 볼게.' }, { do: { quest: 'report', id: 'mg7' } }],
+      },
+      // 8. 공방 입구
+      {
+        when: { all: [{ quest: 'mg7', state: 'done' }, { quest: 'mg9', state: 'none' }] },
         steps: [
           { line: '여기 입구가 있어! 그런데 단단히 잠겨 있네…' },
           { line: '여는 장치가 따로 있는 것 같아. 아까 그 경비기계B 중 하나가 가지고 있지 않을까?' },
+          { do: { quest: 'give', id: 'mg9' } },
         ],
+      },
+      { when: { quest: 'mg9', state: 'active' }, steps: [{ line: '경비기계B 중 하나가 여는 장치를 가지고 있을 거야.' }] },
+      {
+        when: { quest: 'mg9', state: 'ready' },
+        steps: [{ line: '찾았구나! 이걸로 열 수 있을 거야.' }, { do: { quest: 'report', id: 'mg9' } }, { line: '열렸다! 안에서 기다릴게.' }],
       },
       // 9. 공방 안
       {
-        when: { quest: 'mg10', state: 'active' },
+        when: { all: [{ quest: 'mg9', state: 'done' }, { quest: 'mg10', state: 'none' }] },
         steps: [
           { line: '여기가 그 소리의 정체였구나… 오래전에 버려진 마법공방이야.' },
           { line: '저 가운데 결정, 마력이 아직 남아 있어. 그런데 그것보다…' },
           { line: '지하에서 엄청 강한 마력이 느껴져. 내려가 보자.' },
+          { do: { quest: 'give', id: 'mg10' } },
         ],
       },
+      { when: { quest: 'mg10', state: 'active' }, steps: [{ line: '지하에서 엄청 강한 마력이 느껴져. 조심해.' }] },
+      // 10. 지하: 다 잡으면 골렘 방 문 옆에서
+      {
+        when: { quest: 'mg10', state: 'ready' },
+        steps: [
+          { line: '다 처리했네! 그런데 이 문 너머… 지금까지랑은 차원이 다른 기운이야.' },
+          { do: { quest: 'report', id: 'mg10' } },
+          { line: '이 공방의 마지막 경비일 거야. 쓰러뜨리자!' },
+          { do: { quest: 'give', id: 'mg11' } },
+        ],
+      },
+      { when: { quest: 'mg11', state: 'active' }, steps: [{ line: '이 문 너머야. 준비되면 들어가자.' }] },
+      // 11. 골렘을 잡은 뒤
+      {
+        when: { quest: 'mg11', state: 'ready' },
+        steps: [{ line: '해냈어…! 정말 쓰러뜨렸구나!' }, { do: { quest: 'report', id: 'mg11' } }],
+      },
     ],
+    guide: true,
   },
   // 기숙사 방 침대: 밤에 자면 다음으로 (검사·궁수는 4번 퀘스트, 마법사는 혼자 수색 시작)
   bed: {
@@ -130,6 +176,7 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
           { line: '일어나, 일어나 봐! 지금 그 소리가 또 들려!', who: 'mage_friend' },
           { line: '같이 가 보자. 지금이면 뭔가 찾을 수 있을지도 몰라!', who: 'mage_friend' },
           { do: { quest: 'report', id: 'mg4' } },
+          { do: { quest: 'give', id: 'mg5' } },
         ],
       },
       {

@@ -51,7 +51,7 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   },
   guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
   guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
-  golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 92, h: 140, ai: 'golem', speed: [21, 21], chase: 1, boss: true },
+  golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
 };
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */
@@ -95,7 +95,7 @@ export const GOLEM_AI = {
   /** 1. 전방 내려치기: 플레이어가 앞쪽 이 거리 안이면. 예고 후 앞쪽 범위(폭·높이)에 피해 */
   slamRange: 170,
   slamWindup: 0.8,
-  slamW: 190,
+  slamW: 215,
   slamH: 150,
   slamDmg: 45,
   slamRecover: 0.7,

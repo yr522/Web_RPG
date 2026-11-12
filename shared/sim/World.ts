@@ -6,7 +6,7 @@ import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import { questDef, type QuestDef } from '../data/quests';
-import { autoReport, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
+import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
 import { mapNpcs, mapPortals } from '../rules/story';
 import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_ORB, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
@@ -82,7 +82,7 @@ export class World implements SkillWorld {
   /** 퀘스트를 다 했을 때 큰 글씨 알림 (누구에게 보고하는지) */
   private questReady(p: PlayerState, q: QuestDef) {
     // 자동 보고 퀘스트는 바로 보고 (다음 퀘스트도 바로 받음)
-    if (q.auto) {
+    if (isAuto(p.data, q)) {
       for (const r of autoReport(p.data)) {
         if (r.banner) this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#9ef0a0' });
         if (r.statsChanged) this.refreshStats(p, r.fullHeal);

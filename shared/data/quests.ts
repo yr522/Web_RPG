@@ -51,6 +51,8 @@ export interface QuestDef {
   doneBanner?: string;
   /** 하는 동안 밤으로 고정 */
   nightLock?: boolean;
+  /** 이 직업이면 (이야기 NPC 가 동행하지 않아서) 다 하면 바로 끝나고 next 를 바로 받음 */
+  solo?: { cls: 'warrior' | 'mage' | 'archer'; next?: string };
   /** 하는 동안 따라다니는 NPC (연출, 무적. 플레이어 직업이 그 NPC 와 같으면 안 나옴) */
   companion?: { npc: string; notCls: 'warrior' | 'mage' | 'archer' };
   /** 길 안내 목적지 (없으면 목표에서 짐작: 말 걸기 → 그 NPC 맵, 가기 → 그 맵, 처치 → 그 몬스터 맵) */
@@ -58,47 +60,46 @@ export interface QuestDef {
 }
 
 export const QUESTS: QuestDef[] = [
-  // ---- 미니 챕터: 마법공학의 유산 (대사 없이 진행만, 보상·이름 임시) ----
-  // 검사·궁수: 동급생 마법사(Lv 3)에게 말 걸기 → mg2 → mg4 → mg5 …
-  // 마법사: 밤에 기숙사 침대에서 자면(Lv 3) 바로 mg5 (혼자 수색)
+  // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시) ----
+  // 검사·궁수: 동급생 마법사가 퀘스트를 주고, 다 하면 마법사에게 가서 보고 → 마법사는 다음 맵으로 옮겨 가 있음 → 거기서 다음 퀘스트
+  // 마법사: 동행 NPC 가 없어서 다 하면 바로 끝나고 다음 퀘스트를 받음 (solo)
+  //   밤에 기숙사 침대에서 자면(Lv 3) 바로 mg5 (혼자 수색)
   {
     id: 'mg2', name: '학교 뒤 숲 둘러보기', desc: '숲 깊은 곳(갈림길)까지 둘러보고 마법사에게 알리기', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: {}, next: 'mg4',
+    goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
   },
   {
     id: 'mg4', name: '밤에 잠자기', desc: '밤에 기숙사 방 침대에서 자기', giver: 'mage_friend',
-    goals: [{ kind: 'talk', npc: 'bed' }], reward: {}, next: 'mg5',
+    goals: [{ kind: 'talk', npc: 'bed' }], reward: {},
   },
   {
     id: 'mg5', name: '마법사와 숲으로', desc: '밤의 숲 깊은 곳으로', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, next: 'mg6', nightLock: true, doneBanner: '"…접근하지 마라."',
-    companion: { npc: 'mage_friend', notCls: 'mage' },
+    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, nightLock: true, doneBanner: '"…접근하지 마라."',
+    companion: { npc: 'mage_friend', notCls: 'mage' }, solo: { cls: 'mage', next: 'mg6' },
   },
   {
     id: 'mg6', name: '길을 막는 기계 처치', desc: '경비기계A 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: {}, auto: true, next: 'mg7',
+    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: {}, solo: { cls: 'mage', next: 'mg7' },
   },
   {
     id: 'mg7', name: '길을 막는 기계 계속 처치', desc: '경비기계B 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: {}, auto: true, next: 'mg8',
+    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: {}, solo: { cls: 'mage', next: 'mg9' },
   },
   {
-    id: 'mg8', name: '숨겨진 입구', desc: '공방 입구 찾기', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'workshop_gate' }], reward: {}, auto: true, next: 'mg9',
+    // 공방 입구에서 받음. 보고하면(템은 이때 씀) 공방 입구의 포탈이 열림
+    id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템 얻기', giver: 'mage_friend',
+    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg10' },
   },
   {
-    // 공방 퀘스트 템이 있으면 공방 입구의 포탈이 열림 → 들어가면 끝 (템은 이때 씀)
-    id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템을 얻어 공방 안으로', giver: 'mage_friend',
-    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }, { kind: 'visit', map: 'workshop' }], reward: {}, auto: true, next: 'mg10',
-  },
-  {
+    // 공방 안에서 받음. 지하는 갇히는 맵: 다 잡으면 마법사가 골렘 방 문 옆에 나타남 → 보고하고 골렘 퀘스트를 받으면 문이 열림
     id: 'mg10', name: '공방 지하', desc: '공방 지하의 경비기계 전부 처치', giver: 'mage_friend', where: 'under_trial',
-    goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: {}, auto: true, next: 'mg11',
-    doneBanner: '강력한 기운이 느껴진다',
+    goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: {},
+    doneBanner: '강력한 기운이 느껴진다', solo: { cls: 'mage', next: 'mg11' },
   },
   {
+    // 골렘을 잡으면 마법사가 골렘 방에 나타남 → 보고하면 끝 (보스 메뉴의 마법 골렘 워프가 열림)
     id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
-    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, auto: true,
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, solo: { cls: 'mage' },
   },
 
   {

@@ -72,6 +72,7 @@ async function boot() {
     if (id === 'full') toggleFullscreen();
     else if (id === 'char') charWindow.toggle();
     else if (id === 'inv') invWindow.toggle();
+    else if (id === 'boss') npcDialog.openBoss();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     else hud.toast('메뉴는 준비 중이에요');
   };

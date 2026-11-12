@@ -7,10 +7,11 @@ import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
 import type { Element } from '@shared/data/elements';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
-import { autoReport, newlyReady, nightLocked, questReadyText } from '@shared/rules/quests';
+import { autoReport, isAuto, newlyReady, nightLocked, questReadyText } from '@shared/rules/quests';
 import { MAPS } from '@shared/data/maps';
 import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
+import { BOSSES } from '@shared/data/bosses';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -27,6 +28,8 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
+  /** 보스 메뉴: 열린 보스의 방으로 이동 */
+  warpBoss(id: string): boolean;
   /** 물어보는 포탈에서 "예" */
   takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
@@ -82,7 +85,7 @@ export class LocalSession implements Session {
     // 레벨·스킬·장비 목표처럼 행동으로 끝나는 퀘스트 알림
     const ready = newlyReady(this.save, () => { r = applyAction(this.save, action, this.nowMs()); });
     for (const q of ready) {
-      if (q.auto) continue;
+      if (isAuto(this.save, q)) continue;
       if (!r.banner) r.banner = questReadyText(q);
       else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q), color: '#9ef0a0' });
     }
@@ -114,6 +117,13 @@ export class LocalSession implements Session {
     const { hp, mp } = this.me();
     this.enter('school', 600, { hp, mp });
     this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: 'school' });
+    return true;
+  }
+
+  warpBoss(id: string): boolean {
+    const b = BOSSES.find(o => o.id === id);
+    if (!b || !checkCond(this.save, b.unlock)) return false;
+    this.takePortal(b.map, b.x);
     return true;
   }
 
