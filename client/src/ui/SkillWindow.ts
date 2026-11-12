@@ -1,6 +1,6 @@
 // 스킬 창 (왼쪽 위 [스킬], K). 게임을 멈추지 않는 떠 있는 창 (인벤토리·퀘스트 창과 같은 틀).
-// - 스킬 트리: 줄마다 왼쪽에 열리는 레벨, 직업 스킬이 위에서부터 한 줄씩. 한 줄에 최대 3칸 (지금은 첫 칸만, 나머지는 빈 칸 틀)
-// - 오른쪽 위: 패시브 칸 (빈 칸)
+// - 스킬 트리: 줄마다 왼쪽에 열리는 레벨, 직업 스킬이 위에서부터 한 줄씩. 한 줄에 스킬 최대 3칸 + 맨 오른쪽 패시브 1칸
+//   (지금은 첫 칸만 쓰고, 갈래 2칸·패시브는 빈 칸 틀)
 // - 테두리 색 = 배운 원소 (안 배움·무속성은 흰색). 아래 "레벨/마스터"
 // - 스킬 포인트(초기화 주문서로 돌려받은 레벨)가 있을 때만 왼쪽 위에 SP 가 깜빡이고, 배운 스킬에 + 버튼
 // - 오른쪽 아래 ▼ 를 누르면 스킬 키 칸이 펼쳐짐. 배운 스킬을 끌어다 키에 등록·교체, 키끼리 끌어서 옮기기
@@ -82,10 +82,9 @@ export class SkillWindow {
     const s = this.session.save, cls = CLASSES[s.cls];
     this.body.innerHTML = '';
 
-    // 위: 스킬 포인트(있을 때만) · 패시브 칸
+    // 위: 스킬 포인트 (있을 때만)
     const top = el('div', 'skw-top');
-    top.appendChild(s.skillPts > 0 ? el('div', 'skw-sp', `SP: ${s.skillPts}`) : el('div'));
-    top.appendChild(el('div', 'skw-cell skw-empty skw-passive'));
+    if (s.skillPts > 0) top.appendChild(el('div', 'skw-sp', `SP: ${s.skillPts}`));
     this.body.appendChild(top);
 
     // 스킬 트리
@@ -95,6 +94,7 @@ export class SkillWindow {
       row.appendChild(el('div', `skw-lv${s.level >= UNLOCK_LEVELS[i] ? ' open' : ''}`, `Lv.${UNLOCK_LEVELS[i]}`));
       row.appendChild(this.node(id, i));
       for (let c = 1; c < ROW_CELLS; c++) row.appendChild(el('div', 'skw-cell skw-empty'));
+      row.appendChild(el('div', 'skw-cell skw-empty skw-passive'));
       tree.appendChild(row);
     });
     this.body.appendChild(tree);
