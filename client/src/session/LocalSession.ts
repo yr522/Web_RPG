@@ -11,7 +11,7 @@ import { autoReport, isAuto, newlyReady, nightLocked, questReadyText } from '@sh
 import { MAPS } from '@shared/data/maps';
 import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
-import { BOSSES } from '@shared/data/bosses';
+import { BOSSES, bossDef, type Difficulty } from '@shared/data/bosses';
 import { questDef } from '@shared/data/quests';
 
 export interface Session {
@@ -29,8 +29,10 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
-  /** 보스 메뉴: 열린 보스의 방으로 이동 */
+  /** 보스 메뉴: 열린 보스의 입장 포탈이 있는 맵으로 이동 */
   warpBoss(id: string): boolean;
+  /** 보스 입장 포탈에서 난이도를 골라 보스 방으로 */
+  enterBoss(id: string, difficulty: Difficulty): boolean;
   /** 물어보는 포탈에서 "예" */
   takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
@@ -50,14 +52,17 @@ export class LocalSession implements Session {
   private pending: GameEvent[] = [];
 
   constructor(readonly save: SaveData, private store: Store) {
-    this.enter(save.map, 600);
+    // 보스 방에서 끝냈으면 (고른 난이도는 저장 안 함) 그 방에서 쓰러졌을 때 깨어나는 곳에서 시작
+    const r = BOSSES.some(b => b.room === save.map) ? MAPS[save.map].respawn : undefined;
+    if (r) this.enter(r.map, r.x, undefined, r.y);
+    else this.enter(save.map, 600);
   }
 
   me() { return this.world.players.get(this.playerId)!; }
   prevPos() { return this.prev; }
 
-  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }, y?: number) {
-    this.world = new World(map);
+  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }, y?: number, difficulty?: Difficulty) {
+    this.world = new World(map, undefined, difficulty);
     const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp, y);
     this.prev = { x: p.x, y: p.y };
     this.save.map = map;
@@ -122,9 +127,19 @@ export class LocalSession implements Session {
   }
 
   warpBoss(id: string): boolean {
-    const b = BOSSES.find(o => o.id === id);
+    const b = bossDef(id);
     if (!b || !checkCond(this.save, b.unlock)) return false;
-    this.takePortal(b.map, b.x);
+    this.takePortal(b.gate.map, b.gate.x);
+    return true;
+  }
+
+  enterBoss(id: string, difficulty: Difficulty): boolean {
+    const b = bossDef(id);
+    const need = b?.open[difficulty];
+    if (!b || (need && !checkCond(this.save, need))) return false;
+    const { hp, mp } = this.me();
+    this.enter(b.room, b.roomX, { hp, mp }, undefined, difficulty);
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: b.room });
     return true;
   }
 
@@ -153,7 +168,7 @@ export class LocalSession implements Session {
         }
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
           // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
-          if (ev.confirm) continue;
+          if (ev.confirm || ev.boss) continue;
           const { hp, mp } = this.me();
           this.enter(ev.to, ev.toX, { hp, mp }, ev.toY);
           out.push({ type: 'mapEnter', playerId: this.playerId, map: ev.to });

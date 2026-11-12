@@ -8,7 +8,7 @@ import { QUESTS } from '@shared/data/quests';
 import { questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { checkCond, pickTalk } from '@shared/rules/story';
-import { BOSSES } from '@shared/data/bosses';
+import { BOSSES, DIFFICULTIES, DIFFICULTY_ORDER, bossDef } from '@shared/data/bosses';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
 import { canAttend, learned, nextToLearn, skillLevel, type ActionResult, type MenuAction } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -79,6 +79,27 @@ export class NpcDialog {
     const opts = el('div', 'opts');
     opts.appendChild(el('button', 'opt', '예', () => { this.host.close(); onYes(); }));
     opts.appendChild(el('button', 'opt', '아니오', () => this.host.close()));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 보스 입장 포탈: 난이도 고르기 (열리지 않은 난이도는 못 누름) */
+  openDifficulty(bossId: string, text?: string) {
+    const b = bossDef(bossId);
+    if (!b) return;
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    if (text) body.appendChild(el('p', 'line', esc(text)));
+    const opts = el('div', 'opts');
+    for (const d of DIFFICULTY_ORDER) {
+      const btn = el('button', 'opt', DIFFICULTIES[d].name, () => { this.host.close(); this.session.enterBoss(bossId, d); }) as HTMLButtonElement;
+      const need = b.open[d];
+      btn.disabled = !!need && !checkCond(this.session.save, need);
+      opts.appendChild(btn);
+    }
     body.appendChild(opts);
     panel.appendChild(body);
     panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));

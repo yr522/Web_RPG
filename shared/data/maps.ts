@@ -13,6 +13,8 @@ export interface Portal {
   y?: number; toY?: number;
   /** 들어가기 전에 물어봄 */
   confirm?: string;
+  /** 보스 방 입장 포탈: 난이도를 골라 들어감 (bosses.ts 의 id). confirm 문구를 같이 보여 줌 */
+  boss?: string;
 }
 /** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
@@ -212,7 +214,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
     platforms: UNDER.platforms,
     portals: [
-      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
+      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
     ],
     npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg11', state: 'active' }) }],
     signs: [],
@@ -222,12 +224,15 @@ export const MAPS: Record<MapId, MapDef> = {
   under: {
     name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
     platforms: UNDER.platforms,
-    portals: [{ x: 520, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' }],
+    portals: [
+      { x: 520, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' },
+      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
+    ],
     npcs: [],
     signs: [],
     spawns: UNDER.spawns,
   },
-  // 골렘 방 (슬라임 맵 크기). 골렘은 한 번만, 잡으면 나가는 포탈
+  // 골렘 방 (슬라임 맵 크기). 입장 포탈에서 고른 난이도로 골렘이 한 번만 나옴. 골렘 퀘스트를 끝냈으면 나가는 포탈
   golem_room: {
     name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
     platforms: [],
