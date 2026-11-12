@@ -94,11 +94,13 @@ const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 58
 
 /** 마법 학교 맵에서 건물 정문 자리 */
 const SCHOOL_DOOR_X = 1018;
+/** 학교 홀 그림 속 복도로 가는 아치 통로 자리 */
+const HALL_ARCH_X = 499;
 /** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
 const HALLWAY_DOORS = [261, 569, 880, 1197, 1516];
 /** 강의실 맵 (그림은 같고, 나가면 그 강의실 문 앞으로) */
 const classroom = (name: string, door: number): MapDef => ({
-  name, width: 994, safe: true, bg: { img: 'school_classroom', groundY: 790 },
+  name, width: 1367, safe: true, bg: { img: 'school_classroom', groundY: 791 },
   platforms: [],
   portals: [{ x: 70, to: 'school_hallway', toX: HALLWAY_DOORS[door], label: '학교 복도' }],
   npcs: [], signs: [], spawns: [],
@@ -214,12 +216,12 @@ export const MAPS: Record<MapId, MapDef> = {
   // 내 기숙사 방 (임시 맵)
   // ---- 마법 학교 안: 홀 → 복도 → 강의실 ----
   school_hall: {
-    name: '학교 홀', width: 1034, safe: true, bg: { img: 'school_hall', groundY: 760 },
+    name: '학교 홀', width: 1426, safe: true, bg: { img: 'school_hall', groundY: 758 },
     platforms: [],
     portals: [
       { x: 80, to: 'school', toX: SCHOOL_DOOR_X, label: '마법 학교' },
       // 그림 속 아치 통로
-      { x: 299, to: 'school_hallway', toX: 70, label: '학교 복도' },
+      { x: HALL_ARCH_X, to: 'school_hallway', toX: 70, label: '학교 복도' },
     ],
     npcs: [], signs: [], spawns: [],
   },
@@ -227,7 +229,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '학교 복도', width: 1846, safe: true, bg: { img: 'school_hallway', groundY: 553 },
     platforms: [],
     portals: [
-      { x: 70, to: 'school_hall', toX: 299, label: '학교 홀' },
+      { x: 70, to: 'school_hall', toX: HALL_ARCH_X, label: '학교 홀' },
       { x: HALLWAY_DOORS[0], to: 'classroom_sword', toX: 70, label: '검술과 강의실' },
       { x: HALLWAY_DOORS[1], to: 'classroom_magic', toX: 70, label: '마법학과 강의실' },
       { x: HALLWAY_DOORS[2], to: 'classroom_bow', toX: 70, label: '궁술과 강의실' },
