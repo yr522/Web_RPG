@@ -1,6 +1,7 @@
 // 퀘스트 진행·보상. 저장 데이터만 다룬다.
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
-import { questDef, type QuestDef } from '../data/quests';
+import { QUESTS, QUEST_PIN_MAX, questDef, type QuestDef } from '../data/quests';
+import { CLASSES, SKILLS } from '../data/classes';
 import { MAPS, type MapId } from '../data/maps';
 import { MONSTERS, type MonsterId } from '../data/monsters';
 import { TALK_NPCS } from '../data/npcs';
@@ -15,8 +16,11 @@ export type QuestState = 'none' | 'active' | 'ready' | 'done';
 
 const fail = (msg: string): ActionResult => ({ ok: false, msg });
 
-/** 퀘스트 저장 상태. counts = 목표마다 센 숫자 (처치 수, 가 봤으면 1. 모으기는 가방 개수로 세서 안 씀) */
-export interface QuestSave { active: boolean; counts: number[]; done?: boolean }
+/**
+ * 퀘스트 저장 상태. counts = 목표마다 센 숫자 (처치 수, 가 봤으면 1. 모으기는 가방 개수로 세서 안 씀)
+ * at = 받은 순서 번호, doneAt = 마지막으로 끝낸 순서 번호 (SaveData.questSeq)
+ */
+export interface QuestSave { active: boolean; counts: number[]; done?: boolean; at?: number; doneAt?: number }
 
 /** 목표 하나의 진행도. talk 는 그 NPC 에게 가서 보고하면 끝 → 항상 0/1 */
 export function goalProgress(s: SaveData, q: QuestDef, i: number): { cur: number; need: number } {
@@ -90,7 +94,8 @@ export function acceptQuest(s: SaveData, id: string): ActionResult {
   for (const it of give) addItem(s, it.id, it.n);
   // 가기 목표: 이미 그 맵에 있으면 바로 완료
   const counts = q.goals.map(g => (g.kind === 'visit' && s.map === g.map ? 1 : 0));
-  s.quests[id] = { active: true, counts, done: s.quests[id]?.done };
+  const old = s.quests[id];
+  s.quests[id] = { active: true, counts, done: old?.done, doneAt: old?.doneAt, at: ++s.questSeq };
   return { ok: true, msg: `퀘스트 시작: ${q.name}` };
 }
 
@@ -109,7 +114,8 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   for (const c of collectCosts(q)) removeItem(room, c.id, c.n);
   for (const it of r.items ?? []) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
   for (const c of collectCosts(q)) removeItem(s, c.id, c.n);
-  s.quests[id] = { active: false, counts: [], done: true };
+  s.quests[id] = { active: false, counts: [], done: true, doneAt: ++s.questSeq };
+  s.questPins = s.questPins.filter(p => p !== id);
   const parts: string[] = [];
   let res: ActionResult = { ok: true };
   const exp = typeof r.exp === 'function' ? r.exp(s.level) : r.exp;
@@ -230,4 +236,74 @@ export function npcPlace(npc: string, s?: SaveData): { map: MapId; x: number } |
     if (n) return { map: id, x: n.x };
   }
   return null;
+}
+
+// ---------- 퀘스트 목록 (화면 왼쪽 · 퀘스트 창) ----------
+
+/** NPC 이름 (교수님은 직업별 이름). 없으면 '없음' */
+export function npcName(s: SaveData, id: string): string {
+  if (!id) return '없음';
+  if (id === 'prof') return CLASSES[s.cls].professor;
+  return TALK_NPCS[id]?.name ?? '없음';
+}
+
+/** 조건 한 줄: 글 + 다 했는지 */
+export interface GoalLine { text: string; done: boolean }
+
+/** 목표 하나의 조건 글. state: 'done' = 끝난 퀘스트라 전부 다 한 것으로, 'none' = 안 받은 퀘스트라 전부 0 */
+function goalLine(s: SaveData, q: QuestDef, i: number, state: QuestState): GoalLine {
+  const g = q.goals[i], p = goalProgress(s, q, i);
+  const cur = state === 'done' ? p.need : state === 'none' ? 0 : p.cur, done = cur >= p.need, all = state === 'done';
+  const num = `${cur}/${p.need}`;
+  if (g.text) return { text: g.text, done };
+  switch (g.kind) {
+    case 'kill': return { text: `${g.mob ? MONSTERS[g.mob].name : '몬스터'} 처치 ${num}`, done };
+    case 'collect': return { text: `${itemDef(g.item)?.name ?? g.item} ${num}`, done };
+    case 'visit': return { text: `${MAPS[g.map].name} 가 보기`, done };
+    case 'talk': return { text: `${npcName(s, g.npc)}에게 말 걸기`, done: all };
+    case 'level': return { text: `레벨 ${g.n} 달성`, done };
+    case 'learn': return { text: `${g.skill ? SKILLS[g.skill]?.name ?? g.skill : '스킬'} 배우기`, done };
+    case 'equip': return { text: `${g.item ? itemDef(g.item)?.name ?? g.item : '장비'} 장착`, done };
+  }
+}
+
+/**
+ * 퀘스트 조건 줄들. 하는 중인데 다 했고 말 걸기 목표가 없으면(준 사람에게 보고) 마지막에 보고 줄을 붙인다.
+ * state 를 안 주면 지금 상태 (끝난 퀘스트 목록은 'done' = 전부 다 한 것으로, 수락 대기 목록은 'none' = 전부 0)
+ */
+export function questLines(s: SaveData, q: QuestDef, state = questState(s, q.id)): GoalLine[] {
+  const out = q.goals.map((_, i) => goalLine(s, q, i, state));
+  if (state === 'ready' && !isAuto(s, q) && !q.goals.some(g => g.kind === 'talk')) out.push({ text: `${npcName(s, q.giver)}에게 보고하기`, done: false });
+  return out;
+}
+
+const questIndex = (id: string) => QUESTS.findIndex(q => q.id === id);
+
+/** 하는 중인 퀘스트 정렬: 핀 꽂은 메인 → 핀 꽂은 일반 → 메인 → 일반, 같으면 먼저 받은 것이 위 */
+export function sortedActive(s: SaveData): QuestDef[] {
+  const rank = (q: QuestDef) => (s.questPins.includes(q.id) ? 0 : 2) + (q.main ? 0 : 1);
+  return activeQuests(s).sort((a, b) => rank(a) - rank(b)
+    || (s.quests[a.id].at ?? 0) - (s.quests[b.id].at ?? 0)
+    || questIndex(a.id) - questIndex(b.id));
+}
+
+/** 화면 왼쪽에 보일 퀘스트 (max 개, 핀 꽂은 것은 넘어도 다 보임) */
+export function hudQuests(s: SaveData, max: number): QuestDef[] {
+  const list = sortedActive(s);
+  return list.slice(0, Math.max(max, s.questPins.length));
+}
+
+/** 끝낸 퀘스트: 최근에 끝낸 것이 위 (중요도 상관없이) */
+export function doneQuests(s: SaveData): QuestDef[] {
+  return QUESTS.filter(q => s.quests[q.id]?.done)
+    .sort((a, b) => (s.quests[b.id].doneAt ?? 0) - (s.quests[a.id].doneAt ?? 0) || questIndex(b.id) - questIndex(a.id));
+}
+
+/** 핀 꽂기 / 빼기 (하는 중인 퀘스트만, 최대 QUEST_PIN_MAX) */
+export function togglePin(s: SaveData, id: string): ActionResult {
+  if (s.questPins.includes(id)) { s.questPins = s.questPins.filter(p => p !== id); return { ok: true }; }
+  if (!s.quests[id]?.active) return fail('하는 중인 퀘스트가 아니야');
+  if (s.questPins.length >= QUEST_PIN_MAX) return fail(`핀은 ${QUEST_PIN_MAX}개까지`);
+  s.questPins.push(id);
+  return { ok: true };
 }

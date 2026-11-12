@@ -7,7 +7,8 @@ import type { MapId } from './maps';
 import type { MonsterId } from './monsters';
 
 /** 퀘스트 목표 */
-export type QuestGoal =
+export type QuestGoal = (
+
   /** 몬스터 처치. mob: 몬스터 종류 (없으면 아무거나). tag 가 있으면 그 이름표 몬스터만 셈 (보스 등, 컷신의 fight 로 나옴) */
   | { kind: 'kill'; mob?: MonsterId; n: number; tag?: string }
   /** 물건 모아 오기 (가방에 있는 개수로 셈, 보고할 때 가져감) */
@@ -21,7 +22,11 @@ export type QuestGoal =
   /** 스킬 배우기 (skill 이 없으면 아무 스킬이나 하나) */
   | { kind: 'learn'; skill?: string }
   /** 장비 끼기 (item 이 있으면 그 장비, 없으면 아무 장비나) */
-  | { kind: 'equip'; item?: string };
+  | { kind: 'equip'; item?: string }
+) & {
+  /** 퀘스트 창·화면 왼쪽에 보일 조건 글 (없으면 목표에서 만듦: "경비기계A 처치 3/5" 등) */
+  text?: string;
+};
 
 export interface QuestReward {
   /** 숫자 또는 레벨에 따라 바뀌는 값 */
@@ -33,13 +38,16 @@ export interface QuestReward {
 export interface QuestDef {
   id: string;
   name: string;
+  /** 메인 퀘스트 (노란 동그라미, 목록 위쪽). 없으면 일반 퀘스트 (흰 동그라미) */
+  main?: boolean;
+  /** 개요 (퀘스트 창에 보임) */
   desc: string;
   /** 목표들. 여러 개면 전부 해야 보고할 수 있다 (동시에 진행) */
   goals: QuestGoal[];
   reward: QuestReward;
   /** 받을 때 주는 물건 (전달 퀘스트: 이 물건을 모아 오기 목표 + 말 걸기 목표로 전달). 가방에 자리가 없으면 못 받음 */
   start?: { items: { id: string; n: number }[] };
-  /** 누가 주는지: 'prof'(교수님 메뉴) 또는 대화 NPC id */
+  /** 누가 주는지: 'prof'(교수님 메뉴) 또는 대화 NPC id. '' 이면 퀘스트 창의 관련 NPC 가 '없음' */
   giver: string;
   /** 끝난 뒤 다시 받을 수 있는지 */
   repeat?: boolean;
@@ -67,7 +75,7 @@ export const QUESTS: QuestDef[] = [
   // 마법사: 동행 NPC 가 없어서 다 하면 바로 끝나고 다음 퀘스트를 받음 (solo)
   //   밤에 기숙사 침대에서 자면(Lv 3) 바로 mg5 (혼자 수색)
   {
-    id: 'mg2', name: '학교 뒤 숲 둘러보기', desc: '숲 깊은 곳(갈림길)까지 둘러보고 마법사에게 알리기', giver: 'mage_friend',
+    id: 'mg2', name: '학교 뒤 숲 둘러보기', desc: '동급생이 밤 중의 이상한 소리를 들었다며 학교 뒤 숲을 살펴봐달라고 했다.', giver: 'mage_friend',
     goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
   },
   {
@@ -150,5 +158,10 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'equip' }, { kind: 'level', n: 3 }, { kind: 'kill', mob: 'slime', n: 2 }], reward: { exp: 30 },
   },
 ];
+
+/** 화면 왼쪽에 한 번에 보이는 퀘스트 수 (핀 꽂은 퀘스트는 이보다 많아도 다 보임) */
+export const QUEST_HUD_MAX = 3;
+/** 핀은 최대 몇 개까지 */
+export const QUEST_PIN_MAX = 3;
 
 export const questDef = (id: string) => QUESTS.find(q => q.id === id);

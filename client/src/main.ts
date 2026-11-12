@@ -10,6 +10,7 @@ import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
+import { QuestWindow } from './ui/QuestWindow';
 import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
@@ -63,6 +64,9 @@ async function boot() {
   const charWindow = new CharWindow(dialogs, session, hud);
   const invWindow = new InventoryWindow(session, hud);
   hud.onUpdate.push(() => invWindow.update());
+  const questWindow = new QuestWindow(session, hud);
+  hud.onUpdate.push(() => questWindow.update());
+  hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
   const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
   const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
@@ -75,6 +79,7 @@ async function boot() {
     if (id === 'full') toggleFullscreen();
     else if (id === 'char') charWindow.toggle();
     else if (id === 'inv') invWindow.toggle();
+    else if (id === 'quest') questWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
@@ -83,7 +88,7 @@ async function boot() {
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
-    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

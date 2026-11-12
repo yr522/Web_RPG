@@ -34,6 +34,10 @@ export interface SaveData {
   map: MapId;
   /** 퀘스트 상태. done = 한 번이라도 끝냄 */
   quests: Record<string, QuestSave>;
+  /** 핀 꽂은 퀘스트 (꽂은 순서, 최대 QUEST_PIN_MAX) */
+  questPins: string[];
+  /** 퀘스트를 받거나 끝낼 때마다 1씩 오르는 번호 (받은 순서·끝낸 순서 정렬용) */
+  questSeq: number;
   /** 이야기 진행 플래그 (이름 → 숫자). 대사 조건·효과에서 씀 */
   flags: Record<string, number>;
   /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
@@ -50,7 +54,7 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     learned: {}, skillLevels: {},
     bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
-    quests: {}, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
+    quests: {}, questPins: [], questSeq: 0, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
   for (const it of START_ITEMS) addItem(s, it.id, it.n);
   return s;
@@ -94,7 +98,7 @@ export function normalizeSave(raw: SaveData): SaveData {
   for (let v = old.version ?? 1; v < SAVE_VERSION; v++) MIGRATIONS[v]?.(old);
   const s = old as unknown as SaveData;
   const d = newSave(s.name, s.cls, s.gender);
-  const out: SaveData = { ...d, ...s, version: SAVE_VERSION, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip }, quests: { ...s.quests } };
+  const out: SaveData = { ...d, ...s, version: SAVE_VERSION, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip }, quests: { ...s.quests }, questPins: [...(s.questPins ?? [])] };
   // 예전 소지품 { hp, mp, reset } → 가방, 예전 가방·장비 형태 → 지금 형태
   const inv = (s as unknown as { inventory?: Record<string, number> }).inventory;
   if (!s.bag) out.bag = inv ? [] : d.bag;
@@ -112,6 +116,7 @@ function cleanSave(s: SaveData) {
     // 목표 수가 바뀌었으면 숫자 칸을 맞춤
     st.counts = q.goals.map((_, i) => st.counts?.[i] ?? 0);
   }
+  s.questPins = s.questPins.filter(id => s.quests[id]?.active);
   s.bag = s.bag.map(e => (e && itemDef(e.id) && e.n > 0 ? e : null));
   for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
     if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];
