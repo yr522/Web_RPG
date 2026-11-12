@@ -60,19 +60,19 @@ const friend = (c: Cond): Cond => ({ all: [{ not: { cls: 'mage' } }, c] });
 const slimes = (xs: [number, number?][]): Spawn[] => xs.map(([x, y]) => ({ x, mob: 'slime', y }));
 
 /**
- * 공방 지하 모양 (배경 under.png 1024×1536, 땅 줄 1421 → 폭 870, 맵 맨 위 -738):
+ * 공방 지하 모양 (배경 under.png 1024×1536, 땅 줄 1421 → 폭 1200, 맵 맨 위 -1195). 화면 양옆 여백이 없게 넓힘, 그림 위쪽은 화면 밖으로 넘어가도 됨:
  * 맨 위 가운데 발판(시작) + 양옆 발판 4개씩 (가운데는 비움) + 바닥. 발판 간격은 점프로 오를 수 있게 (125).
  * 맨 위 발판 위로는 천장까지 넉넉히 비워 둠
  */
 const UNDER = (() => {
-  const width = 870, mapTop = -738, mid = width / 2;
+  const width = 1200, mapTop = -1195, mid = width / 2;
   const top = GROUND_Y - 125 * 5;
   const rows = [GROUND_Y - 125, GROUND_Y - 250, GROUND_Y - 375, GROUND_Y - 500];
-  const platforms: Platform[] = [{ x: mid - 105, y: top, w: 210 }];
-  for (const y of rows) platforms.push({ x: 40, y, w: 250 }, { x: width - 290, y, w: 250 });
+  const platforms: Platform[] = [{ x: mid - 120, y: top, w: 240 }];
+  for (const y of rows) platforms.push({ x: 40, y, w: 400 }, { x: width - 440, y, w: 400 });
   const spawns: Spawn[] = [
-    { x: 120, mob: 'guard_c', y: rows[0] - 60 }, { x: 640, mob: 'guard_c', y: rows[1] - 60 }, { x: 140, mob: 'guard_c', y: rows[3] - 60 }, { x: 640, mob: 'guard_c' },
-    { x: 240, mob: 'guard_d', y: rows[1] - 40 }, { x: 700, mob: 'guard_d', y: rows[2] - 40 }, { x: 420, mob: 'guard_d', y: rows[0] - 60 }, { x: 200, mob: 'guard_d', y: GROUND_Y - 120 },
+    { x: 160, mob: 'guard_c', y: rows[0] - 60 }, { x: 900, mob: 'guard_c', y: rows[1] - 60 }, { x: 200, mob: 'guard_c', y: rows[3] - 60 }, { x: 900, mob: 'guard_c' },
+    { x: 320, mob: 'guard_d', y: rows[1] - 40 }, { x: 980, mob: 'guard_d', y: rows[2] - 40 }, { x: 580, mob: 'guard_d', y: rows[0] - 60 }, { x: 280, mob: 'guard_d', y: GROUND_Y - 120 },
   ];
   return { width, mapTop, mid, top, platforms, spawns };
 })();

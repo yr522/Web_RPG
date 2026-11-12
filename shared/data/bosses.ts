@@ -33,7 +33,7 @@ export interface BossEntry {
 export const BOSSES: BossEntry[] = [
   // 마법 골렘: 처음엔 스토리만. 골렘 처치 퀘스트(mg11)를 끝내면 보스 메뉴와 나머지 난이도가 열림
   {
-    id: 'golem', name: '마법 골렘', room: 'golem_room', roomX: 220, gate: { map: 'under', x: 435 },
+    id: 'golem', name: '마법 골렘', room: 'golem_room', roomX: 220, gate: { map: 'under', x: 600 },
     unlock: { quest: 'mg11', state: 'done' },
     open: {
       easy: { quest: 'mg11', state: 'done' },
