@@ -27,7 +27,7 @@ export class Input {
       const a = KEYMAP[e.code];
       // 컷신 중: 단축키까지 전부 막음
       if (this.cutLock) return;
-      if (this._blocked) { if ((e.code === 'KeyC' || e.code === 'KeyI') && !e.repeat) this.onHotkey(e.code); return; }
+      if (this._blocked) { if ((e.code === 'KeyC' || e.code === 'KeyI' || e.code === 'KeyK') && !e.repeat) this.onHotkey(e.code); return; }
       if (a) {
         e.preventDefault();
         if (!e.repeat) this.set(a, true);

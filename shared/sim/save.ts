@@ -1,5 +1,5 @@
 // 저장 데이터 형태 + 능력치 계산 (기획서 5장 공식)
-import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, START_STAT, type ClassId, type StatId } from '../data/classes';
+import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
@@ -25,6 +25,10 @@ export interface SaveData {
   /** 배운 스킬 → 고른 원소 (원소 없는 스킬은 null) */
   learned: Record<string, Element | null>;
   skillLevels: Record<string, number>;
+  /** 스킬 포인트: 스킬 초기화 주문서를 쓰면 수업으로 올린 레벨(Lv1 넘는 만큼)이 돌아옴. 스킬 창에서 배운 스킬에 찍는다 */
+  skillPts: number;
+  /** 스킬 키에 등록한 스킬 (키 → 직업 스킬 id) */
+  skillKeys: Partial<Record<SlotKey, string>>;
   /** 가방 (BAG_SIZE 칸, 빈 칸 = null) */
   bag: Bag;
   /** 장비 칸 → 끼고 있는 가방 장비의 uid (장비는 껴도 가방에 남아 있다) */
@@ -47,11 +51,18 @@ export interface SaveData {
   kills: number;
 }
 
+/** 처음 스킬 키: Z A S D 에 직업 스킬 4개를 순서대로 */
+export function defaultSkillKeys(cls: ClassId): Partial<Record<SlotKey, string>> {
+  const out: Partial<Record<SlotKey, string>> = {};
+  CLASSES[cls].skills.forEach((id, i) => { out[SLOT_KEYS[i]] = id; });
+  return out;
+}
+
 export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
   const s: SaveData = {
     version: SAVE_VERSION, name, cls, gender, level: 1, exp: 0, gold: 0,
     stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
-    learned: {}, skillLevels: {},
+    learned: {}, skillLevels: {}, skillPts: 0, skillKeys: defaultSkillKeys(cls),
     bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
     quests: {}, questPins: [], questSeq: 0, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
@@ -98,7 +109,7 @@ export function normalizeSave(raw: SaveData): SaveData {
   for (let v = old.version ?? 1; v < SAVE_VERSION; v++) MIGRATIONS[v]?.(old);
   const s = old as unknown as SaveData;
   const d = newSave(s.name, s.cls, s.gender);
-  const out: SaveData = { ...d, ...s, version: SAVE_VERSION, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip }, quests: { ...s.quests }, questPins: [...(s.questPins ?? [])] };
+  const out: SaveData = { ...d, ...s, version: SAVE_VERSION, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip }, skillKeys: { ...(s.skillKeys ?? d.skillKeys) }, quests: { ...s.quests }, questPins: [...(s.questPins ?? [])] };
   // 예전 소지품 { hp, mp, reset } → 가방, 예전 가방·장비 형태 → 지금 형태
   const inv = (s as unknown as { inventory?: Record<string, number> }).inventory;
   if (!s.bag) out.bag = inv ? [] : d.bag;
@@ -117,6 +128,8 @@ function cleanSave(s: SaveData) {
     st.counts = q.goals.map((_, i) => st.counts?.[i] ?? 0);
   }
   s.questPins = s.questPins.filter(id => s.quests[id]?.active);
+  // 다른 직업 스킬·없는 스킬이 키에 있으면 빼기
+  for (const [k, id] of Object.entries(s.skillKeys) as [SlotKey, string][]) if (!CLASSES[s.cls].skills.includes(id)) delete s.skillKeys[k];
   s.bag = s.bag.map(e => (e && itemDef(e.id) && e.n > 0 ? e : null));
   for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
     if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];

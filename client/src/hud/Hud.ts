@@ -14,6 +14,7 @@ import icoInventory from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set
 import icoSpell from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Spell.png';
 import icoBattle from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Battle.png';
 import icoPicto from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_PictoIcon_Thumbnails.Png?url';
+import icoSkill from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Skill.png';
 import icoGold from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Gold.png';
 
 export type UiMode = 'pc' | 'mobile';
@@ -30,6 +31,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C', icon: icoProfile },
   { id: 'inv', label: '인벤토리', key: 'I', icon: icoInventory },
+  { id: 'skill', label: '스킬', key: 'K', icon: icoSkill },
   { id: 'quest', label: '퀘스트', key: '', icon: icoSpell },
   { id: 'boss', label: '보스', key: '', icon: icoBattle },
   { id: 'menu', label: '메뉴', key: 'Esc', icon: icoPicto },
@@ -259,10 +261,9 @@ export class Hud {
   }
 
   private slotView(s: Session, k: SlotKey): SlotView {
-    const i = SLOT_KEYS.indexOf(k);
-    const save = s.save;
-    if (i >= 4) return { slot: k, name: '', sub: '', color: '', locked: false, empty: true, cd: 0 };
-    const id = CLASSES[save.cls].skills[i];
+    const save = s.save, id = save.skillKeys[k];
+    if (!id) return { slot: k, name: '', sub: '', color: '', locked: false, empty: true, cd: 0 };
+    const i = CLASSES[save.cls].skills.indexOf(id);
     const learned = id in save.learned;
     if (!learned && i === 0) return { slot: k, name: SKILLS.basic.name, sub: '무속성', color: NO_ELEMENT.color, locked: false, empty: false, cd: 0 };
     const sk = SKILLS[id];
