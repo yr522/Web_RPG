@@ -26,15 +26,15 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 };
 
 
-/** 왼쪽 위 메뉴 버튼. icon 이 있으면 그림 + 아래 작은 이름, 없으면 글자만 */
+/** 왼쪽 위 메뉴 버튼. icon 이 있으면 그림만 (이름은 마우스를 올리면), 없으면 글자 */
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C', icon: icoProfile },
   { id: 'inv', label: '인벤토리', key: 'I', icon: icoInventory },
   { id: 'quest', label: '퀘스트', key: '', icon: icoSpell },
   { id: 'boss', label: '보스', key: '', icon: icoBattle },
+  { id: 'menu', label: '메뉴', key: 'Esc', icon: icoPicto },
   { id: 'home', label: '귀환', key: '', icon: '' },
   { id: 'full', label: '전체 화면', key: '', icon: '' },
-  { id: 'menu', label: '메뉴', key: 'Esc', icon: icoPicto },
 ] as const;
 export type MenuId = (typeof MENU)[number]['id'];
 
@@ -82,7 +82,7 @@ export class Hud {
     // 왼쪽 위: 메뉴 버튼
     const menu = h('div', 'menu');
     for (const m of MENU) {
-      const b = h('button', m.icon ? 'menu-btn ico' : 'menu-btn', m.icon ? `<img src="${m.icon}" alt="" draggable="false"><span>${m.label}</span>` : `<span>${m.label}</span>`);
+      const b = h('button', m.icon ? 'menu-btn ico' : 'menu-btn', m.icon ? `<img src="${m.icon}" alt="${m.label}" draggable="false">` : `<span>${m.label}</span>`);
       b.title = m.key ? `${m.label} (${m.key})` : m.label;
       b.addEventListener('click', () => this.onMenu(m.id));
       menu.appendChild(b);
