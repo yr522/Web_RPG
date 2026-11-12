@@ -43,6 +43,10 @@ html, body {
 }
 .menu-btn span { display: block; padding: 0 2px; word-break: keep-all; }
 .menu-btn:active { background: rgba(70, 70, 90, .95); }
+.menu-btn.ico { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; }
+.menu-btn.ico img { width: 62%; height: 62%; object-fit: contain; pointer-events: none; margin-top: 2%; }
+.menu-btn.ico span { font-size: max(8px, 10.5 * var(--u)); line-height: 1.05; }
+.gold-ico { height: 1.15em; width: auto; vertical-align: -0.22em; }
 
 .quests { position: absolute; left: calc(20 * var(--u) + var(--sal)); top: calc(224 * var(--u)); display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
 /* 퀘스트 한 칸: 검정 반투명 배경이 좌우로 갈수록 투명해짐. 동그라미·글자는 안 흐려짐 */
