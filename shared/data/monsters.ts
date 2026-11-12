@@ -99,6 +99,8 @@ export const GOLEM_AI = {
   slamH: 150,
   slamDmg: 45,
   slamRecover: 0.7,
+  /** 가까이 붙어 있어도 내려치기를 이만큼 연달아 쓰면 다음은 돌진 */
+  slamsBeforeCharge: 2,
   /** 2. 돌진: 플레이어가 멀면 이 확률로. 예고할 때 방향을 정하고, 그 뒤로는 플레이어와 상관없이 벽까지. 맞으면 기절 */
   chargeChance: 0.45,
   chargeWindup: 0.9,

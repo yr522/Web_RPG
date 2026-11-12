@@ -269,15 +269,18 @@ export class World implements SkillWorld {
     }
 
     // 몬스터와 부딪히면 피해
-    if (p.invT <= 0 && !invAtStart && !(p.action && p.action.inv)) {
+    // 이동기 무적은 다 막음. 몸통 접촉 무적은 보스 돌진을 못 막음
+    if (!invAtStart && !(p.action && p.action.inv)) {
       for (const e of this.enemies) {
         if (e.dead || e.held || !overlaps(p, e)) continue;
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
+        if (p.invT > 0 && !(charging && p.touchInv)) continue;
         const dmg = charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch;
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
         if (charging) { p.stunT = GOLEM_AI.stunTime; this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, 1.2); }
+        p.touchInv = !charging;
         if (p.action && p.action.superArmor) p.invT = 0.6;
         else {
           p.invT = 1.0; p.hurt = 0.3; p.action = null;
@@ -685,8 +688,9 @@ export class World implements SkillWorld {
     if (target && Math.abs(dx) > MONSTER_AI.chaseDeadZone) e.dir = dx > 0 ? 1 : -1;
     e.vx = target && Math.abs(dx) > 40 ? e.dir * e.speed : 0;
     if (!target || e.leapCd > 0 || !e.onGround) return;
-    if (Math.abs(dx) < GOLEM_AI.slamRange + e.w / 2) { e.pat = 'slam'; e.leap = 'crouch'; e.leapT = GOLEM_AI.slamWindup; e.vx = 0; }
-    else if (this.rng() < GOLEM_AI.chargeChance) { e.pat = 'charge'; e.chargeDir = e.dir; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
+    const near = Math.abs(dx) < GOLEM_AI.slamRange + e.w / 2;
+    if (near && (e.slams ?? 0) < GOLEM_AI.slamsBeforeCharge) { e.pat = 'slam'; e.slams = (e.slams ?? 0) + 1; e.leap = 'crouch'; e.leapT = GOLEM_AI.slamWindup; e.vx = 0; }
+    else if (near || this.rng() < GOLEM_AI.chargeChance) { e.slams = 0; e.pat = 'charge'; e.chargeDir = e.dir; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
     else e.leapCd = this.range(GOLEM_AI.every) * 0.5;
   }
 
@@ -696,7 +700,8 @@ export class World implements SkillWorld {
     this.fx({ kind: 'ring', x: area.x + area.w / 2, y: e.y + e.h - 10, color: '#c8a070', r0: 20, r1: GOLEM_AI.slamW * 0.6, life: 0.35 });
     this.events.push({ type: 'shake', amount: 10 });
     for (const p of this.players.values()) {
-      if (!overlaps(p, area) || p.invT > 0 || (p.action && p.action.inv)) continue;
+      // 몸통 접촉으로 생긴 무적은 무시 (붙어 있으면 늘 접촉 무적이라 내려치기가 안 맞음)
+      if (!overlaps(p, area) || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
       this.hurtPlayer(p, GOLEM_AI.slamDmg, Math.sign(cx(p) - cx(e)) || e.dir);
     }
   }
@@ -704,6 +709,7 @@ export class World implements SkillWorld {
   /** 몬스터 공격(접촉 말고)에 맞음 */
   private hurtPlayer(p: PlayerState, dmg: number, dir: number) {
     p.hp -= dmg;
+    p.touchInv = false;
     this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
     if (p.action && p.action.superArmor) { p.invT = 0.6; return; }
     p.invT = 1.0; p.hurt = 0.3; p.action = null;
