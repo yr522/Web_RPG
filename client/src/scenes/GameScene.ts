@@ -208,17 +208,24 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
         g.fillStyle(map.building ? 0x7a6a8a : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
-      } else {
-        g.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
-        g.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
       }
+    }
+    // 발판은 배경 그림 위에 그림
+    const plat = this.add.graphics();
+    for (const p of world.solids) {
+      if (p.ground) continue;
+      plat.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
+      plat.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
     }
     // 배경 그림: 그림 속 땅 줄이 땅 높이에 오게
     if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
       // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
-      g.fillStyle(0x0c1420).fillRect(-EDGE, -EDGE, EDGE, GROUND_Y + EDGE).fillRect(map.width, -EDGE, EDGE, GROUND_Y + EDGE);
-      this.mapLayer.add(this.add.image(0, 0, `bg:${map.bg.img}`).setOrigin(0, 0).setScale(GROUND_Y / map.bg.groundY));
+      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
+      const top = map.top ?? 0;
+      g.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
+      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
     }
+    this.mapLayer.add(plat);
     for (const s of map.signs) {
       g.fillStyle(0x5a4630).fillRect(s.x - 3, GROUND_Y - 50, 6, 50);
       g.fillStyle(0x7a6040).fillRect(s.x - 75, GROUND_Y - 74, 150, 28);
@@ -473,8 +480,10 @@ export class GameScene extends Phaser.Scene implements Stage {
     const vh = VIEW_H / this.camZoom;
     const top = this.deps.session.world.map.top;
     if (top === undefined) return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
-    // 세로로 긴 맵: 플레이어 발이 화면 아래쪽 70% 쯤에 오게 따라감
-    const want = Math.max(top, Math.min(VIEW_H - vh, meFeet - vh * 0.7));
+    // 세로로 긴 맵: 플레이어 발이 화면 아래쪽 70% 쯤에 오게 따라감. 높이 올라갈수록 발을 화면 아래쪽(맨 위 발판에서 75%)에 둬서 천장이 더 보이게
+    const highest = Math.min(GROUND_Y, ...this.deps.session.world.map.platforms.map(p => p.y));
+    const up = highest < GROUND_Y ? Math.max(0, Math.min(1, (GROUND_Y - meFeet) / (GROUND_Y - highest))) : 0;
+    const want = Math.max(top, Math.min(VIEW_H - vh, meFeet - vh * (0.7 + 0.05 * up)));
     if (this.camYNow === null) this.camYNow = want;
     this.camYNow += (want - this.camYNow) * Math.min(1, dt * 6);
     return this.camYNow;

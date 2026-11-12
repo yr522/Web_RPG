@@ -10,7 +10,7 @@ import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKil
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_ORB, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
-import { stepBody, overlaps, JUMP_VELOCITY, type Solid } from './physics';
+import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, learned, skillLevel } from '../rules/progress';
@@ -54,6 +54,8 @@ export class World implements SkillWorld {
   orbShots: { id: string; x: number; y: number; vx: number; vy: number }[] = [];
   private nextId = 1;
 
+  /** 플레이어·몬스터가 움직일 수 있는 범위 (맵 walk) */
+  readonly bounds: Bounds;
   /** 난이도 배수 (보스 방에서 고른 난이도, 그 밖은 보통) */
   readonly diff: (typeof DIFFICULTIES)[Difficulty];
 
@@ -61,6 +63,8 @@ export class World implements SkillWorld {
     this.rng = mulberry32(seed);
     this.diff = DIFFICULTIES[difficulty];
     this.map = MAPS[mapId];
+    const [l, r] = this.map.walk ?? [0, this.map.width];
+    this.bounds = { l, r, top: (this.map.top ?? 0) - 200 };
     this.solids = [
       { x: 0, y: GROUND_Y, w: this.map.width, h: 200, ground: true },
       ...this.map.platforms.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h ?? 14 })),
@@ -267,7 +271,7 @@ export class World implements SkillWorld {
       p.vx = step / dt;
     }
     const pushed = p.vx !== keepVx;
-    stepBody(p, dt, this.solids, this.map.width, !(p.action && p.action.noGravity));
+    stepBody(p, dt, this.solids, this.bounds, !(p.action && p.action.noGravity));
     if (pushed) p.vx = keepVx;
 
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.vx) || !Number.isFinite(p.vy)) {
@@ -538,7 +542,7 @@ export class World implements SkillWorld {
       // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
       if (e.pulled) { e.pulled = false; continue; }
       // 컷신 중 붙잡힘: 제자리에 서 있기 (떨어지는 것만)
-      if (e.held) { e.vx = 0; e.leap = 'none'; stepBody(e, dt, this.solids, this.map.width); continue; }
+      if (e.held) { e.vx = 0; e.leap = 'none'; stepBody(e, dt, this.solids, this.bounds); continue; }
       const target = this.nearestPlayer(e);
       e.leapCd -= dt;
       if (e.stun > 0) {
@@ -555,13 +559,13 @@ export class World implements SkillWorld {
       }
       if (MONSTERS[e.mob].ai === 'flyer') {
         // 날아다님: 중력·발판 없이 맵 안에서만
-        e.x = Math.max(0, Math.min(this.map.width - e.w, e.x + e.vx * dt));
+        e.x = Math.max(this.bounds.l, Math.min(this.bounds.r - e.w, e.x + e.vx * dt));
         e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * dt));
-      } else stepBody(e, dt, this.solids, this.map.width);
+      } else stepBody(e, dt, this.solids, this.bounds);
       // 맵 끝에 닿으면 돌아섬 (골렘 돌진 중은 제외: 돌진이 벽에서 끝나야 함)
       if (!(e.pat === 'charge' && e.leap === 'leap')) {
-        if (e.x <= 0) e.dir = 1;
-        if (e.x >= this.map.width - e.w) e.dir = -1;
+        if (e.x <= this.bounds.l) e.dir = 1;
+        if (e.x >= this.bounds.r - e.w) e.dir = -1;
       }
     }
   }
@@ -685,7 +689,7 @@ export class World implements SkillWorld {
         const d = e.chargeDir ?? e.dir;
         e.dir = d;
         e.vx = d * GOLEM_AI.chargeSpeed;
-        const atWall = d > 0 ? e.x >= this.map.width - e.w - 1 : e.x <= 1;
+        const atWall = d > 0 ? e.x >= this.bounds.r - e.w - 1 : e.x <= this.bounds.l + 1;
         if (atWall) { e.vx = 0; e.leap = 'none'; e.pat = undefined; e.leapCd = this.range(GOLEM_AI.every); this.events.push({ type: 'shake', amount: 8 }); }
       }
       return;
@@ -802,7 +806,7 @@ export class World implements SkillWorld {
     const players = [...this.players.values()];
     this.coins = this.coins.filter(c => {
       c.t += dt;
-      stepBody(c, dt, this.solids, this.map.width);
+      stepBody(c, dt, this.solids, this.bounds);
       if (c.onGround) c.vx *= 1 - 8 * dt;
       // 캐릭터 몸이 닿아야 획득 (자동 줍기 없음)
       const p = players.find(pl => overlaps(pl, c));
