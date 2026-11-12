@@ -8,14 +8,15 @@ export function nextPortal(s: SaveData, from: MapId, to: MapId): Portal | null {
   if (from === to) return null;
   // 너비 우선 탐색: 처음 탄 포탈을 같이 기억
   const seen = new Set<MapId>([from]);
-  let frontier: { map: MapId; first: Portal }[] = mapPortals(s, from).map(p => ({ map: p.to, first: p }));
+  const open = (m: MapId) => mapPortals(s, m).filter(p => !p.closed);
+  let frontier: { map: MapId; first: Portal }[] = open(from).map(p => ({ map: p.to, first: p }));
   while (frontier.length) {
     const next: typeof frontier = [];
     for (const f of frontier) {
       if (f.map === to) return f.first;
       if (seen.has(f.map)) continue;
       seen.add(f.map);
-      for (const p of mapPortals(s, f.map)) if (!seen.has(p.to)) next.push({ map: p.to, first: f.first });
+      for (const p of open(f.map)) if (!seen.has(p.to)) next.push({ map: p.to, first: f.first });
     }
     frontier = next;
   }

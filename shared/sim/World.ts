@@ -215,6 +215,7 @@ export class World implements SkillWorld {
       const npc = this.npcNear(p);
       if (npc) { this.events.push({ type: 'interact', playerId: p.id, npc: npc.id }); return; }
       const portal = this.portalNear(p);
+      if (portal?.closed && p.onGround) { this.warn(p, portal.closed); return; }
       if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss }); return; }
     }
 
