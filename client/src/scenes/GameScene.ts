@@ -425,7 +425,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const act = me.action?.name;
     const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
     this.player.update(dt, me, px + me.w / 2 + lunge, py + me.h);
-    this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
+    this.player.setVisible(me.downT > 0 || !(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
     // 퀘스트 진행으로 NPC 자리·포탈이 바뀌면 다시 그림
@@ -582,7 +582,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawGuide(meX: number, meFeet: number) {
     const g = this.guideG;
     g.clear();
-    if (this.cut.running || !this.uiOn) return;
+    if (this.cut.running || !this.uiOn || this.deps.session.me().downT > 0) return;
     const { session } = this.deps, save = session.save, here = session.world.mapId;
     let tx: number | null = null;
     for (const q of QUESTS) {

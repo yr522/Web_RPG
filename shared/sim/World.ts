@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAGE_RECOIL, type SlotKey } from '../data/classes';
+import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAGE_RECOIL, DOWN_TIME, type SlotKey } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -80,7 +80,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, push: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
+      lastHit: null, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
     // 가기 퀘스트: 이 맵에 들어오면 완료
@@ -173,6 +173,13 @@ export class World implements SkillWorld {
   private stepPlayer(p: PlayerState, cmd: Command, dt: number) {
     // 이동기(질풍참 돌진·사슬 화살 끌려가기 등 무적 행동)가 이번 틱에 끝나도 이번 틱까지는 무적
     const invAtStart = !!(p.action && p.action.inv);
+    // 쓰러짐: 조작 불가, 시간이 다 되면 깨어나는 곳으로
+    const wasDown = p.downT > 0;
+    if (wasDown) {
+      cmd = emptyCommand();
+      p.downT -= dt;
+      if (p.downT <= 0) { p.downT = 0; this.events.push({ type: 'died', playerId: p.id }); }
+    }
     // 기절: 조작 불가
     if (p.stunT > 0) { p.stunT = Math.max(0, p.stunT - dt); cmd = emptyCommand(); }
     p.cmd = cmd;
@@ -300,10 +307,11 @@ export class World implements SkillWorld {
         break;
       }
     }
-    if (p.hp <= 0) {
+    if (p.hp <= 0 && !wasDown) {
+      // 쓰러짐: 쓰러져 있는 동안 무적 (몸통 접촉 무적이 아니라서 골렘 돌진도 막음)
       p.hp = 0;
       this.resetCombat(p);
-      this.events.push({ type: 'died', playerId: p.id });
+      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0;
     }
   }
 
