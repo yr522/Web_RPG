@@ -14,10 +14,13 @@ export interface Body {
   plat: Solid | null;
 }
 
-export function stepBody(o: Body, dt: number, solids: Solid[], worldWidth: number, gravity = true) {
+/** 움직일 수 있는 범위: 왼쪽 끝 x, 오른쪽 끝 x, 이보다 위로는 못 올라감 */
+export interface Bounds { l: number; r: number; top: number }
+
+export function stepBody(o: Body, dt: number, solids: Solid[], b: Bounds, gravity = true) {
   if (gravity) o.vy = Math.min(o.vy + GRAVITY * dt, MAX_FALL);
   o.x += o.vx * dt;
-  o.x = Math.max(0, Math.min(worldWidth - o.w, o.x));
+  o.x = Math.max(b.l, Math.min(b.r - o.w, o.x));
   const prevBottom = o.y + o.h;
   o.y += o.vy * dt;
   o.onGround = false;
@@ -33,7 +36,7 @@ export function stepBody(o: Body, dt: number, solids: Solid[], worldWidth: numbe
       }
     }
   }
-  if (o.y < -200) o.y = -200;
+  if (o.y < b.top) o.y = b.top;
 }
 
 export const overlaps = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>

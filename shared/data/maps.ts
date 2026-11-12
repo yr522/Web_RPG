@@ -30,9 +30,11 @@ export interface MapDef {
   building?: boolean;
   /**
    * 배경 그림 (assets/img/bg/ 아래 파일 이름, .png 빼고). groundY = 그림에서 발이 닿는 줄(픽셀).
-   * 그 줄이 땅 높이에 오도록 그림 크기를 맞춘다. 맵 폭은 그림 폭에 맞춰 둔다.
+   * 그림 맨 위가 맵 맨 위(top, 없으면 0)에, 그 줄이 땅 높이에 오도록 그림 크기를 맞춘다. 맵 폭은 그림 폭에 맞춰 둔다.
    */
   bg?: { img: string; groundY: number };
+  /** 플레이어·몬스터가 움직일 수 있는 범위 [왼쪽 x, 오른쪽 x] (없으면 맵 전체). 그림 양옆 전경까지는 못 가게 */
+  walk?: [number, number];
   /** 조건이 맞으면 같은 자리의 다른 맵으로 바뀜 (몬스터 없는 맵 → 있는 맵 등) */
   becomes?: { when: Cond; to: MapId };
   /** 세로로 긴 맵: 맵 맨 위 y (음수, 없으면 한 화면) */
@@ -57,18 +59,25 @@ const friend = (c: Cond): Cond => ({ all: [{ not: { cls: 'mage' } }, c] });
 
 const slimes = (xs: [number, number?][]): Spawn[] => xs.map(([x, y]) => ({ x, mob: 'slime', y }));
 
-/** 공방 지하 모양: 맨 위 가운데 발판(시작) + 양옆 발판 3개씩 (가운데는 비움) + 바닥. 발판 간격은 점프로 오를 수 있게 */
+/**
+ * 공방 지하 모양 (배경 under.png 1024×1536, 땅 줄 1421 → 폭 1200, 맵 맨 위 -1195). 화면 양옆 여백이 없게 넓힘, 그림 위쪽은 화면 밖으로 넘어가도 됨:
+ * 맨 위 가운데 발판(시작) + 양옆 발판 4개씩 (가운데는 비움) + 바닥. 발판 간격은 점프로 오를 수 있게 (125).
+ * 맨 위 발판 위로는 천장까지 넉넉히 비워 둠
+ */
 const UNDER = (() => {
-  const top = GROUND_Y - 125 * 4;
-  const rows = [GROUND_Y - 125, GROUND_Y - 250, GROUND_Y - 375];
-  const platforms: Platform[] = [{ x: 400, y: top, w: 240 }];
-  for (const y of rows) platforms.push({ x: 40, y, w: 300 }, { x: 700, y, w: 300 });
+  const width = 1200, mapTop = -1195, mid = width / 2;
+  const top = GROUND_Y - 125 * 5;
+  const rows = [GROUND_Y - 125, GROUND_Y - 250, GROUND_Y - 375, GROUND_Y - 500];
+  const platforms: Platform[] = [{ x: mid - 120, y: top, w: 240 }];
+  for (const y of rows) platforms.push({ x: 40, y, w: 400 }, { x: width - 440, y, w: 400 });
   const spawns: Spawn[] = [
-    { x: 120, mob: 'guard_c', y: rows[0] - 60 }, { x: 800, mob: 'guard_c', y: rows[1] - 60 }, { x: 150, mob: 'guard_c', y: rows[2] - 60 }, { x: 760, mob: 'guard_c' },
-    { x: 300, mob: 'guard_d', y: rows[1] - 40 }, { x: 860, mob: 'guard_d', y: rows[2] + 60 }, { x: 500, mob: 'guard_d', y: rows[0] - 60 }, { x: 260, mob: 'guard_d', y: GROUND_Y - 120 },
+    { x: 160, mob: 'guard_c', y: rows[0] - 60 }, { x: 900, mob: 'guard_c', y: rows[1] - 60 }, { x: 200, mob: 'guard_c', y: rows[3] - 60 }, { x: 900, mob: 'guard_c' },
+    { x: 320, mob: 'guard_d', y: rows[1] - 40 }, { x: 980, mob: 'guard_d', y: rows[2] - 40 }, { x: 580, mob: 'guard_d', y: rows[0] - 60 }, { x: 280, mob: 'guard_d', y: GROUND_Y - 120 },
   ];
-  return { width: 1040, top, platforms, spawns };
+  return { width, mapTop, mid, top, platforms, spawns };
 })();
+/** 골렘 방 배경 golem_room.png 1774×887, 땅 줄 714 → 폭 1168. 양옆 전경(그림 x 230 / 1545 밖)으로는 못 감 */
+const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 584 };
 
 export const MAPS: Record<MapId, MapDef> = {
   school: {
@@ -185,8 +194,8 @@ export const MAPS: Record<MapId, MapDef> = {
     portals: [
       { x: 1100, to: 'workshop_gate', toX: 600, label: '공방 입구' },
       // 지하: 처음엔 시험(갇힘), 골렘을 잡은 뒤로는 보통 사냥터
-      { x: 120, to: 'under_trial', toX: 520, toY: UNDER.top, label: '공방 지하', when: { not: { quest: 'mg11', state: 'done' } } },
-      { x: 120, to: 'under', toX: 520, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
+      { x: 120, to: 'under_trial', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { not: { quest: 'mg11', state: 'done' } } },
+      { x: 120, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
     ],
     npcs: [
       { id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) },
@@ -199,11 +208,11 @@ export const MAPS: Record<MapId, MapDef> = {
   // 공방 지하 (세로로 긴 맵, 배경 색만): 위 발판에서 시작 → 양옆 발판 3개씩 → 바닥 가운데 골렘 방 포탈
   // 시험: 들어오면 갇힘 (나가는 포탈 없음), 몬스터 한 번씩만. 다 잡으면 바닥 가운데 포탈이 열림. 골렘을 잡으면 보통 사냥터로 바뀜
   under_trial: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [],
     // 다 잡으면 마법사가 문 옆에 나타나 골렘 퀘스트를 줌
-    npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg10', state: 'ready' }) }],
+    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg10', state: 'ready' }) }],
     signs: [],
     spawns: UNDER.spawns.map(sp => ({ ...sp, once: true })),
     becomes: { when: { quest: 'mg10', state: 'done' }, to: 'under_cleared' },
@@ -211,22 +220,22 @@ export const MAPS: Record<MapId, MapDef> = {
   // 지하 시험을 끝낸 뒤 ~ 골렘을 처음 잡기 전: 몬스터 없음, 여전히 갇힘, 골렘 방 문이 열려 있음.
   // 골렘 방에서 쓰러지면 여기 위쪽 발판에서 깨어남. 골렘을 처음 잡으면(퀘스트 끝) 몬스터가 나오는 보통 지하로
   under_cleared: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [
-      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
+      { x: UNDER.mid, to: 'golem_room', toX: 220, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
     ],
-    npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg11', state: 'active' }) }],
+    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg11', state: 'active' }) }],
     signs: [],
     spawns: [],
     becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
   },
   under: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [
-      { x: 520, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' },
-      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
+      { x: UNDER.mid, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' },
+      { x: UNDER.mid, to: 'golem_room', toX: 220, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
     ],
     npcs: [],
     signs: [],
@@ -234,24 +243,24 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   // 골렘 방 (슬라임 맵 크기). 입장 포탈에서 고른 난이도로 골렘이 한 번만 나옴. 골렘 퀘스트를 끝냈으면 나가는 포탈
   golem_room: {
-    name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
+    name: '???', width: GOLEM_ROOM.width, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 },
     platforms: [],
-    portals: [{ x: 120, to: 'under', toX: 500, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
+    portals: [{ x: 220, to: 'under', toX: UNDER.mid, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [],
     signs: [],
-    spawns: [{ x: 900, mob: 'golem', once: true }],
+    spawns: [{ x: 800, mob: 'golem', once: true }],
     // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
-    respawn: { map: 'under_trial', x: 600, y: UNDER.top },
+    respawn: { map: 'under_trial', x: UNDER.mid, y: UNDER.top },
   },
   // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
   golem_scene: {
-    name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 }, safe: true,
+    name: '???', width: GOLEM_ROOM.width, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 }, safe: true,
     platforms: [],
-    portals: [{ x: 120, to: 'under', toX: 600, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
+    portals: [{ x: 220, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [
-      { id: 'mage_friend', x: 420, when: friend({ quest: 'mg11', state: 'ready' }) },
+      { id: 'mage_friend', x: 400, when: friend({ quest: 'mg11', state: 'ready' }) },
       // 컷신이 끝나면(플래그) 사라짐
-      { id: 'villain', x: 1250, when: { flag: 'mg_stolen', lt: 1 } },
+      { id: 'villain', x: 1120, when: { flag: 'mg_stolen', lt: 1 } },
     ],
     signs: [],
     spawns: [],
