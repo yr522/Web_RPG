@@ -36,6 +36,8 @@ const COIN_URLS = { bronze: coinBronze, iron: coinIron, silver: coinSilver, gold
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
 const EDGE = 400;
 export const VIEW_H = 620;
+/** 세로로 긴 맵에서 카메라가 안 따라가는 범위: 발이 화면 위에서 이 비율 사이에 있으면 그대로 (벗어나면 따라감) */
+const CAM_BAND = { top: 0.42, bottom: 0.8 };
 const FONT = 'Pretendard, system-ui, sans-serif';
 const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer: 0x2f6a4a };
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
@@ -513,10 +515,17 @@ export class GameScene extends Phaser.Scene implements Stage {
     const vh = VIEW_H / this.camZoom;
     const top = this.deps.session.world.map.top;
     if (top === undefined) return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
-    // 세로로 긴 맵: 플레이어 발이 화면 아래쪽 70% 쯤에 오게 따라감. 높이 올라갈수록 발을 화면 아래쪽(맨 위 발판에서 75%)에 둬서 천장이 더 보이게
-    const highest = Math.min(GROUND_Y, ...this.deps.session.world.map.platforms.map(p => p.y));
-    const up = highest < GROUND_Y ? Math.max(0, Math.min(1, (GROUND_Y - meFeet) / (GROUND_Y - highest))) : 0;
-    const want = Math.max(top, Math.min(VIEW_H - vh, meFeet - vh * (0.7 + 0.05 * up)));
+    // 세로로 긴 맵: 맵에 들어오면 발이 화면 아래쪽 70% 쯤에 오게.
+    // 그 뒤로는 발이 화면 위아래 CAM_BAND 안에 있는 동안 카메라를 안 움직이고, 벗어날 때만 따라감 (점프마다 흔들리지 않게)
+    // 맨 아래 땅에 서 있으면 다시 그 자리로
+    let want = meFeet - vh * 0.7;
+    const onFloor = this.deps.session.me().onGround && meFeet >= GROUND_Y - 1;
+    if (this.camYNow !== null && !onFloor) {
+      want = this.camYNow;
+      if (meFeet - want < vh * CAM_BAND.top) want = meFeet - vh * CAM_BAND.top;
+      if (meFeet - want > vh * CAM_BAND.bottom) want = meFeet - vh * CAM_BAND.bottom;
+    }
+    want = Math.max(top, Math.min(VIEW_H - vh, want));
     if (this.camYNow === null) this.camYNow = want;
     this.camYNow += (want - this.camYNow) * Math.min(1, dt * 6);
     return this.camYNow;
