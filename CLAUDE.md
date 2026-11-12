@@ -47,8 +47,8 @@
 - 자세한 목록은 에셋 문서: https://claude.ai/artifact/UrZcbzySJf7zuUTYi67cYX
 
 ## 지금 진행 상황 (새 세션은 여기부터 확인)
-- 마지막 갱신: 2026-11-11
-- 직업 3종(검사·마법사·궁수), 캐릭터 생성 화면, 인벤토리·장비창(I, `shared/data/items.ts` · `shared/rules/inventory.ts`), 슬라임 점액 드롭, 테스트 장비 9칸, 대화 NPC 양식(`shared/data/npcs.ts`, 상황별 대사·효과), 이야기 퀘스트(`shared/data/quests.ts`, 처치·모으기·말 걸기·가 보기), 컷신(`shared/data/cutscenes.ts`), 길 안내 화살표, 머리 위 말풍선(`say` 이벤트), 모바일 가로+전체화면 안내까지 main에 있음
+- 마지막 갱신: 2026-11-12
+- 직업 3종(검사·마법사·궁수), 캐릭터 생성 화면, 인벤토리·장비창(I, `shared/data/items.ts` · `shared/rules/inventory.ts`), 슬라임 점액 드롭, 테스트 장비 9칸, 대화 NPC 양식(`shared/data/npcs.ts`, 상황별 대사·효과), 이야기 퀘스트(`shared/data/quests.ts`, 처치·모으기·말 걸기·가 보기), 컷신(`shared/data/cutscenes.ts`), 길 안내 화살표, 머리 위 말풍선(`say` 이벤트), 모바일 가로+전체화면 안내, 미니 챕터 "마법공학의 유산" 골렘 보스전까지(11번), 보스 메뉴, 캐릭터 선택 화면(슬롯 3개, `shared/data/account.ts`)까지 main에 있음
 - 플레이어 그림은 전부 뼈대(bone) 임시. 검사 = 검, 마법사 = 지팡이(staff), 궁수 = 활 공격 그림
 - 유저 작업 중: **미니 챕터 시나리오**(줄글로 받아서 npcs·quests·cutscenes 데이터로 옮김, 이야기 테스트 NPC·퀘스트·컷신은 그때 지움), **장비 아이콘**. 새 모션 그림이 올라오면 프레임별 동작을 확인하고 연결
 - 기획 논의 기록은 기획서의 "💬 … 논의" 절들 (원소 반응, 원소 컨셉, 챕터 완성 컨텐츠). 결론 안 난 것은 정예몹·보스가 생긴 뒤 다시 정하기로 함

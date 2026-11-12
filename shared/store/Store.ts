@@ -23,6 +23,17 @@ export class LocalStore implements Store {
   }
 }
 
+/** 캐릭터 슬롯 저장소 키 (슬롯마다 따로 저장) */
+export const slotKey = (i: number) => `mgs_phaser_v1_s${i}`;
+
+/** 슬롯이 생기기 전 저장(캐릭터 하나)을 1번 슬롯으로 옮김 */
+export async function migrateToSlots() {
+  const old = new LocalStore(), first = new LocalStore(slotKey(0));
+  const data = await old.load();
+  if (data && !(await first.load())) await first.save(data);
+  if (data) await old.clear();
+}
+
 /** 저장이 안 되는 메모리 저장소 (테스트용) */
 export class MemoryStore implements Store {
   private data: SaveData | null = null;

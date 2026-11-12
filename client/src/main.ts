@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
-import { LocalStore } from '@shared/store/Store';
-import { normalizeSave } from '@shared/sim/save';
+import { LocalStore, migrateToSlots, slotKey } from '@shared/store/Store';
+import { CHAR_SLOTS } from '@shared/data/account';
 import { LocalSession } from './session/LocalSession';
 import { Input } from './input/Input';
 import { Hud, type UiMode } from './hud/Hud';
@@ -10,7 +10,7 @@ import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
-import { showCreateScreen } from './ui/CreateScreen';
+import { showSelectScreen } from './ui/SelectScreen';
 import { setupMobileGate } from './ui/MobileGate';
 
 const params = new URLSearchParams(location.search);
@@ -45,11 +45,11 @@ async function boot() {
     new Promise(r => setTimeout(r, 2500)),
   ]).catch(() => {});
 
-  const store = new LocalStore();
-  if (params.has('reset')) await store.clear();
-  // 저장된 캐릭터가 없으면 캐릭터 생성 화면부터 (?reset 으로 처음부터 다시 만들 수 있음)
-  const loaded = await store.load();
-  const save = loaded ? normalizeSave(loaded) : await showCreateScreen();
+  // 예전 저장(캐릭터 하나)은 1번 슬롯으로. ?reset 이면 모든 슬롯을 지움
+  await migrateToSlots();
+  if (params.has('reset')) for (let i = 0; i < CHAR_SLOTS; i++) await new LocalStore(slotKey(i)).clear();
+  // 캐릭터 선택 화면 → 고른 캐릭터로 시작 (진행 상황은 슬롯마다 따로 저장)
+  const { store, save } = await showSelectScreen();
   await store.save(save);
 
   const session = new LocalSession(save, store);
