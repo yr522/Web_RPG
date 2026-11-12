@@ -126,7 +126,7 @@ export const COIN_KINDS = [
 ] as const;
 export type CoinImg = (typeof COIN_KINDS)[number]['img'];
 export const coinKind = (amt: number): CoinImg => COIN_KINDS.find(k => amt >= k.min)!.img;
-/** 동전 그림 한 바퀴: 프레임 수와 초당 프레임 */
-export const COIN_ANIM = { frames: 6, fps: 6 };
+/** 동전 그림 한 바퀴: 프레임 수와 초당 프레임, 그림 배율 (16px 그림 × scale) */
+export const COIN_ANIM = { frames: 6, fps: 6, scale: 2 };
 /** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */
 export const ITEM_DROP = { size: 24 };
