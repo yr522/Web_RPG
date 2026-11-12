@@ -20,7 +20,7 @@ export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean }
 
-export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene';
+export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_story' | 'golem_room' | 'golem_scene';
 
 export interface MapDef {
   name: string;
@@ -212,7 +212,7 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
     platforms: UNDER.platforms,
     portals: [
-      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
+      { x: 500, to: 'golem_story', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
     ],
     npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg11', state: 'active' }) }],
     signs: [],
@@ -227,7 +227,18 @@ export const MAPS: Record<MapId, MapDef> = {
     signs: [],
     spawns: UNDER.spawns,
   },
-  // 골렘 방 (슬라임 맵 크기). 골렘은 한 번만, 잡으면 나가는 포탈
+  // 이야기 골렘 방 (스토리 난이도, 슬라임 맵 크기): 마법 골렘 퀘스트(mg11) 중에만 들어옴. 잡는 순간 장면 맵(golem_scene)으로
+  golem_story: {
+    name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
+    platforms: [],
+    portals: [],
+    npcs: [],
+    signs: [],
+    spawns: [{ x: 900, mob: 'golem_story', once: true }],
+    // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
+    respawn: { map: 'under_trial', x: 600, y: UNDER.top },
+  },
+  // 보스 메뉴 골렘 방 (보통 난이도). 골렘은 한 번만, 잡으면 나가는 포탈
   golem_room: {
     name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
     platforms: [],
@@ -237,6 +248,8 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [{ x: 900, mob: 'golem', once: true }],
     // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
     respawn: { map: 'under_trial', x: 600, y: UNDER.top },
+    // 예전 저장: 퀘스트 중에 이 방에 있었으면 이야기 골렘 방으로
+    becomes: { when: { quest: 'mg11', state: 'active' }, to: 'golem_story' },
   },
   // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
   golem_scene: {

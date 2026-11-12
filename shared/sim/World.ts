@@ -771,6 +771,7 @@ export class World implements SkillWorld {
   // ===================== 골드 =====================
   /** 큰 금액은 동전 2개로 나눠 튀어나옴 */
   private dropGold(x: number, y: number, amt: number) {
+    if (amt <= 0) return;
     const n = amt >= 12 ? 2 : 1;
     for (let i = 0; i < n; i++) {
       const a = i === n - 1 ? amt - Math.floor(amt / n) * (n - 1) : Math.floor(amt / n);

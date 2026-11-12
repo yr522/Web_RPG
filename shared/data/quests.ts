@@ -100,8 +100,8 @@ export const QUESTS: QuestDef[] = [
   },
   {
     // 골렘을 잡는 순간 장면 전용 맵으로 옮겨 컷신(수상한 자가 결정체를 가져감) → 거기 서 있는 마법사에게 보고 (보스 메뉴의 마법 골렘 워프가 열림)
-    id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
-    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg12' },
+    id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_story',
+    goals: [{ kind: 'kill', mob: 'golem_story', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg12' },
     readyScene: { map: 'golem_scene', x: 560, cutscene: 'mg_steal', soloCutscene: 'mg_steal_solo' },
   },
   {

@@ -69,6 +69,7 @@ const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true,
 /** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
 function mobTexture(mob: MonsterId, elem: unknown) {
   if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
+  if (mob === 'golem_story') return 'golem';
   return mob;
 }
 
