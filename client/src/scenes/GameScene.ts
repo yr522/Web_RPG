@@ -731,7 +731,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       const key = `coin:${coinKind(c.amt)}`;
       let sp = this.coinSprites.get(c.id);
       if (!sp) {
-        sp = this.add.sprite(0, 0, key, 0).setOrigin(0.5, 1).setDepth(4.5);
+        sp = this.add.sprite(0, 0, key, 0).setOrigin(0.5, 1).setDepth(4.5).setScale(COIN_ANIM.scale);
         this.coinSprites.set(c.id, sp);
       } else if (sp.texture.key !== key) sp.setTexture(key, 0);
       sp.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
