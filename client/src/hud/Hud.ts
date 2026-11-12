@@ -9,6 +9,12 @@ import { countItem } from '@shared/rules/inventory';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
+import icoProfile from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Profile.png';
+import icoInventory from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Inventory.png';
+import icoSpell from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Spell.png';
+import icoBattle from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Battle.png';
+import icoPicto from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_PictoIcon_Thumbnails.Png?url';
+import icoGold from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Gold.png';
 
 export type UiMode = 'pc' | 'mobile';
 
@@ -19,14 +25,16 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
   return e;
 };
 
+
+/** 왼쪽 위 메뉴 버튼. icon 이 있으면 그림만 (이름은 마우스를 올리면), 없으면 글자 */
 const MENU = [
-  { id: 'char', label: '캐릭터', key: 'C' },
-  { id: 'inv', label: '인벤토리', key: 'I' },
-  { id: 'quest', label: '퀘스트', key: '' },
-  { id: 'boss', label: '보스', key: '' },
-  { id: 'home', label: '귀환', key: '' },
-  { id: 'full', label: '전체 화면', key: '' },
-  { id: 'menu', label: '메뉴', key: 'Esc' },
+  { id: 'char', label: '캐릭터', key: 'C', icon: icoProfile },
+  { id: 'inv', label: '인벤토리', key: 'I', icon: icoInventory },
+  { id: 'quest', label: '퀘스트', key: '', icon: icoSpell },
+  { id: 'boss', label: '보스', key: '', icon: icoBattle },
+  { id: 'menu', label: '메뉴', key: 'Esc', icon: icoPicto },
+  { id: 'home', label: '귀환', key: '', icon: '' },
+  { id: 'full', label: '전체 화면', key: '', icon: '' },
 ] as const;
 export type MenuId = (typeof MENU)[number]['id'];
 
@@ -74,7 +82,7 @@ export class Hud {
     // 왼쪽 위: 메뉴 버튼
     const menu = h('div', 'menu');
     for (const m of MENU) {
-      const b = h('button', 'menu-btn', `<span>${m.label}</span>`);
+      const b = h('button', m.icon ? 'menu-btn ico' : 'menu-btn', m.icon ? `<img src="${m.icon}" alt="${m.label}" draggable="false">` : `<span>${m.label}</span>`);
       b.title = m.key ? `${m.label} (${m.key})` : m.label;
       b.addEventListener('click', () => this.onMenu(m.id));
       menu.appendChild(b);
@@ -241,10 +249,11 @@ export class Hud {
     t.classList.add('show');
   }
 
-  private set(key: string, el: HTMLElement, prop: 'text' | 'width' | 'height' | 'class', value: string) {
+  private set(key: string, el: HTMLElement, prop: 'text' | 'html' | 'width' | 'height' | 'class', value: string) {
     if (this.cache[key] === value) return;
     this.cache[key] = value;
     if (prop === 'text') el.textContent = value;
+    else if (prop === 'html') el.innerHTML = value;
     else if (prop === 'class') el.className = value;
     else el.style[prop] = value;
   }
@@ -313,8 +322,8 @@ export class Hud {
 
     const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
-    const info = `${s.world.map.name}　${PHASES[ti.phase].icon} ${PHASES[ti.phase].name} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}　💰 ${save.gold} G　Lv ${save.level}`;
-    this.set('info', this.els.info, 'text', info);
+    const info = `${escHtml(s.world.map.name)}　${PHASES[ti.phase].icon} ${PHASES[ti.phase].name} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}　<img class="gold-ico" src="${icoGold}" alt=""> ${save.gold} G　Lv ${save.level}`;
+    this.set('info', this.els.info, 'html', info);
 
     // 퀘스트: 바뀌었을 때만 다시 그림
     const qs = hudQuests(save, QUEST_HUD_MAX).map(q => ({ q, lines: questLines(save, q), pin: save.questPins.includes(q.id) }));
