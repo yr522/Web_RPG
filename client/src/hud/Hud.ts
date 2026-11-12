@@ -3,10 +3,10 @@
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
-import { QUESTS } from '@shared/data/quests';
-import { TALK_NPCS } from '@shared/data/npcs';
-import { questProgress, questState } from '@shared/rules/quests';
+import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
+import { hudQuests, questLines } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
+import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 
@@ -22,6 +22,8 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C' },
   { id: 'inv', label: '인벤토리', key: 'I' },
+  { id: 'quest', label: '퀘스트', key: '' },
+  { id: 'boss', label: '보스', key: '' },
   { id: 'home', label: '귀환', key: '' },
   { id: 'full', label: '전체 화면', key: '' },
   { id: 'menu', label: '메뉴', key: 'Esc' },
@@ -30,13 +32,29 @@ export type MenuId = (typeof MENU)[number]['id'];
 
 interface SlotView { slot: SlotKey; name: string; sub: string; color: string; locked: boolean; empty: boolean; cd: number; ready?: boolean }
 
+const escHtml = (t: string) => t.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+
+/** 핀 그림 */
+export const PIN_SVG = '<svg viewBox="0 0 16 16"><path d="M5 1h6l-1 5 3 3H9.5L8 15 6.5 9H3l3-3z"/></svg>';
+
+/** 화면 왼쪽 퀘스트 한 칸 */
+function questCard(id: string, name: string, main: boolean, pin: boolean, lines: { text: string; done: boolean }[]) {
+  const goals = lines.map(l => `<div class="q-goal${l.done ? ' done' : ''}">${escHtml(l.text)}</div>`).join('');
+  return `<div class="quest${main ? ' main' : ''}"><i class="q-dot"></i>`
+    + `<div class="q-head"><b class="q-name">${escHtml(name)}</b><button class="q-pin${pin ? ' on' : ''}" data-id="${id}">${PIN_SVG}</button></div>${goals}</div>`;
+}
+
 export class Hud {
   readonly root = h('div');
   private els: Record<string, HTMLElement> = {};
   private slotEls = new Map<SlotKey, HTMLElement>();
   private cache: Record<string, string> = {};
   private bannerTimer = 0;
+  /** 버프 아이콘: 걸린 순서대로 (끝나면 빠지고 앞으로 당겨짐) */
+  private buffEls = new Map<BuffId, HTMLElement>();
   onMenu: (id: MenuId) => void = () => {};
+  /** 퀘스트 핀 버튼 */
+  onQuestPin: (id: string) => void = () => {};
   /** 매 프레임 같이 갱신할 창들 (인벤토리 등) */
   onUpdate: (() => void)[] = [];
 
@@ -61,9 +79,12 @@ export class Hud {
     }
     r.appendChild(menu);
 
-    // 왼쪽: 퀘스트 알림 (퀘스트는 아직 없음 → 빈 칸 3개)
+    // 왼쪽: 하는 중인 퀘스트 (핀 → 메인 → 일반 순)
     const quests = h('div', 'quests');
-    for (let i = 0; i < 3; i++) quests.appendChild(h('div', 'quest empty', '<span>퀘스트 없음</span>'));
+    quests.addEventListener('click', e => {
+      const pin = (e.target as HTMLElement).closest<HTMLElement>('.q-pin');
+      if (pin?.dataset.id) this.onQuestPin(pin.dataset.id);
+    });
     r.appendChild(quests);
     this.els.quests = quests;
 
@@ -76,7 +97,6 @@ export class Hud {
     const bottom = h('div', 'bottom');
     const top = h('div', 'bottom-top');
     this.els.buffs = top.appendChild(h('div', 'buffs'));
-    for (let i = 0; i < 3; i++) this.els.buffs.appendChild(h('div', 'buff placeholder'));
     const potions = h('div', 'potions');
     this.els.potHp = potions.appendChild(this.potion('hp'));
     this.els.potMp = potions.appendChild(this.potion('mp'));
@@ -259,27 +279,34 @@ export class Hud {
     this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(countItem(save, 'hp')));
     this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(countItem(save, 'mp')));
 
+    // 버프·디버프: 없으면 아무것도 없음, 새로 걸리면 뒤에 붙음, 끝나면 빠짐
+    const buffs = playerBuffs(p);
+    for (const [id, el] of this.buffEls) if (!buffs.some(b => b.id === id)) { el.remove(); this.buffEls.delete(id); }
+    for (const b of buffs) {
+      let el = this.buffEls.get(b.id);
+      if (!el) {
+        const def = BUFFS[b.id];
+        el = h('div', `buff${def.debuff ? ' debuff' : ''}`, '<i></i>');
+        el.style.background = def.color;
+        el.title = def.name;
+        this.els.buffs.appendChild(el);
+        this.buffEls.set(b.id, el);
+      }
+      // 지나간 시간만큼 위에서부터 어둡게
+      (el.firstChild as HTMLElement).style.height = `${(100 * (1 - b.t / b.max)).toFixed(1)}%`;
+    }
+
     const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
     const info = `${s.world.map.name}　${PHASES[ti.phase].icon} ${PHASES[ti.phase].name} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}　💰 ${save.gold} G　Lv ${save.level}`;
     this.set('info', this.els.info, 'text', info);
 
-    // 퀘스트 알림: 진행 중인 퀘스트를 위에서부터
-    const active = QUESTS.filter(q => save.quests[q.id]?.active);
-    const qEls = this.els.quests.children;
-    for (let i = 0; i < qEls.length; i++) {
-      const q = active[i];
-      const done = !!q && questState(save, q.id) === 'ready';
-      const pr = q && questProgress(save, q);
-      const who = q && (q.giver === 'prof' ? '교수님' : TALK_NPCS[q.giver]?.name ?? q.giver);
-      const txt = q ? `${q.name}${q.goal.kind === 'talk' || q.goal.kind === 'visit' ? '' : ` ${pr!.cur}/${pr!.need}`}${done ? ` ✔ ${who}께!` : ''}` : '퀘스트 없음';
-      if (this.cache['q' + i] !== txt) {
-        this.cache['q' + i] = txt;
-        const e = qEls[i] as HTMLElement;
-        e.firstElementChild!.textContent = txt;
-        e.classList.toggle('empty', !q);
-        e.classList.toggle('done', done);
-      }
+    // 퀘스트: 바뀌었을 때만 다시 그림
+    const qs = hudQuests(save, QUEST_HUD_MAX).map(q => ({ q, lines: questLines(save, q), pin: save.questPins.includes(q.id) }));
+    const qSig = JSON.stringify(qs.map(o => [o.q.id, o.lines, o.pin]));
+    if (this.cache.quests !== qSig) {
+      this.cache.quests = qSig;
+      this.els.quests.innerHTML = qs.map(({ q, lines, pin }) => questCard(q.id, questTitle(q), !!q.main, pin, lines)).join('');
     }
 
     for (const k of SLOT_KEYS) {

@@ -73,7 +73,10 @@ export class CutscenePlayer {
     if (!steps || this.running) return;
     this.running = true;
     try {
-      for (const step of steps) {
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        // 이야기 효과 (플래그 등): 세션이 데이터에서 직접 찾아 적용
+        if ('do' in step) { this.session.act({ type: 'cutDo', cut: id, step: i }); continue; }
         const done = this.run(step);
         if (step.wait !== false) await done;
         if (typeof step.wait === 'number') await this.sleep(step.wait);

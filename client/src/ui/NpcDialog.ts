@@ -4,10 +4,11 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL } from '@sha
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
 import { countItem } from '@shared/rules/inventory';
-import { QUESTS } from '@shared/data/quests';
-import { questProgress, questState } from '@shared/rules/quests';
+import { QUESTS, questTitle } from '@shared/data/quests';
+import { questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
-import { pickTalk } from '@shared/rules/story';
+import { checkCond, pickTalk } from '@shared/rules/story';
+import { BOSSES, DIFFICULTIES, DIFFICULTY_ORDER, bossDef } from '@shared/data/bosses';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
 import { canAttend, learned, nextToLearn, skillLevel, type ActionResult, type MenuAction } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -70,6 +71,74 @@ export class NpcDialog {
     this.host.open(box, () => { this.refresh = null; this.pickElem = null; });
   }
 
+  /** 예 / 아니오 묻기 (포탈 들어가기 전 등) */
+  confirm(text: string, onYes: () => void) {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    body.appendChild(el('p', 'line', esc(text)));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '예', () => { this.host.close(); onYes(); }));
+    opts.appendChild(el('button', 'opt', '아니오', () => this.host.close()));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 보스 입장 포탈: 난이도 고르기 (열리지 않은 난이도는 못 누름) */
+  openDifficulty(bossId: string, text?: string) {
+    const b = bossDef(bossId);
+    if (!b) return;
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    if (text) body.appendChild(el('p', 'line', esc(text)));
+    const opts = el('div', 'opts');
+    for (const d of DIFFICULTY_ORDER) {
+      const btn = el('button', 'opt', DIFFICULTIES[d].name, () => { this.host.close(); this.session.enterBoss(bossId, d); }) as HTMLButtonElement;
+      const need = b.open[d];
+      btn.disabled = !!need && !checkCond(this.session.save, need);
+      opts.appendChild(btn);
+    }
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** Esc 메뉴 */
+  openMenu(onCharSelect: () => void) {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '메뉴'));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 보스 메뉴: 열린 보스만 누를 수 있음 */
+  openBoss() {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '보스'));
+    const opts = el('div', 'opts');
+    for (const b of BOSSES) {
+      const btn = el('button', 'opt', esc(b.name), () => { this.host.close(); this.session.warpBoss(b.id); }) as HTMLButtonElement;
+      btn.disabled = !checkCond(this.session.save, b.unlock);
+      opts.appendChild(btn);
+    }
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
   openShop() {
     const box = this.frame('매점 모리', moriPortrait, '🛒');
     this.refresh = () => this.renderShop();
@@ -83,9 +152,12 @@ export class NpcDialog {
    */
   openTalk(id: string): Promise<void> {
     const npc = TALK_NPCS[id];
-    const pick = npc && pickTalk(this.session.save, id);
+    const pick = npc && pickTalk(this.session.save, id, this.session.nowMs());
     if (!npc || !pick) return Promise.resolve();
-    const box = this.frame(npc.name, null, npc.icon);
+    // 교수님: 이름·초상화는 직업별 교수님
+    const cls = this.session.save.cls, profName = CLASSES[cls].professor;
+    const nameOf = (who: string) => (who === 'prof' ? profName : TALK_NPCS[who]?.name);
+    const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;
     // 대사 하나 + 데이터 안 위치 (효과를 보낼 때 씀)
     type Item = { step: DialogueStep; path: number[] };
@@ -121,12 +193,15 @@ export class NpcDialog {
         const step = it.step;
         if ('choices' in step) { render(); return; }
         queue.shift();
-        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸)
-        if ('do' in step) { this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }); continue; }
+        // 효과: 화면에 안 보이고 바로 처리 (퀘스트 받기·보고 알림은 뜸). 실패하면(가방 가득 등) 대화를 거기서 끝냄
+        if ('do' in step) {
+          if (!this.act({ type: 'storyDo', npc: id, talk: pick.talk, path: it.path }).ok) { this.host.close(); return; }
+          continue;
+        }
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         line = step.line;
-        nameEl.textContent = step.who === 'player' ? this.session.save.name : npc.name;
+        nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
         render();
         return;
       }
@@ -236,12 +311,12 @@ export class NpcDialog {
     if (view === 'quest') {
       b.appendChild(el('p', 'line', '"부탁할 일이 있어. 언제든 다시 받을 수 있단다."'));
       for (const q of PROF_QUESTS()) {
-        const st = questState(s, q.id), pr = questProgress(s, q), card = el('div', 'card');
+        const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
-        card.appendChild(el('div', '', `<b>${q.name}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
+        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));
         else if (st === 'ready') card.appendChild(el('button', 'sm go', '보고하기', () => this.act({ type: 'questReport', id: q.id })));
-        else card.appendChild(el('div', 'note', `진행 중 ${pr.cur} / ${pr.need}`));
+        else card.appendChild(el('div', 'note', `진행 중 ${pr}`));
         b.appendChild(card);
       }
       back();

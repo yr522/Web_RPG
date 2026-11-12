@@ -17,8 +17,10 @@
 //   { fight: { who: 'mob:<이름>', tag } } 연출용 몬스터를 그 자리에서 진짜 몬스터로 바꿈.
 //                                         컷신이 끝날 때까지 가만히 있다가 끝나면 싸움 시작. tag = 이름표 (퀘스트에서 이 몬스터만 셀 때)
 //   { wait: 초 }                          기다리기
+//   { do: 효과 }                          이야기 효과 (npcs.ts 의 Effect: 플래그 바꾸기 등)
 
 import type { Element } from './elements';
+import type { Effect } from './npcs';
 
 export type Who = 'player' | `npc:${string}` | `mob:${string}`;
 export type CutX = number | Who;
@@ -37,6 +39,7 @@ export type CutStep = (
   | { remove: Who }
   | { fight: { who: Who; tag?: string } }
   | { wait: number }
+  | { do: Effect }
 ) & { wait?: number | false };
 
 /** 컷신 기본값 */
@@ -49,7 +52,25 @@ export const CUTSCENE = {
   sayLife: 2.5,
 };
 
+/** 마법공학의 유산 12번: 골렘을 쓰러뜨리자마자 수상한 자가 들이닥쳐 결정체를 가져감 (장면 전용 맵 golem_scene) */
+const steal = (shout: Who): CutStep[] => [
+  { lock: true },
+  { ui: false },
+  { face: { who: 'player', dir: 1 } },
+  { cam: { x: 650, zoom: 1.15, time: 0.8 } },
+  { say: { who: 'npc:mage_friend', text: '해냈다…!', life: 1.4 }, wait: 1.2 },
+  { walk: { who: 'npc:villain', to: 820, speed: 320 } },
+  { say: { who: 'npc:villain', text: '이건 우리가 가져간다.', life: 2.2 }, wait: 2 },
+  { walk: { who: 'npc:villain', to: 1450, speed: 420 }, wait: false },
+  { say: { who: shout, text: '거기 서!', life: 1.6 }, wait: 1.6 },
+  { cam: 'follow', time: 0.6 },
+  { do: { flag: 'mg_stolen', set: 1 } },
+];
+
 export const CUTSCENES: Record<string, CutStep[]> = {
+  mg_steal: steal('npc:mage_friend'),
+  // 마법사 직업: 동급생 없이 혼자
+  mg_steal_solo: steal('player'),
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움). 대사는 전부 임시 ----
   test: [
     { lock: true },

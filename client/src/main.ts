@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import './style.css';
-import { LocalStore } from '@shared/store/Store';
-import { normalizeSave } from '@shared/sim/save';
+import { LocalStore, migrateToSlots, slotKey } from '@shared/store/Store';
+import { CHAR_SLOTS } from '@shared/data/account';
 import { LocalSession } from './session/LocalSession';
 import { Input } from './input/Input';
 import { Hud, type UiMode } from './hud/Hud';
@@ -10,7 +10,9 @@ import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
-import { showCreateScreen } from './ui/CreateScreen';
+import { QuestWindow } from './ui/QuestWindow';
+import { showSelectScreen } from './ui/SelectScreen';
+import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
 
 const params = new URLSearchParams(location.search);
@@ -45,11 +47,11 @@ async function boot() {
     new Promise(r => setTimeout(r, 2500)),
   ]).catch(() => {});
 
-  const store = new LocalStore();
-  if (params.has('reset')) await store.clear();
-  // 저장된 캐릭터가 없으면 캐릭터 생성 화면부터 (?reset 으로 처음부터 다시 만들 수 있음)
-  const loaded = await store.load();
-  const save = loaded ? normalizeSave(loaded) : await showCreateScreen();
+  // 예전 저장(캐릭터 하나)은 1번 슬롯으로. ?reset 이면 모든 슬롯을 지움
+  await migrateToSlots();
+  if (params.has('reset')) for (let i = 0; i < CHAR_SLOTS; i++) await new LocalStore(slotKey(i)).clear();
+  // 캐릭터 선택 화면 → 고른 캐릭터로 시작 (진행 상황은 슬롯마다 따로 저장)
+  const { store, save } = await showSelectScreen();
   await store.save(save);
 
   const session = new LocalSession(save, store);
@@ -62,7 +64,12 @@ async function boot() {
   const charWindow = new CharWindow(dialogs, session, hud);
   const invWindow = new InventoryWindow(session, hud);
   hud.onUpdate.push(() => invWindow.update());
-  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? npcDialog.openProfessor() : npcDialog.openTalk(id));
+  const questWindow = new QuestWindow(session, hud);
+  hud.onUpdate.push(() => questWindow.update());
+  hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
+  // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
+  const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
+  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -72,13 +79,16 @@ async function boot() {
     if (id === 'full') toggleFullscreen();
     else if (id === 'char') charWindow.toggle();
     else if (id === 'inv') invWindow.toggle();
+    else if (id === 'quest') questWindow.toggle();
+    else if (id === 'boss') npcDialog.openBoss();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
-    else hud.toast('메뉴는 준비 중이에요');
+    // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
+    else npcDialog.openMenu(() => { void store.save(session.save).then(() => location.reload()); });
   };
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
-    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();
@@ -93,7 +103,7 @@ async function boot() {
     input: { keyboard: false, mouse: true, touch: true },
     banner: false,
   });
-  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc) });
+  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
   // 대사 안의 컷신 → 게임 화면에서 재생
   npcDialog.onCutscene = id => (game.scene.getScene('game') as GameScene).playCutscene(id);
   if (import.meta.env.DEV) Object.assign(window, { __cutscene: (id: string) => (game.scene.getScene('game') as GameScene).playCutscene(id) });

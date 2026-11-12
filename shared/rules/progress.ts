@@ -5,8 +5,9 @@ import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
 import { QUESTS, questDef } from '../data/quests';
-import { acceptQuest, questState, reportQuest } from './quests';
-import { applyEffect, findEffect } from './story';
+import { acceptQuest, questState, reportQuest, togglePin } from './quests';
+import { applyEffect, findEffect, pickTalk } from './story';
+import { CUTSCENES } from '../data/cutscenes';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
 
@@ -14,6 +15,8 @@ export type MenuAction =
   | { type: 'buy'; item: ItemId; n: number }
   | { type: 'questAccept'; id: string }
   | { type: 'questReport'; id: string }
+  /** 퀘스트 핀 꽂기 / 빼기 */
+  | { type: 'questPin'; id: string }
   | { type: 'learn'; skill: string; element: Element | null }
   | { type: 'attend'; skill: string }
   | { type: 'stat'; stat: StatId }
@@ -26,6 +29,8 @@ export type MenuAction =
   | { type: 'sortBag' }
   /** 대화 중 효과 (퀘스트 주기·보고, 플래그). 위치는 story.ts 의 findEffect 참고 */
   | { type: 'storyDo'; npc: string; talk: number; path: number[] }
+  /** 컷신 안의 { do } 단계 (데이터에서 직접 찾음) */
+  | { type: 'cutDo'; cut: string; step: number }
   | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' | 'resetStory' };
 
 export interface ActionResult {
@@ -74,6 +79,8 @@ export function professorHasNews(s: SaveData, nowMs: number) {
     const st = questState(s, q.id);
     if (st === 'none' || st === 'ready') return true;
   }
+  // 이야기 대사 (보고 받을 퀘스트 등)
+  if ((pickTalk(s, 'prof', nowMs)?.talk ?? -1) >= 0) return true;
   return canAttend(s, nowMs) === null;
 }
 
@@ -109,6 +116,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       if (questDef(a.id)?.giver !== 'prof') return fail('없는 퀘스트야');
       return reportQuest(s, a.id);
     }
+    case 'questPin': return togglePin(s, a.id);
     case 'learn': {
       const cls = CLASSES[s.cls], i = cls.skills.indexOf(a.skill);
       if (i < 0) return fail('우리 학과 스킬이 아니야');
@@ -161,11 +169,16 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       const e = findEffect(a.npc, a.talk, a.path);
       return e ? applyEffect(s, e) : fail('없는 대사야');
     }
+    case 'cutDo': {
+      const st = CUTSCENES[a.cut]?.[a.step];
+      return st && 'do' in st ? applyEffect(s, st.do) : fail('없는 컷신이야');
+    }
     case 'debug': {
       if (a.what === 'resetStory') {
         // 이야기 테스트 처음부터 (플래그 + 이야기 퀘스트)
         s.flags = {};
         for (const q of QUESTS) if (q.giver !== 'prof') delete s.quests[q.id];
+        s.questPins = s.questPins.filter(id => s.quests[id]?.active);
         return { ok: true, msg: '이야기 초기화' };
       }
       if (a.what === 'nextPhase') { s.timeOffset += timeInfo(nowMs).remain + 50; return { ok: true }; }

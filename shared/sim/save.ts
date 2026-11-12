@@ -2,13 +2,18 @@
 import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, START_STAT, type ClassId, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
-import { START_ITEMS, type EquipSlot } from '../data/items';
+import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
+import { questDef } from '../data/quests';
+import type { QuestSave } from '../rules/quests';
 import { addItem, emptyBag, migrateBag, totalStats, type Bag } from '../rules/inventory';
 
 export type Gender = 'M' | 'F';
 
+/** 저장 형태 번호. 저장 형태가 바뀌면 올리고 MIGRATIONS 에 바꾸는 방법을 적는다 */
+export const SAVE_VERSION = 2;
+
 export interface SaveData {
-  version: 1;
+  version: number;
   name: string;
   cls: ClassId;
   gender: Gender;
@@ -28,7 +33,11 @@ export interface SaveData {
   nextUid: number;
   map: MapId;
   /** 퀘스트 상태. done = 한 번이라도 끝냄 */
-  quests: Record<string, { active: boolean; count: number; done?: boolean }>;
+  quests: Record<string, QuestSave>;
+  /** 핀 꽂은 퀘스트 (꽂은 순서, 최대 QUEST_PIN_MAX) */
+  questPins: string[];
+  /** 퀘스트를 받거나 끝낼 때마다 1씩 오르는 번호 (받은 순서·끝낸 순서 정렬용) */
+  questSeq: number;
   /** 이야기 진행 플래그 (이름 → 숫자). 대사 조건·효과에서 씀 */
   flags: Record<string, number>;
   /** 마지막으로 수업을 들은 날 (낮밤 주기 번호) */
@@ -40,12 +49,12 @@ export interface SaveData {
 
 export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
   const s: SaveData = {
-    version: 1, name, cls, gender, level: 1, exp: 0, gold: 0,
+    version: SAVE_VERSION, name, cls, gender, level: 1, exp: 0, gold: 0,
     stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
     learned: {}, skillLevels: {},
     bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
-    quests: {}, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
+    quests: {}, questPins: [], questSeq: 0, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
   };
   for (const it of START_ITEMS) addItem(s, it.id, it.n);
   return s;
@@ -67,16 +76,51 @@ export function createSave(name: string, cls: ClassId, gender: Gender, add: Reco
   return s;
 }
 
-/** 예전 저장 데이터에 새 항목이 없으면 기본값으로 채운다 */
-export function normalizeSave(s: SaveData): SaveData {
+/**
+ * 저장 형태 바꾸기: MIGRATIONS[n] = n 번 형태 → n+1 번 형태.
+ * 예전 저장 데이터는 불러올 때 지금 형태까지 차례로 바꾼다.
+ */
+type OldSave = Record<string, unknown> & { version?: number };
+const MIGRATIONS: Record<number, (s: OldSave) => void> = {
+  // 1 → 2: 퀘스트 목표가 여러 개가 됨 (count → counts)
+  1: s => {
+    const qs = (s.quests ?? {}) as Record<string, { active: boolean; count?: number; done?: boolean }>;
+    for (const st of Object.values(qs)) {
+      (st as unknown as QuestSave).counts = [st.count ?? 0];
+      delete st.count;
+    }
+  },
+};
+
+/** 예전 저장 데이터를 지금 형태로 바꾸고, 빠진 항목은 기본값으로 채우고, 이제 없는 퀘스트·물건은 지운다 */
+export function normalizeSave(raw: SaveData): SaveData {
+  const old = raw as unknown as OldSave;
+  for (let v = old.version ?? 1; v < SAVE_VERSION; v++) MIGRATIONS[v]?.(old);
+  const s = old as unknown as SaveData;
   const d = newSave(s.name, s.cls, s.gender);
-  const out: SaveData = { ...d, ...s, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip } };
+  const out: SaveData = { ...d, ...s, version: SAVE_VERSION, stats: { ...d.stats, ...s.stats }, equip: { ...s.equip }, quests: { ...s.quests }, questPins: [...(s.questPins ?? [])] };
   // 예전 소지품 { hp, mp, reset } → 가방, 예전 가방·장비 형태 → 지금 형태
-  const old = (s as unknown as { inventory?: Record<string, number> }).inventory;
-  if (!s.bag) out.bag = old ? [] : d.bag;
-  migrateBag(out, old);
+  const inv = (s as unknown as { inventory?: Record<string, number> }).inventory;
+  if (!s.bag) out.bag = inv ? [] : d.bag;
+  migrateBag(out, inv);
   delete (out as unknown as { inventory?: unknown }).inventory;
+  cleanSave(out);
   return out;
+}
+
+/** 데이터에서 지운 퀘스트·물건이 저장에 남아 있으면 정리 (테스트 퀘스트·장비를 지워도 저장이 안 깨지게) */
+function cleanSave(s: SaveData) {
+  for (const [id, st] of Object.entries(s.quests)) {
+    const q = questDef(id);
+    if (!q) { delete s.quests[id]; continue; }
+    // 목표 수가 바뀌었으면 숫자 칸을 맞춤
+    st.counts = q.goals.map((_, i) => st.counts?.[i] ?? 0);
+  }
+  s.questPins = s.questPins.filter(id => s.quests[id]?.active);
+  s.bag = s.bag.map(e => (e && itemDef(e.id) && e.n > 0 ? e : null));
+  for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
+    if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];
+  }
 }
 
 export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number }

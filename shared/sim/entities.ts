@@ -1,3 +1,4 @@
+import type { MonsterId } from '../data/monsters';
 // 시뮬레이션 안의 것들 (플레이어, 몬스터, 공격 판정)
 import type { Body } from './physics';
 import type { Command, EntityId } from './types';
@@ -64,6 +65,10 @@ export interface PlayerState extends Body {
   /** 땅에서 ↓ 를 누르고 앉아 있음 (이동 멈춤) */
   crouch: boolean;
   hurt: number;
+  /** 기절: 남은 시간 동안 조작 불가 */
+  stunT: number;
+  /** 지금 무적(invT)이 몸통 접촉으로 생긴 것 (보스 패턴은 이 무적을 무시) */
+  touchInv?: boolean;
   /** 마력 해방 남은 시간 */
   buffT: number;
   /** 날아가는 중인 사슬 화살 (한 번 더 누르면 끌려감) */
@@ -74,6 +79,8 @@ export interface PlayerState extends Body {
 
 export interface Enemy extends Body {
   id: EntityId;
+  /** 몬스터 종류 (monsters.ts) */
+  mob: MonsterId;
   elem: Element | null;
   elemental: boolean;
   hp: number;
@@ -89,13 +96,25 @@ export interface Enemy extends Body {
   spawnX: number;
   spawnY: number;
   speed: number;
-  /** 큰 점프 패턴: 'none' → 'crouch'(웅크림) → 'leap'(점프) */
+  /** 특수 패턴: 'none' → 'crouch'(웅크림·예고) → 'leap'(슬라임 점프 / 돌진형 돌진) */
   leap: 'none' | 'crouch' | 'leap';
   leapT: number;
   /** 다음 큰 점프까지 */
   leapCd: number;
   /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
   pulled: boolean;
+  /** 보스 패턴 (골렘: 내려치기 / 돌진) */
+  pat?: 'slam' | 'charge';
+  /** 돌진 방향 (예고할 때 고정) */
+  chargeDir?: 1 | -1;
+  /** 연달아 쓴 내려치기 수 (다 차면 돌진) */
+  slams?: number;
+  /** 보안장치 오브에 맞은 횟수 (다 차면 기절) */
+  orbHits?: number;
+  /** 기절(취약) 남은 시간: 못 움직이고 받는 피해 배수 */
+  groggy?: number;
+  /** 날아다니는 몬스터의 둥실둥실 기준 높이 */
+  hoverY?: number;
   /** 이야기용 이름표 (이 몬스터를 잡으면 진행되는 퀘스트용, 예: 보스) */
   tag?: string;
   /** 컷신 중 붙잡힘: 스스로 안 움직이고 부딪혀도 피해 없음 (컷신이 끝나면 풀림) */

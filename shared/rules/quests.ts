@@ -1,6 +1,11 @@
-// 퀘스트 진행·보상, 이야기 진행(플래그). 저장 데이터만 다룬다.
-import { questDef, type QuestDef } from '../data/quests';
+// 퀘스트 진행·보상. 저장 데이터만 다룬다.
+// 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
+import { QUESTS, QUEST_PIN_MAX, questDef, questTitle, type QuestDef } from '../data/quests';
+import { CLASSES, SKILLS } from '../data/classes';
 import { MAPS, type MapId } from '../data/maps';
+import { MONSTERS, type MonsterId } from '../data/monsters';
+import { TALK_NPCS } from '../data/npcs';
+import { mapNpcs } from './story';
 import { itemDef } from '../data/items';
 import type { SaveData } from '../sim/save';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
@@ -11,25 +16,70 @@ export type QuestState = 'none' | 'active' | 'ready' | 'done';
 
 const fail = (msg: string): ActionResult => ({ ok: false, msg });
 
-/** 진행도 (HUD 표시용). talk 는 그 NPC 에게 가면 끝 → 항상 0/1 */
-export function questProgress(s: SaveData, q: QuestDef): { cur: number; need: number } {
-  const st = s.quests[q.id];
-  switch (q.goal.kind) {
-    case 'kill': return { cur: Math.min(st?.count ?? 0, q.goal.n), need: q.goal.n };
-    case 'collect': return { cur: Math.min(countItem(s, q.goal.item), q.goal.n), need: q.goal.n };
-    case 'visit': return { cur: Math.min(st?.count ?? 0, 1), need: 1 };
+/**
+ * 퀘스트 저장 상태. counts = 목표마다 센 숫자 (처치 수, 가 봤으면 1. 모으기는 가방 개수로 세서 안 씀)
+ * at = 받은 순서 번호, doneAt = 처음 끝낸 순서 번호 (SaveData.questSeq). 반복 퀘스트도 처음 끝냈을 때만 정해져서 완료 목록에 한 번만, 그 자리에 있음
+ */
+export interface QuestSave { active: boolean; counts: number[]; done?: boolean; at?: number; doneAt?: number }
+
+/** 목표 하나의 진행도. talk 는 그 NPC 에게 가서 보고하면 끝 → 항상 0/1 */
+export function goalProgress(s: SaveData, q: QuestDef, i: number): { cur: number; need: number } {
+  const g = q.goals[i], c = s.quests[q.id]?.counts[i] ?? 0;
+  switch (g.kind) {
+    case 'kill': return { cur: Math.min(c, g.n), need: g.n };
+    case 'collect': return { cur: Math.min(countItem(s, g.item), g.n), need: g.n };
+    case 'visit': return { cur: Math.min(c, 1), need: 1 };
     case 'talk': return { cur: 0, need: 1 };
+    case 'level': return { cur: Math.min(s.level, g.n), need: g.n };
+    case 'learn': return { cur: (g.skill ? g.skill in s.learned : Object.keys(s.learned).length > 0) ? 1 : 0, need: 1 };
+    case 'equip': return { cur: equipped(s, g.item) ? 1 : 0, need: 1 };
   }
+}
+
+/** 장비를 끼고 있는지 (item 이 없으면 아무 장비나) */
+function equipped(s: SaveData, item?: string) {
+  return Object.values(s.equip).some(uid => {
+    const e = s.bag.find(x => x?.uid === uid);
+    return !!e && (!item || e.id === item);
+  });
+}
+
+/** 숫자를 보여 줄 목표들의 진행도 (HUD·퀘스트 목록 표시용. 처치·모으기·레벨만, 나머지는 숫자 없이) */
+export function questProgressText(s: SaveData, q: QuestDef) {
+  const out: string[] = [];
+  q.goals.forEach((g, i) => {
+    if (g.kind !== 'kill' && g.kind !== 'collect' && g.kind !== 'level') return;
+    const p = goalProgress(s, q, i);
+    out.push(`${p.cur}/${p.need}`);
+  });
+  return out.join(' · ');
+}
+
+/** 말 걸기를 뺀 목표를 다 했는지 */
+function goalsDone(s: SaveData, q: QuestDef) {
+  return q.goals.every((g, i) => {
+    if (g.kind === 'talk') return true;
+    const p = goalProgress(s, q, i);
+    return p.cur >= p.need;
+  });
+}
+
+/** 퀘스트를 다 했을 때 큰 글씨 알림 */
+export function questReadyText(q: QuestDef) {
+  const to = reportTo(q);
+  return `퀘스트 완료! ${to === 'prof' ? '교수님' : TALK_NPCS[to]?.name ?? to}께 가자`;
+}
+
+/** 보고할 NPC: 말 걸기 목표가 있으면 그 NPC, 없으면 준 사람 */
+export function reportTo(q: QuestDef): string {
+  const t = q.goals.find(g => g.kind === 'talk');
+  return t && t.kind === 'talk' ? t.npc : q.giver;
 }
 
 export function questState(s: SaveData, id: string): QuestState {
   const q = questDef(id), st = s.quests[id];
   if (!q) return 'none';
-  if (st?.active) {
-    if (q.goal.kind === 'talk') return 'ready';
-    const p = questProgress(s, q);
-    return p.cur >= p.need ? 'ready' : 'active';
-  }
+  if (st?.active) return goalsDone(s, q) ? 'ready' : 'active';
   return st?.done && !q.repeat ? 'done' : 'none';
 }
 
@@ -37,11 +87,20 @@ export function acceptQuest(s: SaveData, id: string): ActionResult {
   const q = questDef(id);
   if (!q) return fail('없는 퀘스트야');
   if (questState(s, id) !== 'none') return fail('이미 받은 퀘스트야');
-  s.quests[id] = { active: true, count: 0, done: s.quests[id]?.done };
-  // 가기 퀘스트: 이미 그 맵에 있으면 바로 완료
-  if (q.goal.kind === 'visit' && s.map === q.goal.map) s.quests[id].count = 1;
-  return { ok: true, msg: `퀘스트 시작: ${q.name}` };
+  // 받을 때 주는 물건 (가방 자리부터 확인)
+  const give = q.start?.items ?? [];
+  const room = structuredClone(s);
+  for (const it of give) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
+  for (const it of give) addItem(s, it.id, it.n);
+  // 가기 목표: 이미 그 맵에 있으면 바로 완료
+  const counts = q.goals.map(g => (g.kind === 'visit' && s.map === g.map ? 1 : 0));
+  const old = s.quests[id];
+  s.quests[id] = { active: true, counts, done: old?.done, doneAt: old?.doneAt, at: ++s.questSeq };
+  return { ok: true, msg: `퀘스트 시작: ${questTitle(q)}` };
 }
+
+/** 모아 오기 목표들이 가져갈 물건 */
+const collectCosts = (q: QuestDef) => q.goals.flatMap(g => (g.kind === 'collect' ? [{ id: g.item, n: g.n }] : []));
 
 export function reportQuest(s: SaveData, id: string): ActionResult {
   const q = questDef(id);
@@ -52,80 +111,199 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   const r = q.reward;
   // 보상 물건이 들어갈 자리부터 확인 (모아 온 물건을 먼저 빼고 계산)
   const room = structuredClone(s);
-  if (q.goal.kind === 'collect') removeItem(room, q.goal.item, q.goal.n);
+  for (const c of collectCosts(q)) removeItem(room, c.id, c.n);
   for (const it of r.items ?? []) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
-  if (q.goal.kind === 'collect') removeItem(s, q.goal.item, q.goal.n);
-  s.quests[id] = { active: false, count: 0, done: true };
+  for (const c of collectCosts(q)) removeItem(s, c.id, c.n);
+  s.quests[id] = { active: false, counts: [], done: true, doneAt: s.quests[id]?.doneAt ?? ++s.questSeq };
+  s.questPins = s.questPins.filter(p => p !== id);
   const parts: string[] = [];
   let res: ActionResult = { ok: true };
   const exp = typeof r.exp === 'function' ? r.exp(s.level) : r.exp;
   if (exp) { res = gainExp(s, exp); parts.push(`EXP +${exp}`); }
   if (r.gold) { s.gold += r.gold; parts.push(`+${r.gold} G`); }
   for (const it of r.items ?? []) { addItem(s, it.id, it.n); parts.push(`${itemDef(it.id)?.name ?? it.id} ×${it.n}`); }
-  return { ...res, ok: true, banner: res.banner ?? `퀘스트 완료! ${parts.join(' · ')}` };
+  // 다음 퀘스트 바로 받기
+  let nextMsg: string | undefined;
+  const next = q.next ?? (q.solo?.cls === s.cls ? q.solo.next : undefined);
+  if (next) nextMsg = acceptQuest(s, next).msg;
+  return { ...res, ok: true, banner: res.banner ?? q.doneBanner ?? `퀘스트 완료!${parts.length ? ` ${parts.join(' · ')}` : ''}`, msg: nextMsg ?? res.msg };
 }
 
-/** 몬스터 처치 → 처치 퀘스트 숫자. 방금 다 채운 퀘스트들을 돌려준다 */
-export function questsOnKill(s: SaveData, elemental: boolean, tag?: string): QuestDef[] {
-  const done: QuestDef[] = [];
-  for (const [id, st] of Object.entries(s.quests)) {
-    const q = questDef(id);
-    if (!q || !st.active || q.goal.kind !== 'kill' || st.count >= q.goal.n) continue;
-    const t = q.goal.target;
-    // 이름표 퀘스트는 그 이름표 몬스터만, 보통 퀘스트는 이름표 몬스터도 같이 셈
-    const match = q.goal.tag ? q.goal.tag === tag : t === 'any' || (t === 'elemental') === elemental;
-    if (match) {
-      st.count++;
-      if (st.count >= q.goal.n) done.push(q);
-    }
-  }
-  return done;
-}
+/** NPC 에게 안 가도 다 하면 바로 끝나는지 (auto, 또는 혼자 하는 직업) */
+export const isAuto = (s: SaveData, q: QuestDef) => !!q.auto || q.solo?.cls === s.cls;
 
-/** 지금 다 모은 모으기 퀘스트들 (주울 때 전후 비교용) */
-export function collectReady(s: SaveData): QuestDef[] {
-  const out: QuestDef[] = [];
-  for (const [id, st] of Object.entries(s.quests)) {
-    const q = questDef(id);
-    if (q && st.active && q.goal.kind === 'collect' && countItem(s, q.goal.item) >= q.goal.n) out.push(q);
+/** 다 한 자동 보고 퀘스트를 보고 (다음 퀘스트가 바로 끝나면 이어서). 결과들을 돌려준다 */
+export function autoReport(s: SaveData): ActionResult[] {
+  const out: ActionResult[] = [];
+  for (let guard = 0; guard < 20; guard++) {
+    const q = activeQuests(s).find(o => isAuto(s, o) && questState(s, o.id) === 'ready');
+    if (!q) break;
+    out.push(reportQuest(s, q.id));
   }
   return out;
 }
 
-/** 맵에 들어감 → 가기 퀘스트 완료 */
-export function questsOnVisit(s: SaveData, map: MapId): QuestDef[] {
-  const done: QuestDef[] = [];
+/** 밤 고정 퀘스트를 하는 중인지 */
+export const nightLocked = (s: SaveData) => activeQuests(s).some(q => q.nightLock);
+
+/** 지금 따라다니는 NPC (없으면 null) */
+export function companionNpc(s: SaveData): string | null {
+  for (const q of activeQuests(s)) if (q.companion && q.companion.notCls !== s.cls) return q.companion.npc;
+  return null;
+}
+
+/** 하는 중인 퀘스트들 */
+function activeQuests(s: SaveData): QuestDef[] {
+  const out: QuestDef[] = [];
   for (const [id, st] of Object.entries(s.quests)) {
     const q = questDef(id);
-    if (q && st.active && q.goal.kind === 'visit' && q.goal.map === map && !st.count) { st.count = 1; done.push(q); }
+    if (q && st.active) out.push(q);
   }
-  return done;
+  return out;
+}
+
+/** 지금 보고할 수 있는 퀘스트 id 들 (바뀌기 전후 비교용) */
+export function readyQuestIds(s: SaveData): string[] {
+  return activeQuests(s).filter(q => goalsDone(s, q)).map(q => q.id);
+}
+
+/** change 를 하고 나서 새로 보고할 수 있게 된 퀘스트들 (방금 받자마자 끝난 퀘스트는 빼고: 전달 퀘스트 등) */
+export function newlyReady(s: SaveData, change: () => void): QuestDef[] {
+  const before = readyQuestIds(s), wasActive = activeQuests(s).map(q => q.id);
+  change();
+  return readyQuestIds(s).filter(id => !before.includes(id) && wasActive.includes(id)).map(id => questDef(id)!);
+}
+
+/** 몬스터 처치 → 처치 목표 숫자. 방금 보고할 수 있게 된 퀘스트들을 돌려준다 */
+export function questsOnKill(s: SaveData, mob: MonsterId, tag?: string): QuestDef[] {
+  return newlyReady(s, () => {
+    for (const q of activeQuests(s)) {
+      const st = s.quests[q.id];
+      q.goals.forEach((g, i) => {
+        if (g.kind !== 'kill' || (st.counts[i] ?? 0) >= g.n) return;
+        // 이름표 목표는 그 이름표 몬스터만, 보통 목표는 이름표 몬스터도 같이 셈
+        const match = g.tag ? g.tag === tag : !g.mob || g.mob === mob;
+        if (match) st.counts[i] = (st.counts[i] ?? 0) + 1;
+      });
+    }
+  });
+}
+
+/** 맵에 들어감 → 가기 목표 완료 */
+export function questsOnVisit(s: SaveData, map: MapId): QuestDef[] {
+  return newlyReady(s, () => {
+    for (const q of activeQuests(s)) q.goals.forEach((g, i) => { if (g.kind === 'visit' && g.map === map) s.quests[q.id].counts[i] = 1; });
+  });
 }
 
 /** 길 안내 목적지: 맵 (+ 그 맵 안의 x, 있으면) */
 export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number } | null {
   const state = questState(s, q.id);
-  // 다 했으면 보고하러 주는 사람에게
-  if (state === 'ready') return npcPlace(q.giver === 'prof' ? 'prof' : q.giver);
+  // 다 했으면 보고하러
+  if (state === 'ready') return npcPlace(reportTo(q), s);
   if (q.where) return { map: q.where };
-  switch (q.goal.kind) {
-    case 'talk': return npcPlace(q.goal.npc);
-    case 'visit': return { map: q.goal.map };
-    case 'kill': {
-      const want = q.goal.target;
-      if (q.goal.tag) return null;
-      const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => want === 'any' || (want === 'elemental') === !!sp[1]));
-      return id ? { map: id } : null;
+  // 아직 안 끝난 첫 목표 쪽으로
+  for (let i = 0; i < q.goals.length; i++) {
+    const g = q.goals[i], p = goalProgress(s, q, i);
+    if (g.kind === 'talk' || p.cur >= p.need) continue;
+    switch (g.kind) {
+      case 'visit': return { map: g.map };
+      case 'kill': {
+        if (g.tag) return null;
+        const want = g.mob;
+        const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => !want || sp.mob === want));
+        return id ? { map: id } : null;
+      }
+      case 'learn': return npcPlace('prof', s);
+      case 'collect': {
+        // 그 물건을 떨어뜨리는 몬스터가 있는 맵
+        const item = g.item;
+        const mob = (Object.keys(MONSTERS) as MonsterId[]).find(m => MONSTERS[m].drops?.some(d => d.item === item && (!d.quest || d.quest === q.id)));
+        const id = mob && (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].spawns.some(sp => sp.mob === mob));
+        if (id) return { map: id };
+        continue;
+      }
+      case 'level': case 'equip': continue;
     }
-    case 'collect': return null;
   }
+  return null;
 }
 
 /** NPC 가 있는 맵과 위치 */
-export function npcPlace(npc: string): { map: MapId; x: number } | null {
+export function npcPlace(npc: string, s?: SaveData): { map: MapId; x: number } | null {
   for (const id of Object.keys(MAPS) as MapId[]) {
-    const n = MAPS[id].npcs.find(o => o.id === npc);
+    const n = (s ? mapNpcs(s, id) : MAPS[id].npcs).find(o => o.id === npc);
     if (n) return { map: id, x: n.x };
   }
   return null;
+}
+
+// ---------- 퀘스트 목록 (화면 왼쪽 · 퀘스트 창) ----------
+
+/** NPC 이름 (교수님은 직업별 이름). 없으면 '없음' */
+export function npcName(s: SaveData, id: string): string {
+  if (!id) return '없음';
+  if (id === 'prof') return CLASSES[s.cls].professor;
+  return TALK_NPCS[id]?.name ?? '없음';
+}
+
+/** 조건 한 줄: 글 + 다 했는지 */
+export interface GoalLine { text: string; done: boolean }
+
+/** 목표 하나의 조건 글. state: 'done' = 끝난 퀘스트라 전부 다 한 것으로, 'none' = 안 받은 퀘스트라 전부 0 */
+function goalLine(s: SaveData, q: QuestDef, i: number, state: QuestState): GoalLine {
+  const g = q.goals[i], p = goalProgress(s, q, i);
+  const cur = state === 'done' ? p.need : state === 'none' ? 0 : p.cur, done = cur >= p.need, all = state === 'done';
+  const num = `${cur}/${p.need}`;
+  if (g.text) return { text: g.text, done };
+  switch (g.kind) {
+    case 'kill': return { text: `${g.mob ? MONSTERS[g.mob].name : '몬스터'} 처치 ${num}`, done };
+    case 'collect': return { text: `${itemDef(g.item)?.name ?? g.item} ${num}`, done };
+    case 'visit': return { text: `${MAPS[g.map].name} 가 보기`, done };
+    case 'talk': return { text: `${npcName(s, g.npc)}에게 말 걸기`, done: all };
+    case 'level': return { text: `레벨 ${g.n} 달성`, done };
+    case 'learn': return { text: `${g.skill ? SKILLS[g.skill]?.name ?? g.skill : '스킬'} 배우기`, done };
+    case 'equip': return { text: `${g.item ? itemDef(g.item)?.name ?? g.item : '장비'} 장착`, done };
+  }
+}
+
+/**
+ * 퀘스트 조건 줄들. 하는 중인데 다 했고 말 걸기 목표가 없으면(준 사람에게 보고) 마지막에 보고 줄을 붙인다.
+ * state 를 안 주면 지금 상태 (끝난 퀘스트 목록은 'done' = 전부 다 한 것으로, 수락 대기 목록은 'none' = 전부 0)
+ */
+export function questLines(s: SaveData, q: QuestDef, state = questState(s, q.id)): GoalLine[] {
+  const out = q.goals.map((_, i) => goalLine(s, q, i, state));
+  if (state === 'ready' && !isAuto(s, q) && !q.goals.some(g => g.kind === 'talk')) out.push({ text: `${npcName(s, q.giver)}에게 보고하기`, done: false });
+  return out;
+}
+
+const questIndex = (id: string) => QUESTS.findIndex(q => q.id === id);
+
+/** 하는 중인 퀘스트 정렬: 핀 꽂은 메인 → 핀 꽂은 일반 → 메인 → 일반, 같으면 먼저 받은 것이 위 */
+export function sortedActive(s: SaveData): QuestDef[] {
+  const rank = (q: QuestDef) => (s.questPins.includes(q.id) ? 0 : 2) + (q.main ? 0 : 1);
+  return activeQuests(s).sort((a, b) => rank(a) - rank(b)
+    || (s.quests[a.id].at ?? 0) - (s.quests[b.id].at ?? 0)
+    || questIndex(a.id) - questIndex(b.id));
+}
+
+/** 화면 왼쪽에 보일 퀘스트 (max 개, 핀 꽂은 것은 넘어도 다 보임) */
+export function hudQuests(s: SaveData, max: number): QuestDef[] {
+  const list = sortedActive(s);
+  return list.slice(0, Math.max(max, s.questPins.length));
+}
+
+/** 끝낸 퀘스트: 최근에 끝낸 것이 위 (중요도 상관없이). 반복 퀘스트는 처음 끝낸 때 기준 */
+export function doneQuests(s: SaveData): QuestDef[] {
+  return QUESTS.filter(q => s.quests[q.id]?.done)
+    .sort((a, b) => (s.quests[b.id].doneAt ?? 0) - (s.quests[a.id].doneAt ?? 0) || questIndex(b.id) - questIndex(a.id));
+}
+
+/** 핀 꽂기 / 빼기 (하는 중인 퀘스트만, 최대 QUEST_PIN_MAX) */
+export function togglePin(s: SaveData, id: string): ActionResult {
+  if (s.questPins.includes(id)) { s.questPins = s.questPins.filter(p => p !== id); return { ok: true }; }
+  if (!s.quests[id]?.active) return fail('하는 중인 퀘스트가 아니야');
+  if (s.questPins.length >= QUEST_PIN_MAX) return fail(`핀은 ${QUEST_PIN_MAX}개까지`);
+  s.questPins.push(id);
+  return { ok: true };
 }

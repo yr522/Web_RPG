@@ -7,6 +7,12 @@ import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
 import type { Element } from '@shared/data/elements';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
+import { autoReport, isAuto, newlyReady, nightLocked, questReadyText } from '@shared/rules/quests';
+import { MAPS } from '@shared/data/maps';
+import { checkCond } from '@shared/rules/story';
+import { nightOf } from '@shared/sim/clock';
+import { BOSSES, bossDef, type Difficulty } from '@shared/data/bosses';
+import { questDef } from '@shared/data/quests';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -23,6 +29,12 @@ export interface Session {
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
+  /** 보스 메뉴: 열린 보스의 입장 포탈이 있는 맵으로 이동 */
+  warpBoss(id: string): boolean;
+  /** 보스 입장 포탈에서 난이도를 골라 보스 방으로 */
+  enterBoss(id: string, difficulty: Difficulty): boolean;
+  /** 물어보는 포탈에서 "예" */
+  takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: 'hp' | 'mp'): void;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
@@ -40,30 +52,65 @@ export class LocalSession implements Session {
   private pending: GameEvent[] = [];
 
   constructor(readonly save: SaveData, private store: Store) {
-    this.enter(save.map, 600);
+    // 보스 방에서 끝냈으면 (고른 난이도는 저장 안 함) 그 방에서 쓰러졌을 때 깨어나는 곳에서 시작
+    const r = BOSSES.some(b => b.room === save.map) ? MAPS[save.map].respawn : undefined;
+    if (r) this.enter(r.map, r.x, undefined, r.y);
+    else this.enter(save.map, 600);
   }
 
   me() { return this.world.players.get(this.playerId)!; }
   prevPos() { return this.prev; }
 
-  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }) {
-    this.world = new World(map);
-    const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp);
+  private enter(map: MapId, x: number, keep?: { hp: number; mp: number }, y?: number, difficulty?: Difficulty) {
+    this.world = new World(map, undefined, difficulty);
+    const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp, y);
     this.prev = { x: p.x, y: p.y };
     this.save.map = map;
     void this.store.save(this.save);
+    this.checkBecomes();
   }
 
-  nowMs() { return Date.now() + this.save.timeOffset; }
+  /** 지금 맵이 조건에 따라 다른 맵으로 바뀌어야 하면 같은 자리로 옮김 (몬스터 없는 숲 → 있는 숲) */
+  private checkBecomes() {
+    const b = MAPS[this.world.mapId].becomes;
+    if (!b || !checkCond(this.save, b.when)) return;
+    const me = this.me();
+    this.pending.push(...this.world.takeEvents());
+    this.enter(b.to, me.x, { hp: me.hp, mp: me.mp }, me.y + me.h);
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: b.to });
+  }
+
+  nowMs() {
+    const t = Date.now() + this.save.timeOffset;
+    // 밤 고정 퀘스트 중에는 그날 밤 한가운데에 멈춤
+    return nightLocked(this.save) ? nightOf(t) : t;
+  }
 
   act(action: MenuAction): ActionResult {
-    const r = applyAction(this.save, action, this.nowMs());
+    let r: ActionResult = { ok: false };
+    // 레벨·스킬·장비 목표처럼 행동으로 끝나는 퀘스트 알림
+    const ready = newlyReady(this.save, () => { r = applyAction(this.save, action, this.nowMs()); });
+    for (const q of ready) {
+      if (isAuto(this.save, q)) continue;
+      if (!r.banner) r.banner = questReadyText(q);
+      else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q), color: '#9ef0a0' });
+    }
+    // 자동 보고 퀘스트 (다음 퀘스트를 받자마자 끝나는 경우 포함)
+    for (const a of autoReport(this.save)) {
+      if (a.banner) this.pending.push({ type: 'banner', playerId: this.playerId, text: a.banner, color: '#9ef0a0' });
+    }
     if (r.ok) {
       this.world.refreshStats(this.me(), r.fullHeal);
       if (action.type === 'useReset') this.world.resetCombat(this.me());
       void this.store.save(this.save);
     }
     return r;
+  }
+
+  takePortal(to: MapId, toX: number, toY?: number) {
+    const { hp, mp } = this.me();
+    this.enter(to, toX, { hp, mp }, toY);
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: to });
   }
 
   usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
@@ -79,6 +126,23 @@ export class LocalSession implements Session {
     return true;
   }
 
+  warpBoss(id: string): boolean {
+    const b = bossDef(id);
+    if (!b || !checkCond(this.save, b.unlock)) return false;
+    this.takePortal(b.gate.map, b.gate.x);
+    return true;
+  }
+
+  enterBoss(id: string, difficulty: Difficulty): boolean {
+    const b = bossDef(id);
+    const need = b?.open[difficulty];
+    if (!b || (need && !checkCond(this.save, need))) return false;
+    const { hp, mp } = this.me();
+    this.enter(b.room, b.roomX, { hp, mp }, undefined, difficulty);
+    this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: b.room });
+    return true;
+  }
+
   update(realDt: number, readCommand: () => Command): GameEvent[] {
     const out: GameEvent[] = this.pending;
     this.pending = [];
@@ -90,20 +154,38 @@ export class LocalSession implements Session {
       const events = this.world.step(new Map([[this.playerId, readCommand()]]));
       for (const ev of events) {
         out.push(ev);
+        // 완료 조건을 채우는 순간 장면 전용 맵으로 옮기고 컷신 (골렘 처치 → 결정체를 빼앗기는 장면)
+        if (ev.type === 'questReady' && ev.playerId === this.playerId) {
+          const sc = questDef(ev.quest)?.readyScene;
+          if (sc) {
+            const solo = questDef(ev.quest)?.solo?.cls === this.save.cls;
+            const { hp, mp } = this.me();
+            this.enter(sc.map, sc.x, { hp, mp });
+            out.push({ type: 'mapEnter', playerId: this.playerId, map: sc.map });
+            out.push({ type: 'cutscene', id: solo && sc.soloCutscene ? sc.soloCutscene : sc.cutscene });
+            break;
+          }
+        }
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
+          // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
+          if (ev.confirm || ev.boss) continue;
           const { hp, mp } = this.me();
-          this.enter(ev.to, ev.toX, { hp, mp });
+          this.enter(ev.to, ev.toX, { hp, mp }, ev.toY);
           out.push({ type: 'mapEnter', playerId: this.playerId, map: ev.to });
           break;
         }
         if (ev.type === 'died' && ev.playerId === this.playerId) {
-          this.enter('school', 600);
-          out.push({ type: 'mapEnter', playerId: this.playerId, map: 'school' });
-          out.push({ type: 'banner', playerId: this.playerId, text: '쓰러졌다… 학교에서 깨어났다', color: '#ff8080' });
+          // 맵에 정해진 곳(보스 방 → 공방 지하 등)이 있으면 거기서, 아니면 학교에서 깨어남
+          const r = this.world.map.respawn;
+          this.enter(r?.map ?? 'school', r?.x ?? 600, undefined, r?.y);
+          out.push({ type: 'mapEnter', playerId: this.playerId, map: this.world.mapId });
+          out.push({ type: 'banner', playerId: this.playerId, text: r ? '쓰러졌다…' : '쓰러졌다… 학교에서 깨어났다', color: '#ff8080' });
           break;
         }
       }
     }
+    this.checkBecomes();
+    out.push(...this.pending.splice(0));
     this.alpha = this.acc / TICK;
     this.saveTimer += realDt;
     if (this.saveTimer > 5) { this.saveTimer = 0; void this.store.save(this.save); }

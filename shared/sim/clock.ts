@@ -12,6 +12,12 @@ export const PHASES = [
 
 export interface TimeInfo { phase: DayPhase; remain: number; frac: number; cycle: number }
 
+/** ms 가 속한 날의 밤 한가운데 (밤 고정용) */
+export function nightOf(ms: number) {
+  const day = Math.floor(ms / (PHASE_MS * 3));
+  return day * PHASE_MS * 3 + PHASE_MS * 2.5;
+}
+
 export function timeInfo(ms: number): TimeInfo {
   const idx = Math.floor(ms / PHASE_MS);
   return {

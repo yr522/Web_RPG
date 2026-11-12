@@ -13,16 +13,17 @@ import type { Fx } from '@shared/sim/types';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
-import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
-import { questTarget } from '@shared/rules/quests';
+import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
+import { mapNpcs, mapPortals, offersQuest } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { COIN } from '@shared/data/monsters';
+import { BOSS_ORB, COIN, MONSTERS, type MonsterId } from '@shared/data/monsters';
 
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
@@ -34,6 +35,10 @@ const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i
 
 export interface SceneDeps {
   session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
+  /** 예 / 아니오 묻기 */
+  confirm: (text: string, yes: () => void) => void;
+  /** 보스 입장 포탈: 난이도 고르기 */
+  chooseBoss: (boss: string, text?: string) => void;
   /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
   talk: (npc: string) => Promise<void>;
 }
@@ -56,6 +61,18 @@ const ACTOR_JUMP = { h: 50, time: 0.5 };
 const MOB_HEAD = 46;
 /** 길 안내 화살표: 플레이어 머리 위, 가야 할 쪽 */
 const GUIDE = { hideWithin: 50, color: 0xffd84a };
+
+/** 따라다니는 NPC: 플레이어 뒤 간격, 걷기·뛰기 속도, 이만큼 벌어지면 뜀 */
+const COMPANION = { gap: 60, walk: 200, run: 420, runFrom: 220 };
+
+/** 맵 배경 그림 (assets/img/bg/*.png) */
+const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+
+/** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
+function mobTexture(mob: MonsterId, elem: unknown) {
+  if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
+  return mob;
+}
 
 export class GameScene extends Phaser.Scene implements Stage {
   private deps!: SceneDeps;
@@ -98,6 +115,10 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
   private dropSprites = new Map<string, { item: string; obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text }>();
   private fade = 1;
+  /** 세로로 긴 맵의 카메라 위쪽 y (맵에 들어오면 다시 맞춤) */
+  private camYNow: number | null = null;
+  private mapSig = '';
+  private companion: { id: string; root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; x: number; walkT: number | null } | null = null;
   private viewW = 960;
   private zoom = 1;
 
@@ -110,10 +131,13 @@ export class GameScene extends Phaser.Scene implements Stage {
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
+    for (const [path, url] of Object.entries(BG_FILES)) this.load.image(`bg:${path.split('/').pop()!.replace(/\.png$/, '')}`, url);
   }
 
   create() {
     this.makeGraySlime();
+    this.makeTempMobs();
+    this.makeTempMobs2();
     this.zoom = this.scale.height / VIEW_H;
     this.bg = this.add.graphics().setScrollFactor(0).setDepth(0);
     this.mapLayer = this.add.container(0, 0).setDepth(1);
@@ -162,7 +186,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   }
 
   /** 맵이 바뀔 때마다 맵의 고정된 부분을 새로 만든다 */
-  private buildMap() {
+  private buildMap(soft = false) {
     this.mapLayer.removeAll(true);
     for (const b of this.bubbles.values()) b.destroy();
     this.bubbles.clear();
@@ -184,23 +208,37 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
         g.fillStyle(map.building ? 0x7a6a8a : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
-      } else {
-        g.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
-        g.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
       }
     }
+    // 발판은 배경 그림 위에 그림
+    const plat = this.add.graphics();
+    for (const p of world.solids) {
+      if (p.ground) continue;
+      plat.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
+      plat.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
+    }
+    // 배경 그림: 그림 속 땅 줄이 땅 높이에 오게
+    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
+      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
+      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
+      const top = map.top ?? 0;
+      g.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
+      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
+    }
+    this.mapLayer.add(plat);
     for (const s of map.signs) {
       g.fillStyle(0x5a4630).fillRect(s.x - 3, GROUND_Y - 50, 6, 50);
       g.fillStyle(0x7a6040).fillRect(s.x - 75, GROUND_Y - 74, 150, 28);
       this.mapLayer.add(this.text(s.text, 14, '#fff3d0').setStroke('#000', 0).setOrigin(0.5).setPosition(s.x, GROUND_Y - 60));
     }
-    for (const pt of map.portals) {
-      this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, GROUND_Y - 98));
+    this.mapSig = this.visibleSig();
+    for (const pt of mapPortals(save, world.mapId)) {
+      this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, (pt.y ?? GROUND_Y) - 98));
     }
     this.profMark = null;
     for (const a of this.actors.values()) if (a.kind === 'mob') { a.root.destroy(); a.label.destroy(); }
     this.actors.clear();
-    for (const n of map.npcs) {
+    for (const n of mapNpcs(save, world.mapId)) {
       const x = n.x, y = GROUND_Y;
       // 터치·클릭으로 대화
       const zone = this.add.zone(x, y - 55, n.id === 'shop' ? 132 : 80, 125).setInteractive({ useHandCursor: true });
@@ -215,10 +253,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
         this.mapLayer.add(this.profMark);
       }
-      const talk = TALK_NPCS[n.id];
+      // 교수님은 이야기 대사가 있어도 그림은 교수님 그대로
+      const talk = n.id === 'prof' ? undefined : TALK_NPCS[n.id];
+      if (talk?.prop === 'bed') {
+        // 침대 (임시 그림)
+        g.fillStyle(0x5a3f22).fillRect(x - 50, y - 30, 100, 30).fillRect(x - 54, y - 52, 10, 52);
+        g.fillStyle(0xe8e2d4).fillRect(x - 44, y - 38, 92, 12);
+        g.fillStyle(0x6a7ac0).fillRect(x - 20, y - 40, 68, 14);
+        g.fillStyle(0xffffff).fillRect(x - 42, y - 46, 22, 9);
+        this.mapLayer.add(this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6));
+        continue;
+      }
       if (talk) {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        if (talk.tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(talk.tint);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
         this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
@@ -251,9 +300,50 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
 
     this.nameTag.setText(save.name);
+    if (soft) return;
     const me = this.deps.session.me();
     this.camX = this.cameraTarget(me.x + me.w / 2, me.face);
+    this.camYNow = null;
     this.fade = 1;
+    this.placeCompanion();
+  }
+
+  /** 지금 보이는 NPC·포탈 목록 (퀘스트 진행으로 바뀌면 맵을 다시 그림) */
+  private visibleSig() {
+    const { save, world } = this.deps.session;
+    return mapNpcs(save, world.mapId).map(n => n.id + n.x).join() + '|' + mapPortals(save, world.mapId).map(p => p.to + p.x).join();
+  }
+
+  /** 따라다니는 NPC (연출, 무적): 맵에 들어오면 플레이어 옆에 나타남 */
+  private placeCompanion() {
+    this.companion?.root.destroy();
+    this.companion?.label.destroy();
+    this.companion = null;
+    const id = companionNpc(this.deps.session.save);
+    if (!id) return;
+    const me = this.deps.session.me(), x = me.x + me.w / 2 - me.face * COMPANION.gap;
+    const root = makeStaticAvatar(this, x, GROUND_Y, me.face).setDepth(4.9);
+    const label = this.text(TALK_NPCS[id]?.name ?? id, 12, '#fff').setOrigin(0.5, 0).setDepth(4.9);
+    this.companion = { id, root, label, x, walkT: null };
+  }
+
+  /** 따라다니는 NPC: 멀어지면 후다닥 따라옴 */
+  private updateCompanion(dt: number, meX: number) {
+    const want = companionNpc(this.deps.session.save);
+    if ((want ?? null) !== (this.companion?.id ?? null)) this.placeCompanion();
+    const c = this.companion;
+    if (!c) return;
+    const me = this.deps.session.me();
+    const target = meX - me.face * COMPANION.gap, d = target - c.x;
+    if (Math.abs(d) > COMPANION.gap * 0.5) {
+      const speed = Math.abs(d) > COMPANION.runFrom ? COMPANION.run : COMPANION.walk;
+      c.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+      c.root.setScale(AVATAR_SCALE * (Math.sign(d) || 1), AVATAR_SCALE);
+      c.walkT = (c.walkT ?? 0) + dt;
+      poseStaticAvatar(c.root, c.walkT, speed === COMPANION.run);
+    } else if (c.walkT !== null) { c.walkT = null; poseStaticAvatar(c.root, null); }
+    c.root.setPosition(c.x, GROUND_Y);
+    c.label.setPosition(c.x, GROUND_Y + 6);
   }
 
   private drawSchool(g: Phaser.GameObjects.Graphics) {
@@ -295,6 +385,11 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
       if (ev.type === 'interact') this.deps.openNpc(ev.npc);
+      if (ev.type === 'portal' && ev.boss) this.deps.chooseBoss(ev.boss, ev.confirm);
+      else if (ev.type === 'portal' && ev.confirm) {
+        const { to, toX, toY } = ev;
+        this.deps.confirm(ev.confirm, () => session.takePortal(to, toX, toY));
+      }
       if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
       if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
       if (ev.type === 'fx') this.fxList.push({ f: ev.fx, t: 0 });
@@ -304,12 +399,14 @@ export class GameScene extends Phaser.Scene implements Stage {
         if (ev.reaction) this.shake = Math.max(this.shake, 7);
       }
       if (ev.type === 'died') this.shake = 0;
+      if (ev.type === 'shake') this.shake = Math.max(this.shake, ev.amount);
+      if (ev.type === 'cutscene') this.playCutscene(ev.id);
       if (ev.type === 'say') this.say(ev.who === session.playerId ? 'player' : ev.who, ev.text, ev.life);
     }
 
     const me = session.me(), prev = session.prevPos(), a = session.alpha;
     const px = prev.x + (me.x - prev.x) * a, py = prev.y + (me.y - prev.y) * a;
-    const camY = this.updateCamera(dt, px + me.w / 2, me.face);
+    const camY = this.updateCamera(dt, px + me.w / 2, me.face, py + me.h);
     this.shake = Math.max(0, this.shake - 30 * dt);
     const sx = (Math.random() - 0.5) * this.shake, sy = (Math.random() - 0.5) * this.shake;
     const z = this.zoom * this.camZoom;
@@ -331,11 +428,14 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.player.setVisible(!(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0));
     this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
 
+    // 퀘스트 진행으로 NPC 자리·포탈이 바뀌면 다시 그림
+    if (this.visibleSig() !== this.mapSig) this.buildMap(true);
+    this.updateCompanion(dt, px + me.w / 2);
     this.updateSpeech(dt, px + me.w / 2, py + me.h);
     this.drawGuide(px + me.w / 2, py + me.h);
     const portal = session.world.portalNear(me);
-    const npc = session.world.map.npcs.find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
-    if (portal) this.showBubble(portal.x, GROUND_Y - 118, '↑ 이동');
+    const npc = mapNpcs(session.save, session.world.mapId).find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
+    if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
     else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
@@ -360,7 +460,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   playCutscene(id: string) { void this.cut.play(id); }
 
   /** 카메라: 평소엔 플레이어를 따라가고, 컷신이 잡으면 그 자리·배율로 부드럽게. 화면 위쪽 y 를 돌려준다 */
-  private updateCamera(dt: number, meX: number, face: number) {
+  private updateCamera(dt: number, meX: number, face: number, meFeet = GROUND_Y) {
     const followLeft = this.cameraTarget(meX, face);
     if (this.camMove) {
       const m = this.camMove;
@@ -378,7 +478,15 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     // 확대하면 보이는 높이가 줄어듦: 땅이 화면 아래쪽에 오도록
     const vh = VIEW_H / this.camZoom;
-    return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
+    const top = this.deps.session.world.map.top;
+    if (top === undefined) return Math.max(0, Math.min(VIEW_H - vh, GROUND_Y - vh * 0.7));
+    // 세로로 긴 맵: 플레이어 발이 화면 아래쪽 70% 쯤에 오게 따라감. 높이 올라갈수록 발을 화면 아래쪽(맨 위 발판에서 75%)에 둬서 천장이 더 보이게
+    const highest = Math.min(GROUND_Y, ...this.deps.session.world.map.platforms.map(p => p.y));
+    const up = highest < GROUND_Y ? Math.max(0, Math.min(1, (GROUND_Y - meFeet) / (GROUND_Y - highest))) : 0;
+    const want = Math.max(top, Math.min(VIEW_H - vh, meFeet - vh * (0.7 + 0.05 * up)));
+    if (this.camYNow === null) this.camYNow = want;
+    this.camYNow += (want - this.camYNow) * Math.min(1, dt * 6);
+    return this.camYNow;
   }
 
   /** 화면 가운데 x → 화면 왼쪽 x (맵 밖으로 안 나가게) */
@@ -481,9 +589,19 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (!save.quests[q.id]?.active) continue;
       const t = questTarget(save, q);
       if (!t) continue;
-      if (t.map !== here) tx = nextPortal(here, t.map)?.x ?? null;
+      if (t.map !== here) tx = nextPortal(save, here, t.map)?.x ?? null;
       else tx = t.x ?? null;
       if (tx !== null) break;
+    }
+    // 하는 퀘스트가 없으면: 다음 퀘스트를 줄 이야기 NPC 쪽으로
+    if (tx === null && !QUESTS.some(q => save.quests[q.id]?.active && !q.repeat)) {
+      for (const id of Object.keys(TALK_NPCS)) {
+        if (!TALK_NPCS[id].guide || !offersQuest(save, id, session.nowMs())) continue;
+        const t = npcPlace(id, save);
+        if (!t) continue;
+        tx = t.map !== here ? nextPortal(save, here, t.map)?.x ?? null : t.x;
+        if (tx !== null) break;
+      }
     }
     if (tx === null || Math.abs(tx - meX) < GUIDE.hideWithin) return;
     const dir = tx > meX ? 1 : -1, bob = Math.sin(this.time.now / 150) * 3 * dir;
@@ -501,7 +619,8 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   /** 말풍선 위치 갱신 + 대화 NPC 에 다가가면 말풍선 */
   private updateSpeech(dt: number, meX: number, meFeet: number) {
-    for (const n of this.deps.session.world.map.npcs) {
+    const { save: sv, world: wd } = this.deps.session;
+    for (const n of mapNpcs(sv, wd.mapId)) {
       const talk = TALK_NPCS[n.id];
       if (!talk?.bubble) continue;
       const near = Math.abs((this.actorX(`npc:${n.id}`) ?? n.x) - meX) < NPC_BUBBLE_RANGE;
@@ -516,7 +635,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         b.update(dt, a.x, GROUND_Y - lift - (a.kind === 'mob' ? MOB_HEAD : AVATAR_HEAD) - 4);
         continue;
       }
-      const n = this.deps.session.world.map.npcs.find(o => `npc:${o.id}` === who);
+      const n = mapNpcs(sv, wd.mapId).find(o => `npc:${o.id}` === who);
       if (n) b.update(dt, n.x, GROUND_Y - AVATAR_HEAD - 4);
       else b.hide();
     }
@@ -542,7 +661,9 @@ export class GameScene extends Phaser.Scene implements Stage {
       let sp = this.enemySprites.get(e.id);
       if (!sp) {
         // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
-        sp = this.add.sprite(0, 0, e.elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+        sp = this.add.sprite(0, 0, mobTexture(e.mob, e.elem), 0).setOrigin(0.5, 1).setDepth(4);
+        // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤
+        sp.setScale(e.mob === 'slime' || e.mob === 'slime_elem' ? 1.45 : MONSTERS[e.mob].h / sp.frame.height);
         if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
         this.enemySprites.set(e.id, sp);
       }
@@ -557,9 +678,10 @@ export class GameScene extends Phaser.Scene implements Stage {
         .setFlipX(e.dir > 0);
       if (fl > 0) sp.setTintFill(0xffffff);
       else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
+      else if (e.groggy && e.groggy > 0) sp.setTint(0x8090b0);
       else sp.clearTint();
       if (!label) {
-        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : MONSTERS[e.mob].name, 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
         this.enemyLabels.set(e.id, label);
       }
       label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
@@ -572,6 +694,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
         g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
       }
+    }
+    // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
+    if (world.orb) {
+      const o = world.orb;
+      if (o.dir) {
+        const a = 0.35 + 0.35 * Math.abs(Math.sin(this.time.now / 60));
+        g.lineStyle(3, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      }
+      g.fillStyle(0x2a3a5a).fillRect(o.x - 26, o.y - 40, 52, 14);
+      g.fillStyle(0x6ec8ff, o.dir ? 1 : 0.75).fillCircle(o.x, o.y, 16);
+      g.lineStyle(2, 0xe0f6ff).strokeCircle(o.x, o.y, 16);
+    }
+    for (const s of world.orbShots) {
+      g.fillStyle(0x6ec8ff).fillCircle(s.x, s.y, BOSS_ORB.r);
+      g.fillStyle(0xe0f6ff).fillCircle(s.x, s.y, BOSS_ORB.r * 0.5);
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
@@ -695,6 +832,83 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
   }
 
+  /** 그림이 아직 없는 몬스터의 임시 그림 (왼쪽을 봄, 프레임 0 기본 · 1 이동 · 2 패턴 예고) */
+  private makeTempMobs() {
+    const make = (key: string, fw: number, fh: number, draw: (r: (x: number, y: number, w: number, h: number, c: string) => void, f: number) => void) => {
+      const c = document.createElement('canvas');
+      c.width = fw * 3; c.height = fh;
+      const ctx = c.getContext('2d')!;
+      for (let f = 0; f < 3; f++) draw((x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(f * fw + x, y, w, h); }, f);
+      const tex = this.textures.addCanvas(key, c)!;
+      for (let f = 0; f < 3; f++) tex.add(f, 0, f * fw, 0, fw, fh);
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    };
+    // 경비기계A: 홀쭉한 몸 + 외눈 + 두 다리
+    make('guard_a', 32, 36, (r, f) => {
+      r(15, 0, 2, 5, '#9aa3ad'); r(14, 0, 4, 2, '#e0484a');
+      r(7, 5, 18, 14, '#1d2128'); r(8, 6, 16, 12, '#6f7c8a'); r(8, 6, 16, 3, '#8d9aa8');
+      r(9, 10, 8, 4, '#1d2128'); r(10, 11, 4, 2, f === 2 ? '#ffd0d0' : '#ff4a4a');
+      r(9, 19, 14, 9, '#1d2128'); r(10, 20, 12, 7, '#56616e');
+      const k = f === 1 ? 2 : 0;
+      r(10 - k, 28, 4, 8, '#1d2128'); r(18 + k, 28, 4, 8, '#1d2128');
+      r(11 - k, 28, 2, 7, '#8d9aa8'); r(19 + k, 28, 2, 7, '#8d9aa8');
+    });
+    // 경비기계B: 넓적한 몸 + 쌍눈 + 앞으로 내민 충각, 바퀴
+    make('guard_b', 40, 40, (r, f) => {
+      r(6, 6, 30, 22, '#1d1a14'); r(7, 7, 28, 20, '#a07a3a'); r(7, 7, 28, 4, '#c49a52');
+      r(10, 12, 12, 5, '#1d1a14');
+      const eye = f === 2 ? '#fff2a0' : '#ffb020';
+      r(11, 13, 4, 3, eye); r(17, 13, 4, 3, eye);
+      r(0, 18, 8, 5, '#1d1a14'); r(1, 19, 7, 3, '#c9ccd2');
+      r(6, 28, 30, 6, '#1d1a14');
+      const off = f === 1 ? 1 : 0;
+      for (let i = 0; i < 3; i++) { r(8 + i * 10, 32, 8, 8, '#1d1a14'); r(10 + i * 10 - off, 34, 4, 4, '#6b6f78'); }
+    });
+  }
+
+  /** 공방 지하·골렘 임시 그림 (왼쪽을 봄) */
+  private makeTempMobs2() {
+    const make = (key: string, fw: number, fh: number, draw: (r: (x: number, y: number, w: number, h: number, c: string) => void, f: number) => void) => {
+      const c = document.createElement('canvas');
+      c.width = fw * 3; c.height = fh;
+      const ctx = c.getContext('2d')!;
+      for (let f = 0; f < 3; f++) draw((x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(f * fw + x, y, w, h); }, f);
+      const tex = this.textures.addCanvas(key, c)!;
+      for (let f = 0; f < 3; f++) tex.add(f, 0, f * fw, 0, fw, fh);
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    };
+    // 경비기계C: 뚜벅이, 두꺼운 몸 + 큰 다리
+    make('guard_c', 36, 42, (r, f) => {
+      r(6, 2, 24, 20, '#15181d'); r(7, 3, 22, 18, '#4f6a5c'); r(7, 3, 22, 4, '#6f8f7c');
+      r(8, 9, 10, 5, '#15181d'); r(9, 10, 8, 3, f === 2 ? '#d0ffd8' : '#5dff8a');
+      r(9, 22, 18, 8, '#15181d'); r(10, 23, 16, 6, '#3b5046');
+      const k = f === 1 ? 2 : 0;
+      r(8 - k, 30, 8, 12, '#15181d'); r(20 + k, 30, 8, 12, '#15181d');
+      r(9 - k, 31, 6, 10, '#6f8f7c'); r(21 + k, 31, 6, 10, '#6f8f7c');
+    });
+    // 경비기계D: 작은 비행 기계, 프로펠러
+    make('guard_d', 24, 18, (r, f) => {
+      const p = f === 1 ? 2 : 0;
+      r(2 + p, 0, 20 - p * 2, 2, '#9aa3ad'); r(11, 2, 2, 3, '#15181d');
+      r(4, 5, 16, 10, '#15181d'); r(5, 6, 14, 8, '#7a6aa8'); r(5, 6, 14, 2, '#9a8ac8');
+      r(6, 9, 5, 3, f === 2 ? '#ffd0ff' : '#ff6ad8');
+      r(8, 15, 2, 3, '#15181d'); r(14, 15, 2, 3, '#15181d');
+    });
+    // 마법 골렘: 큰 돌 몸 + 가운데 마력 결정
+    make('golem', 58, 88, (r, f) => {
+      r(10, 0, 34, 24, '#1b1a20'); r(11, 1, 32, 22, '#6b6470'); r(11, 1, 32, 5, '#857d8a');
+      r(13, 10, 9, 5, '#1b1a20'); r(14, 11, 7, 3, f === 2 ? '#e0f6ff' : '#6ec8ff');
+      r(2, 24, 54, 38, '#1b1a20'); r(3, 25, 52, 36, '#5c5662'); r(3, 25, 52, 6, '#766f7c');
+      r(22, 34, 14, 16, '#1b1a20'); r(24, 36, 10, 12, f === 2 ? '#c8f0ff' : '#4aa8ff');
+      const arm = f === 2 ? -8 : 0;
+      r(0, 28 + arm, 10, 30, '#1b1a20'); r(1, 29 + arm, 8, 28, '#6b6470');
+      r(48, 28, 10, 30, '#1b1a20'); r(49, 29, 8, 28, '#6b6470');
+      const k = f === 1 ? 3 : 0;
+      r(8 - k, 62, 16, 26, '#1b1a20'); r(34 + k, 62, 16, 26, '#1b1a20');
+      r(9 - k, 63, 14, 24, '#5c5662'); r(35 + k, 63, 14, 24, '#5c5662');
+    });
+  }
+
   /** 원소 슬라임용: 초록 슬라임을 밝은 회색으로 바꾼 텍스처 (색을 입히면 원소 색이 됨) */
   private makeGraySlime() {
     const src = this.textures.get('slime').getSourceImage() as HTMLImageElement;
@@ -771,6 +985,9 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawBackground(pal: ReturnType<typeof palette>) {
     const g = this.bg, W = this.viewW, H = VIEW_H, camX = this.camX;
     g.clear();
+    // 배경 색만 쓰는 맵 (공방 지하 등)
+    const solid = this.deps.session.world.map.bgColor;
+    if (solid !== undefined) { g.fillStyle(solid).fillRect(0, 0, W, H); return; }
     g.fillGradientStyle(pal.top, pal.top, pal.mid, pal.mid, 1).fillRect(0, 0, W, H * 0.6);
     g.fillGradientStyle(pal.mid, pal.mid, pal.bot, pal.bot, 1).fillRect(0, H * 0.6, W, H * 0.4);
     if (pal.stars > 0.02) {
@@ -803,11 +1020,12 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawPortals() {
     const g = this.fx, t = this.time.now / 1000;
     g.clear();
-    for (const p of this.deps.session.world.map.portals) {
-      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, GROUND_Y - 48, 48, 88);
+    for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId)) {
+      const py = (p.y ?? GROUND_Y) - 48;
+      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, py, 48, 88);
       for (let i = 0; i < 3; i++) {
         g.lineStyle(4, 0xbea0ff, 0.8 - i * 0.2);
-        g.strokeEllipse(p.x, GROUND_Y - 48, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
+        g.strokeEllipse(p.x, py, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
       }
     }
   }

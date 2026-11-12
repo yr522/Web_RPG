@@ -26,7 +26,7 @@ export const emptyCommand = (): Command => ({
 });
 
 export type GameEvent =
-  | { type: 'portal'; playerId: EntityId; to: MapId; toX: number }
+  | { type: 'portal'; playerId: EntityId; to: MapId; toX: number; toY?: number; confirm?: string; boss?: string }
   | { type: 'mapEnter'; playerId: EntityId; map: MapId }
   | { type: 'notice'; playerId: EntityId; text: string }
   /** NPC 앞에서 ↑ */
@@ -42,7 +42,13 @@ export type GameEvent =
   /** 이펙트 (검기, 원 퍼짐 등) */
   | { type: 'fx'; fx: Fx }
   | { type: 'died'; playerId: EntityId }
-  | { type: 'kill'; playerId: EntityId; enemyId: EntityId; tag?: string };
+  /** 화면 흔들림 (보스 공격 등) */
+  | { type: 'shake'; amount: number }
+  | { type: 'kill'; playerId: EntityId; enemyId: EntityId; tag?: string }
+  /** 퀘스트 완료 조건을 채움 (장면 전환 등) */
+  | { type: 'questReady'; playerId: EntityId; quest: string }
+  /** 화면: 이 컷신 재생 */
+  | { type: 'cutscene'; id: string };
 
 export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
