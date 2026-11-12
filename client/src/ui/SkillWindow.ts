@@ -4,7 +4,7 @@
 // - 테두리 색 = 배운 원소 (안 배움·무속성은 흰색). 아래 "레벨/마스터"
 // - 스킬 포인트(초기화 주문서로 돌려받은 레벨)가 있을 때만 왼쪽 위에 SP 가 깜빡이고, 배운 스킬에 + 버튼
 // - 오른쪽 아래 ▼ 를 누르면 스킬 키 칸이 펼쳐짐. 배운 스킬을 끌어다 키에 등록·교체, 키끼리 끌어서 옮기기
-//   (화면 아래 고정 스킬 칸은 끌기 안 됨)
+//   키 칸 우클릭 = 키에서 빼기 (화면 아래 고정 스킬 칸은 끌기 안 됨)
 import { CLASSES, MAX_SKILL_LEVEL, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS } from '@shared/data/elements';
 import { learned, skillLevel } from '@shared/rules/progress';
@@ -111,6 +111,8 @@ export class SkillWindow {
           cell.appendChild(el('span', 'skw-kname' + (on ? '' : ' off'), esc(sk.short ?? sk.name)));
           cell.style.setProperty('--ec', this.color(id));
           this.bindDrag(cell, { key: k });
+          // 우클릭: 키에서 빼기
+          cell.addEventListener('contextmenu', e => { e.preventDefault(); this.result(this.session.act({ type: 'unbindKey', key: k })); });
         }
         this.keysEl.appendChild(cell);
       }
