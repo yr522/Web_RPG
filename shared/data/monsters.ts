@@ -117,5 +117,16 @@ export const GOLEM_AI = {
 export const BOSS_ORB = { every: 4.5, aimTime: 1.1, speed: 520, r: 12, dmg: 25 };
 
 export const COIN = { life: 30, blinkLast: 5, size: 14 };
+/** 떨어진 골드 동전 그림: 동전 하나의 금액이 min 이상이면 그 동전 (위에서부터 검사) */
+export const COIN_KINDS = [
+  { min: 100, img: 'gold' },
+  { min: 50, img: 'silver' },
+  { min: 10, img: 'iron' },
+  { min: 0, img: 'bronze' },
+] as const;
+export type CoinImg = (typeof COIN_KINDS)[number]['img'];
+export const coinKind = (amt: number): CoinImg => COIN_KINDS.find(k => amt >= k.min)!.img;
+/** 동전 그림 한 바퀴: 프레임 수와 초당 프레임 */
+export const COIN_ANIM = { frames: 6, fps: 6 };
 /** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */
 export const ITEM_DROP = { size: 24 };
