@@ -1,7 +1,7 @@
 // 퀘스트 창 (왼쪽 위 [퀘스트]). 게임을 멈추지 않는 떠 있는 창 (인벤토리 창과 같은 틀).
 // 탭: 진행 중 / 수락 대기 / 완료. 왼쪽 목록에서 고르면 오른쪽에 제목·관련 NPC·개요·조건.
 // 진행 중 탭은 목록에서 핀을 꽂고 뺄 수 있다 (핀 꽂은 퀘스트는 화면 왼쪽 맨 위에 항상 보임).
-import { QUEST_PIN_MAX, type QuestDef } from '@shared/data/quests';
+import { QUEST_PIN_MAX, questTitle, type QuestDef } from '@shared/data/quests';
 import { doneQuests, npcName, questLines, sortedActive } from '@shared/rules/quests';
 import { offeredQuests } from '@shared/rules/story';
 import type { Session } from '../session/LocalSession';
@@ -90,7 +90,7 @@ export class QuestWindow {
     for (const q of list) {
       const pin = s.questPins.includes(q.id);
       const item = el('div', `qw-item${q.main ? ' main' : ''}${q.id === this.picked[tab] ? ' on' : ''}`,
-        `<i class="qw-dot"></i><span class="qw-name">${esc(q.name)}</span>`, () => { this.picked[tab] = q.id; this.render(); });
+        `<i class="qw-dot"></i><span class="qw-name">${esc(questTitle(q))}</span>`, () => { this.picked[tab] = q.id; this.render(); });
       if (tab === 'active') {
         const b = el('button', `q-pin qw-pin${pin ? ' on' : ''}`, PIN_SVG) as HTMLButtonElement;
         b.disabled = !pin && full;
@@ -108,7 +108,7 @@ export class QuestWindow {
     const q = list.find(o => o.id === this.picked[tab]);
     this.detail.innerHTML = '';
     if (!q) return;
-    this.detail.appendChild(el('div', `qw-title${q.main ? ' main' : ''}`, `<i class="qw-dot"></i><b>${esc(q.name)}</b>`));
+    this.detail.appendChild(el('div', `qw-title${q.main ? ' main' : ''}`, `<i class="qw-dot"></i><b>${esc(questTitle(q))}</b>`));
     this.detail.appendChild(el('div', 'qw-row', `<span class="qw-label">관련 NPC</span>${esc(npcName(s, q.giver))}`));
     this.detail.appendChild(el('div', 'qw-label', '개요'));
     this.detail.appendChild(el('p', 'qw-desc', esc(q.desc)));

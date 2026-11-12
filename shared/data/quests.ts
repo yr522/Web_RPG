@@ -164,4 +164,7 @@ export const QUEST_HUD_MAX = 3;
 /** 핀은 최대 몇 개까지 */
 export const QUEST_PIN_MAX = 3;
 
+/** 화면에 보이는 퀘스트 제목 (반복 퀘스트는 앞에 [반복]) */
+export const questTitle = (q: QuestDef) => (q.repeat ? `[반복] ${q.name}` : q.name);
+
 export const questDef = (id: string) => QUESTS.find(q => q.id === id);
