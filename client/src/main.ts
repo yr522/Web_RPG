@@ -11,6 +11,7 @@ import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
 import { showSelectScreen } from './ui/SelectScreen';
+import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
 
 const params = new URLSearchParams(location.search);
@@ -62,7 +63,9 @@ async function boot() {
   const charWindow = new CharWindow(dialogs, session, hud);
   const invWindow = new InventoryWindow(session, hud);
   hud.onUpdate.push(() => invWindow.update());
-  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? npcDialog.openProfessor() : npcDialog.openTalk(id));
+  // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
+  const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
+  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
@@ -74,7 +77,8 @@ async function boot() {
     else if (id === 'inv') invWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
-    else hud.toast('메뉴는 준비 중이에요');
+    // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
+    else npcDialog.openMenu(() => { void store.save(session.save).then(() => location.reload()); });
   };
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');

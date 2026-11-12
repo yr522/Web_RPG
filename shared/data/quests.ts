@@ -53,6 +53,8 @@ export interface QuestDef {
   nightLock?: boolean;
   /** 이 직업이면 (이야기 NPC 가 동행하지 않아서) 다 하면 바로 끝나고 next 를 바로 받음 */
   solo?: { cls: 'warrior' | 'mage' | 'archer'; next?: string };
+  /** 완료 조건을 채우는 순간 이 맵으로 옮기고 컷신 (혼자 하는 직업이면 soloCutscene) */
+  readyScene?: { map: MapId; x: number; cutscene: string; soloCutscene?: string };
   /** 하는 동안 따라다니는 NPC (연출, 무적. 플레이어 직업이 그 NPC 와 같으면 안 나옴) */
   companion?: { npc: string; notCls: 'warrior' | 'mage' | 'archer' };
   /** 길 안내 목적지 (없으면 목표에서 짐작: 말 걸기 → 그 NPC 맵, 가기 → 그 맵, 처치 → 그 몬스터 맵) */
@@ -97,9 +99,20 @@ export const QUESTS: QuestDef[] = [
     doneBanner: '강력한 기운이 느껴진다', solo: { cls: 'mage', next: 'mg11' },
   },
   {
-    // 골렘을 잡으면 마법사가 골렘 방에 나타남 → 보고하면 끝 (보스 메뉴의 마법 골렘 워프가 열림)
+    // 골렘을 잡는 순간 장면 전용 맵으로 옮겨 컷신(수상한 자가 결정체를 가져감) → 거기 서 있는 마법사에게 보고 (보스 메뉴의 마법 골렘 워프가 열림)
     id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
-    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, solo: { cls: 'mage' },
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg12' },
+    readyScene: { map: 'golem_scene', x: 560, cutscene: 'mg_steal', soloCutscene: 'mg_steal_solo' },
+  },
+  {
+    // 12. 공방 윗층(공방 내부)에서 마법사와 후일담
+    id: 'mg12', name: '놓쳐 버린 결정체', desc: '공방 윗층으로 돌아가 마법사와 이야기하기', giver: 'mage_friend', where: 'workshop',
+    goals: [{ kind: 'visit', map: 'workshop' }, { kind: 'talk', npc: 'mage_friend' }], reward: {}, solo: { cls: 'mage', next: 'mg13' },
+  },
+  {
+    // 13. 학교로 돌아가 교수님께 보고 → 최종 보상 (임시: EXP·골드)
+    id: 'mg13', name: '교수님께 보고', desc: '마법 학교의 교수님께 지금까지의 일을 보고하기', giver: 'mage_friend',
+    goals: [{ kind: 'talk', npc: 'prof' }], reward: { exp: 600, gold: 1500 },
   },
 
   {

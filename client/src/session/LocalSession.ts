@@ -12,6 +12,7 @@ import { MAPS } from '@shared/data/maps';
 import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
 import { BOSSES } from '@shared/data/bosses';
+import { questDef } from '@shared/data/quests';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -138,6 +139,18 @@ export class LocalSession implements Session {
       const events = this.world.step(new Map([[this.playerId, readCommand()]]));
       for (const ev of events) {
         out.push(ev);
+        // 완료 조건을 채우는 순간 장면 전용 맵으로 옮기고 컷신 (골렘 처치 → 결정체를 빼앗기는 장면)
+        if (ev.type === 'questReady' && ev.playerId === this.playerId) {
+          const sc = questDef(ev.quest)?.readyScene;
+          if (sc) {
+            const solo = questDef(ev.quest)?.solo?.cls === this.save.cls;
+            const { hp, mp } = this.me();
+            this.enter(sc.map, sc.x, { hp, mp });
+            out.push({ type: 'mapEnter', playerId: this.playerId, map: sc.map });
+            out.push({ type: 'cutscene', id: solo && sc.soloCutscene ? sc.soloCutscene : sc.cutscene });
+            break;
+          }
+        }
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
           // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
           if (ev.confirm) continue;
@@ -147,9 +160,11 @@ export class LocalSession implements Session {
           break;
         }
         if (ev.type === 'died' && ev.playerId === this.playerId) {
-          this.enter('school', 600);
-          out.push({ type: 'mapEnter', playerId: this.playerId, map: 'school' });
-          out.push({ type: 'banner', playerId: this.playerId, text: '쓰러졌다… 학교에서 깨어났다', color: '#ff8080' });
+          // 맵에 정해진 곳(보스 방 → 공방 지하 등)이 있으면 거기서, 아니면 학교에서 깨어남
+          const r = this.world.map.respawn;
+          this.enter(r?.map ?? 'school', r?.x ?? 600, undefined, r?.y);
+          out.push({ type: 'mapEnter', playerId: this.playerId, map: this.world.mapId });
+          out.push({ type: 'banner', playerId: this.playerId, text: r ? '쓰러졌다…' : '쓰러졌다… 학교에서 깨어났다', color: '#ff8080' });
           break;
         }
       }

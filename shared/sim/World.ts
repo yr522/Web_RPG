@@ -81,6 +81,7 @@ export class World implements SkillWorld {
 
   /** 퀘스트를 다 했을 때 큰 글씨 알림 (누구에게 보고하는지) */
   private questReady(p: PlayerState, q: QuestDef) {
+    this.events.push({ type: 'questReady', playerId: p.id, quest: q.id });
     // 자동 보고 퀘스트는 바로 보고 (다음 퀘스트도 바로 받음)
     if (isAuto(p.data, q)) {
       for (const r of autoReport(p.data)) {

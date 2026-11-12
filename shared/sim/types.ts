@@ -44,7 +44,11 @@ export type GameEvent =
   | { type: 'died'; playerId: EntityId }
   /** 화면 흔들림 (보스 공격 등) */
   | { type: 'shake'; amount: number }
-  | { type: 'kill'; playerId: EntityId; enemyId: EntityId; tag?: string };
+  | { type: 'kill'; playerId: EntityId; enemyId: EntityId; tag?: string }
+  /** 퀘스트 완료 조건을 채움 (장면 전환 등) */
+  | { type: 'questReady'; playerId: EntityId; quest: string }
+  /** 화면: 이 컷신 재생 */
+  | { type: 'cutscene'; id: string };
 
 export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }

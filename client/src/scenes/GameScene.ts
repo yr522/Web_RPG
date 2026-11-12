@@ -244,7 +244,8 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
         this.mapLayer.add(this.profMark);
       }
-      const talk = TALK_NPCS[n.id];
+      // 교수님은 이야기 대사가 있어도 그림은 교수님 그대로
+      const talk = n.id === 'prof' ? undefined : TALK_NPCS[n.id];
       if (talk?.prop === 'bed') {
         // 침대 (임시 그림)
         g.fillStyle(0x5a3f22).fillRect(x - 50, y - 30, 100, 30).fillRect(x - 54, y - 52, 10, 52);
@@ -257,6 +258,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (talk) {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        if (talk.tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(talk.tint);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
         this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
@@ -388,6 +390,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
       if (ev.type === 'died') this.shake = 0;
       if (ev.type === 'shake') this.shake = Math.max(this.shake, ev.amount);
+      if (ev.type === 'cutscene') this.playCutscene(ev.id);
       if (ev.type === 'say') this.say(ev.who === session.playerId ? 'player' : ev.who, ev.text, ev.life);
     }
 
