@@ -20,7 +20,7 @@ export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean }
 
-export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under' | 'golem_room';
+export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene';
 
 export interface MapDef {
   name: string;
@@ -39,6 +39,8 @@ export interface MapDef {
   bgColor?: number;
   /** 보스 방 천장 보안장치 위치 */
   orb?: { x: number; y: number };
+  /** 여기서 쓰러지면 학교 대신 이곳에서 깨어남 */
+  respawn?: { map: MapId; x: number; y?: number };
   /** 몬스터가 없는 안전 지대: 체력이 천천히 회복 */
   safe?: boolean;
   platforms: Platform[];
@@ -74,6 +76,8 @@ export const MAPS: Record<MapId, MapDef> = {
     npcs: [
       { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
+      // 미니 챕터를 끝내고 학교로 돌아옴
+      { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },
     ],
     signs: [{ x: 220, text: '← 학교 뒷숲' }],
     spawns: [],
@@ -182,7 +186,11 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 120, to: 'under_trial', toX: 520, toY: UNDER.top, label: '공방 지하', when: { not: { quest: 'mg11', state: 'done' } } },
       { x: 120, to: 'under', toX: 520, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
     ],
-    npcs: [{ id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) }],
+    npcs: [
+      { id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) },
+      // 골렘 뒤: 윗층에서 후일담
+      { id: 'mage_friend', x: 860, when: friend({ any: [{ quest: 'mg12', state: 'active' }, { quest: 'mg12', state: 'ready' }] }) },
+    ],
     signs: [],
     spawns: [],
   },
@@ -191,13 +199,24 @@ export const MAPS: Record<MapId, MapDef> = {
   under_trial: {
     name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
     platforms: UNDER.platforms,
-    portals: [
-      { x: 500, to: 'golem_room', toX: 200, label: '???', when: { quest: 'mg10', state: 'done' }, confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
-    ],
+    portals: [],
     // 다 잡으면 마법사가 문 옆에 나타나 골렘 퀘스트를 줌
-    npcs: [{ id: 'mage_friend', x: 640, when: friend({ any: [{ quest: 'mg10', state: 'ready' }, { quest: 'mg11', state: 'active' }] }) }],
+    npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg10', state: 'ready' }) }],
     signs: [],
     spawns: UNDER.spawns.map(sp => ({ ...sp, once: true })),
+    becomes: { when: { quest: 'mg10', state: 'done' }, to: 'under_cleared' },
+  },
+  // 지하 시험을 끝낸 뒤 ~ 골렘을 처음 잡기 전: 몬스터 없음, 여전히 갇힘, 골렘 방 문이 열려 있음.
+  // 골렘 방에서 쓰러지면 여기 위쪽 발판에서 깨어남. 골렘을 처음 잡으면(퀘스트 끝) 몬스터가 나오는 보통 지하로
+  under_cleared: {
+    name: '공방 지하', width: UNDER.width, top: UNDER.top - 120, bgColor: 0x1a1626,
+    platforms: UNDER.platforms,
+    portals: [
+      { x: 500, to: 'golem_room', toX: 200, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
+    ],
+    npcs: [{ id: 'mage_friend', x: 640, when: friend({ quest: 'mg11', state: 'active' }) }],
+    signs: [],
+    spawns: [],
     becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
   },
   under: {
@@ -213,9 +232,23 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
     platforms: [],
     portals: [{ x: 120, to: 'under', toX: 500, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
-    // 골렘을 잡으면 마법사가 들어와 있음 → 보고
-    npcs: [{ id: 'mage_friend', x: 300, when: friend({ quest: 'mg11', state: 'ready' }) }],
+    npcs: [],
     signs: [],
     spawns: [{ x: 900, mob: 'golem', once: true }],
+    // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
+    respawn: { map: 'under_trial', x: 600, y: UNDER.top },
+  },
+  // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
+  golem_scene: {
+    name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 }, safe: true,
+    platforms: [],
+    portals: [{ x: 120, to: 'under', toX: 600, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
+    npcs: [
+      { id: 'mage_friend', x: 420, when: friend({ quest: 'mg11', state: 'ready' }) },
+      // 컷신이 끝나면(플래그) 사라짐
+      { id: 'villain', x: 1250, when: { flag: 'mg_stolen', lt: 1 } },
+    ],
+    signs: [],
+    spawns: [],
   },
 };

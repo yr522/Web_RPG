@@ -86,6 +86,20 @@ export class NpcDialog {
     this.host.open(box);
   }
 
+  /** Esc 메뉴 */
+  openMenu(onCharSelect: () => void) {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '메뉴'));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
   /** 보스 메뉴: 열린 보스만 누를 수 있음 */
   openBoss() {
     const box = el('div', 'npc-dlg');
@@ -119,7 +133,10 @@ export class NpcDialog {
     const npc = TALK_NPCS[id];
     const pick = npc && pickTalk(this.session.save, id, this.session.nowMs());
     if (!npc || !pick) return Promise.resolve();
-    const box = this.frame(npc.name, null, npc.icon);
+    // 교수님: 이름·초상화는 직업별 교수님
+    const cls = this.session.save.cls, profName = CLASSES[cls].professor;
+    const nameOf = (who: string) => (who === 'prof' ? profName : TALK_NPCS[who]?.name);
+    const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;
     // 대사 하나 + 데이터 안 위치 (효과를 보낼 때 씀)
     type Item = { step: DialogueStep; path: number[] };
@@ -163,7 +180,7 @@ export class NpcDialog {
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         line = step.line;
-        nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && TALK_NPCS[step.who]?.name) || npc.name;
+        nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
         render();
         return;
       }

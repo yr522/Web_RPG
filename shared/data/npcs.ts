@@ -60,6 +60,8 @@ export interface TalkNpcDef {
   bubble?: { text: string; life: number };
   /** 사람이 아니라 물건 (임시 그림) */
   prop?: 'bed';
+  /** 그림 색 (임시 그림을 어둡게 등) */
+  tint?: number;
   /** 이 NPC 가 줄 퀘스트가 있으면(지금 대사에 퀘스트 주기가 있으면) 길 안내 화살표가 이 NPC 를 가리킴 */
   guide?: boolean;
 }
@@ -154,13 +156,58 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
         ],
       },
       { when: { quest: 'mg11', state: 'active' }, steps: [{ line: '이 문 너머야. 준비되면 들어가자.' }] },
-      // 11. 골렘을 잡은 뒤
+      // 12. 골렘을 잡은 뒤 (결정체를 빼앗긴 직후, 장면 전용 맵)
       {
         when: { quest: 'mg11', state: 'ready' },
-        steps: [{ line: '해냈어…! 정말 쓰러뜨렸구나!' }, { do: { quest: 'report', id: 'mg11' } }],
+        steps: [
+          { line: '놓쳐 버렸네…' },
+          { line: '그 결정체, 골렘을 움직이던 마력의 원천이었는데… 대체 누구였을까.' },
+          { line: '일단 윗층으로 돌아가자.' },
+          { do: { quest: 'report', id: 'mg11' } },
+          { do: { quest: 'give', id: 'mg12' } },
+        ],
       },
+      { when: { quest: 'mg12', state: 'active' }, steps: [{ line: '윗층으로 돌아가서 얘기하자.' }] },
+      // 13. 공방 윗층에서 후일담 → 교수님께 보고하러
+      {
+        when: { quest: 'mg12', state: 'ready' },
+        steps: [
+          { line: '여기가 밤마다 들리던 소리의 정체였어. 버려진 공방에서 기계들이 아직도 움직이고 있었던 거야.' },
+          { line: '그런데 그 사람들… "우리"라고 했지. 처음부터 그 결정체를 노리고 있었던 것 같아.' },
+          { line: '우리끼리 쫓을 수 있는 일이 아니야. 학교로 돌아가서 교수님께 말씀드리자.' },
+          { line: '그리고… 고마워. 오늘 밤은 조금 잘 수 있을 것 같아.' },
+          { do: { quest: 'report', id: 'mg12' } },
+          { do: { quest: 'give', id: 'mg13' } },
+        ],
+      },
+      { when: { quest: 'mg13', state: 'ready' }, steps: [{ line: '교수님께 같이 말씀드리자.' }] },
+      { when: { quest: 'mg13', state: 'done' }, steps: [{ line: '요즘은 소리도 안 들리고 푹 자! 그 결정체는… 언젠가 꼭 되찾자.' }] },
     ],
     guide: true,
+  },
+  // 결정체를 가져가는 수상한 자 (장면 전용 맵의 컷신에만 나옴, 대화 없음)
+  villain: {
+    name: '???',
+    icon: '🎭',
+    dialogue: [],
+    tint: 0x3a3048,
+  },
+  // 교수님 (특수 NPC): 이야기 대사가 있으면 교수님 메뉴 대신 대화창
+  prof: {
+    name: '교수님',
+    icon: '🧙',
+    dialogue: [],
+    talks: [
+      {
+        when: { quest: 'mg13', state: 'ready' },
+        steps: [
+          { line: '숲 깊은 곳의 버려진 마법공방, 마법 골렘… 그리고 결정체를 가져간 자들이라.', who: 'prof' },
+          { line: '잘 해냈다. 그 결정체 일은 학교에서도 알아보마. 너희는 너무 무리하지 말거라.', who: 'prof' },
+          { line: '이건 수고한 보상이다.', who: 'prof' },
+          { do: { quest: 'report', id: 'mg13' } },
+        ],
+      },
+    ],
   },
   // 기숙사 방 침대: 밤에 자면 다음으로 (검사·궁수는 4번 퀘스트, 마법사는 혼자 수색 시작)
   bed: {
