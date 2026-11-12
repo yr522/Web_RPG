@@ -93,8 +93,8 @@ export const MAPS: Record<MapId, MapDef> = {
   school: {
     // 배경: 아침·낮·밤 그림 (그림 맨 아래 = 땅) + 가운데 학교 건물
     name: '마법 학교', width: 1700, safe: true,
-    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 592 },
-    props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.65 }],
+    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
+    props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [{ x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' }],
     npcs: [
