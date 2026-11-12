@@ -22,6 +22,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C' },
   { id: 'inv', label: '인벤토리', key: 'I' },
+  { id: 'boss', label: '보스', key: '' },
   { id: 'home', label: '귀환', key: '' },
   { id: 'full', label: '전체 화면', key: '' },
   { id: 'menu', label: '메뉴', key: 'Esc' },

@@ -67,6 +67,8 @@ export interface PlayerState extends Body {
   hurt: number;
   /** 기절: 남은 시간 동안 조작 불가 */
   stunT: number;
+  /** 지금 무적(invT)이 몸통 접촉으로 생긴 것 (보스 패턴은 이 무적을 무시) */
+  touchInv?: boolean;
   /** 마력 해방 남은 시간 */
   buffT: number;
   /** 날아가는 중인 사슬 화살 (한 번 더 누르면 끌려감) */
@@ -105,6 +107,8 @@ export interface Enemy extends Body {
   pat?: 'slam' | 'charge';
   /** 돌진 방향 (예고할 때 고정) */
   chargeDir?: 1 | -1;
+  /** 연달아 쓴 내려치기 수 (다 차면 돌진) */
+  slams?: number;
   /** 보안장치 오브에 맞은 횟수 (다 차면 기절) */
   orbHits?: number;
   /** 기절(취약) 남은 시간: 못 움직이고 받는 피해 배수 */

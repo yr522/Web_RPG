@@ -124,7 +124,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 1420, to: 'crossroad', toX: 900, label: '갈림길' },
       { x: 80, to: 'guard_b', toX: 1390, label: '경비기계B 지역' },
     ],
-    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ quest: 'mg6', state: 'active' }) }],
+    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg5', state: 'done' }, { not: { quest: 'mg6', state: 'done' } }] }) }],
     signs: [],
     spawns: [
       { x: 1100, mob: 'guard_a' }, { x: 860, mob: 'guard_a' }, { x: 680, mob: 'guard_a', y: 200 }, { x: 520, mob: 'guard_a' }, { x: 300, mob: 'guard_a' },
@@ -137,7 +137,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 1420, to: 'guard_a', toX: 180, label: '경비기계A 지역' },
       { x: 80, to: 'workshop_gate', toX: 990, label: '공방 입구' },
     ],
-    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ quest: 'mg7', state: 'active' }) }],
+    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg6', state: 'done' }, { not: { quest: 'mg7', state: 'done' } }] }) }],
     signs: [],
     spawns: [{ x: 1080, mob: 'guard_b' }, { x: 820, mob: 'guard_b' }, { x: 560, mob: 'guard_b' }, { x: 320, mob: 'guard_b' }],
   },
@@ -146,10 +146,10 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: [],
     portals: [
       { x: 1010, to: 'guard_b', toX: 180, label: '경비기계B 지역' },
-      // 공방 퀘스트 템이 있으면 열림
-      { x: 684, to: 'workshop', toX: 1030, label: '공방 내부', when: { any: [{ has: 'workshop_key' }, { quest: 'mg9', state: 'done' }] } },
+      // 공방 퀘스트 템을 가져다주면(보고) 열림
+      { x: 684, to: 'workshop', toX: 1030, label: '공방 내부', when: { quest: 'mg9', state: 'done' } },
     ],
-    npcs: [{ id: 'mage_friend', x: 560, when: friend({ quest: 'mg7', state: 'done' }) }],
+    npcs: [{ id: 'mage_friend', x: 560, when: friend({ all: [{ quest: 'mg7', state: 'done' }, { not: { quest: 'mg9', state: 'done' } }] }) }],
     signs: [],
     spawns: [],
   },
@@ -182,7 +182,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 120, to: 'under_trial', toX: 520, toY: UNDER.top, label: '공방 지하', when: { not: { quest: 'mg11', state: 'done' } } },
       { x: 120, to: 'under', toX: 520, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
     ],
-    npcs: [{ id: 'mage_friend', x: 860, when: friend({ quest: 'mg10', state: 'active' }) }],
+    npcs: [{ id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) }],
     signs: [],
     spawns: [],
   },
@@ -194,7 +194,8 @@ export const MAPS: Record<MapId, MapDef> = {
     portals: [
       { x: 500, to: 'golem_room', toX: 200, label: '???', when: { quest: 'mg10', state: 'done' }, confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?' },
     ],
-    npcs: [],
+    // 다 잡으면 마법사가 문 옆에 나타나 골렘 퀘스트를 줌
+    npcs: [{ id: 'mage_friend', x: 640, when: friend({ any: [{ quest: 'mg10', state: 'ready' }, { quest: 'mg11', state: 'active' }] }) }],
     signs: [],
     spawns: UNDER.spawns.map(sp => ({ ...sp, once: true })),
     becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
@@ -212,7 +213,8 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '???', width: 1300, bgColor: 0x15121e, orb: { x: 650, y: 70 },
     platforms: [],
     portals: [{ x: 120, to: 'under', toX: 500, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
-    npcs: [],
+    // 골렘을 잡으면 마법사가 들어와 있음 → 보고
+    npcs: [{ id: 'mage_friend', x: 300, when: friend({ quest: 'mg11', state: 'ready' }) }],
     signs: [],
     spawns: [{ x: 900, mob: 'golem', once: true }],
   },

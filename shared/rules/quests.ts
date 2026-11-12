@@ -118,15 +118,19 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   for (const it of r.items ?? []) { addItem(s, it.id, it.n); parts.push(`${itemDef(it.id)?.name ?? it.id} ×${it.n}`); }
   // 다음 퀘스트 바로 받기
   let nextMsg: string | undefined;
-  if (q.next) nextMsg = acceptQuest(s, q.next).msg;
+  const next = q.next ?? (q.solo?.cls === s.cls ? q.solo.next : undefined);
+  if (next) nextMsg = acceptQuest(s, next).msg;
   return { ...res, ok: true, banner: res.banner ?? q.doneBanner ?? `퀘스트 완료!${parts.length ? ` ${parts.join(' · ')}` : ''}`, msg: nextMsg ?? res.msg };
 }
+
+/** NPC 에게 안 가도 다 하면 바로 끝나는지 (auto, 또는 혼자 하는 직업) */
+export const isAuto = (s: SaveData, q: QuestDef) => !!q.auto || q.solo?.cls === s.cls;
 
 /** 다 한 자동 보고 퀘스트를 보고 (다음 퀘스트가 바로 끝나면 이어서). 결과들을 돌려준다 */
 export function autoReport(s: SaveData): ActionResult[] {
   const out: ActionResult[] = [];
   for (let guard = 0; guard < 20; guard++) {
-    const q = activeQuests(s).find(o => o.auto && questState(s, o.id) === 'ready');
+    const q = activeQuests(s).find(o => isAuto(s, o) && questState(s, o.id) === 'ready');
     if (!q) break;
     out.push(reportQuest(s, q.id));
   }

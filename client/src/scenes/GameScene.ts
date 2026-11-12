@@ -17,8 +17,8 @@ import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, preloadAvata
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
-import { companionNpc, questTarget } from '@shared/rules/quests';
-import { mapNpcs, mapPortals } from '@shared/rules/story';
+import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
+import { mapNpcs, mapPortals, offersQuest } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -575,6 +575,16 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (t.map !== here) tx = nextPortal(save, here, t.map)?.x ?? null;
       else tx = t.x ?? null;
       if (tx !== null) break;
+    }
+    // 하는 퀘스트가 없으면: 다음 퀘스트를 줄 이야기 NPC 쪽으로
+    if (tx === null && !QUESTS.some(q => save.quests[q.id]?.active && !q.repeat)) {
+      for (const id of Object.keys(TALK_NPCS)) {
+        if (!TALK_NPCS[id].guide || !offersQuest(save, id, session.nowMs())) continue;
+        const t = npcPlace(id, save);
+        if (!t) continue;
+        tx = t.map !== here ? nextPortal(save, here, t.map)?.x ?? null : t.x;
+        if (tx !== null) break;
+      }
     }
     if (tx === null || Math.abs(tx - meX) < GUIDE.hideWithin) return;
     const dir = tx > meX ? 1 : -1, bob = Math.sin(this.time.now / 150) * 3 * dir;
