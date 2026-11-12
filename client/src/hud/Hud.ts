@@ -3,7 +3,7 @@
 import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
-import { QUEST_HUD_MAX } from '@shared/data/quests';
+import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
 import { hudQuests, questLines } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
@@ -306,7 +306,7 @@ export class Hud {
     const qSig = JSON.stringify(qs.map(o => [o.q.id, o.lines, o.pin]));
     if (this.cache.quests !== qSig) {
       this.cache.quests = qSig;
-      this.els.quests.innerHTML = qs.map(({ q, lines, pin }) => questCard(q.id, q.name, !!q.main, pin, lines)).join('');
+      this.els.quests.innerHTML = qs.map(({ q, lines, pin }) => questCard(q.id, questTitle(q), !!q.main, pin, lines)).join('');
     }
 
     for (const k of SLOT_KEYS) {

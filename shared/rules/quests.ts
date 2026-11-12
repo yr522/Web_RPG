@@ -1,6 +1,6 @@
 // 퀘스트 진행·보상. 저장 데이터만 다룬다.
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
-import { QUESTS, QUEST_PIN_MAX, questDef, type QuestDef } from '../data/quests';
+import { QUESTS, QUEST_PIN_MAX, questDef, questTitle, type QuestDef } from '../data/quests';
 import { CLASSES, SKILLS } from '../data/classes';
 import { MAPS, type MapId } from '../data/maps';
 import { MONSTERS, type MonsterId } from '../data/monsters';
@@ -18,7 +18,7 @@ const fail = (msg: string): ActionResult => ({ ok: false, msg });
 
 /**
  * 퀘스트 저장 상태. counts = 목표마다 센 숫자 (처치 수, 가 봤으면 1. 모으기는 가방 개수로 세서 안 씀)
- * at = 받은 순서 번호, doneAt = 마지막으로 끝낸 순서 번호 (SaveData.questSeq)
+ * at = 받은 순서 번호, doneAt = 처음 끝낸 순서 번호 (SaveData.questSeq). 반복 퀘스트도 처음 끝냈을 때만 정해져서 완료 목록에 한 번만, 그 자리에 있음
  */
 export interface QuestSave { active: boolean; counts: number[]; done?: boolean; at?: number; doneAt?: number }
 
@@ -96,7 +96,7 @@ export function acceptQuest(s: SaveData, id: string): ActionResult {
   const counts = q.goals.map(g => (g.kind === 'visit' && s.map === g.map ? 1 : 0));
   const old = s.quests[id];
   s.quests[id] = { active: true, counts, done: old?.done, doneAt: old?.doneAt, at: ++s.questSeq };
-  return { ok: true, msg: `퀘스트 시작: ${q.name}` };
+  return { ok: true, msg: `퀘스트 시작: ${questTitle(q)}` };
 }
 
 /** 모아 오기 목표들이 가져갈 물건 */
@@ -114,7 +114,7 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   for (const c of collectCosts(q)) removeItem(room, c.id, c.n);
   for (const it of r.items ?? []) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
   for (const c of collectCosts(q)) removeItem(s, c.id, c.n);
-  s.quests[id] = { active: false, counts: [], done: true, doneAt: ++s.questSeq };
+  s.quests[id] = { active: false, counts: [], done: true, doneAt: s.quests[id]?.doneAt ?? ++s.questSeq };
   s.questPins = s.questPins.filter(p => p !== id);
   const parts: string[] = [];
   let res: ActionResult = { ok: true };
@@ -293,7 +293,7 @@ export function hudQuests(s: SaveData, max: number): QuestDef[] {
   return list.slice(0, Math.max(max, s.questPins.length));
 }
 
-/** 끝낸 퀘스트: 최근에 끝낸 것이 위 (중요도 상관없이) */
+/** 끝낸 퀘스트: 최근에 끝낸 것이 위 (중요도 상관없이). 반복 퀘스트는 처음 끝낸 때 기준 */
 export function doneQuests(s: SaveData): QuestDef[] {
   return QUESTS.filter(q => s.quests[q.id]?.done)
     .sort((a, b) => (s.quests[b.id].doneAt ?? 0) - (s.quests[a.id].doneAt ?? 0) || questIndex(b.id) - questIndex(a.id));

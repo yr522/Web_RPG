@@ -4,7 +4,7 @@ import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL } from '@sha
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
 import { countItem } from '@shared/rules/inventory';
-import { QUESTS } from '@shared/data/quests';
+import { QUESTS, questTitle } from '@shared/data/quests';
 import { questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { checkCond, pickTalk } from '@shared/rules/story';
@@ -313,7 +313,7 @@ export class NpcDialog {
       for (const q of PROF_QUESTS()) {
         const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
-        card.appendChild(el('div', '', `<b>${q.name}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
+        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));
         else if (st === 'ready') card.appendChild(el('button', 'sm go', '보고하기', () => this.act({ type: 'questReport', id: q.id })));
         else card.appendChild(el('div', 'note', `진행 중 ${pr}`));
