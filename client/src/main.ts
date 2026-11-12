@@ -109,6 +109,7 @@ async function boot() {
     input: { keyboard: false, mouse: true, touch: true },
     banner: false,
   });
+  if (import.meta.env.DEV) Object.assign(window, { __game: game });
   game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
   // 대사 안의 컷신 → 게임 화면에서 재생
   npcDialog.onCutscene = id => (game.scene.getScene('game') as GameScene).playCutscene(id);
