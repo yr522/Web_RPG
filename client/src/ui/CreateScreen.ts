@@ -13,13 +13,13 @@ import archerF from '../../../assets/temp/archer_banner_F.png';
 
 const GENDER_LABEL: Record<Gender, string> = { M: '남성', F: '여성' };
 const CLASS_ORDER: ClassId[] = ['warrior', 'mage', 'archer'];
-const BANNERS: Record<ClassId, Record<Gender, string>> = {
+export const BANNERS: Record<ClassId, Record<Gender, string>> = {
   warrior: { M: warriorM, F: warriorF },
   mage: { M: mageM, F: mageF },
   archer: { M: archerM, F: archerF },
 };
 /** 전신 일러스트를 쓰는 직업 (반신 크기로 확대해서 보여줌) */
-const FULL_BANNER: ClassId[] = ['mage'];
+export const FULL_BANNER: ClassId[] = ['mage'];
 /** 직업 스토리 (임시 문구 — 세계관 문서에서 비밀이 아닌 부분만 옮김) */
 const STORY: Record<ClassId, string> = {
   warrior: '진중하고 조용한 검술과 학생. 평범한 가정의 쌍둥이 남매로 태어나, 마을 이웃이던 스승에게 검을 배웠다. 검을 쥐고 있을 때 마음이 가장 고요해진다.',
@@ -49,8 +49,8 @@ function loadImage(src: string) {
   });
 }
 
-/** 캐릭터를 만들 때까지 화면을 띄우고, 만든 저장 데이터를 돌려준다 */
-export function showCreateScreen(): Promise<SaveData> {
+/** 캐릭터를 만들 때까지 화면을 띄우고, 만든 저장 데이터를 돌려준다 (뒤로 가기 = null) */
+export function showCreateScreen(): Promise<SaveData | null> {
   return new Promise(resolve => {
     let cls: ClassId = 'warrior', gender: Gender = 'F';
     const add: Record<StatId, number> = { str: 0, dex: 0, int: 0 };
@@ -125,7 +125,10 @@ export function showCreateScreen(): Promise<SaveData> {
     });
     right.appendChild(create);
 
-    root.append(left, mid, right);
+    // 캐릭터 선택 화면으로 돌아가기
+    const back = el('button', 'cc-back', '←', () => { stop = true; root.remove(); resolve(null); });
+    back.setAttribute('aria-label', '뒤로');
+    root.append(left, mid, right, back);
     document.body.appendChild(root);
 
     // ---- 캐릭터 도트 미리보기 ----

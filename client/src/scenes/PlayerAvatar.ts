@@ -63,6 +63,8 @@ const LOOPS = {
   crouch: { frames: [4], frameTime: 1 },
 } as const;
 type LoopName = keyof typeof LOOPS;
+/** 따라다니는 NPC 가 뛸 때 걷기 프레임 시간 배율 */
+const RUN_FRAME = 0.55;
 
 /** 마법사가 쏘기 전(지팡이 1번 그림) 부들거림: 이 간격(초)마다 좌우로 이만큼(월드 px) 흔들림 */
 const SHAKE = { every: 0.035, amp: 1 };
@@ -112,6 +114,14 @@ export function makeStaticAvatar(scene: Phaser.Scene, x: number, y: number, face
     return scene.add.sprite(0, 0, texKey('walk', part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL);
   });
   return scene.add.container(x, y, parts).setScale(AVATAR_SCALE * face, AVATAR_SCALE);
+}
+
+/** 움직이지 않는 캐릭터 그림에 걷기 모션: t = 걷기 시작부터 지난 시간(초), null = 서 있기. fast = 뛰기(프레임 빠르게) */
+export function poseStaticAvatar(root: Phaser.GameObjects.Container, t: number | null, fast = false) {
+  const l = t === null ? LOOPS.idle : LOOPS.walk;
+  const ft = fast ? l.frameTime * RUN_FRAME : l.frameTime;
+  const frame = l.frames[Math.floor((t ?? 0) / ft) % l.frames.length];
+  for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setFrame(frame);
 }
 
 export class PlayerAvatar {

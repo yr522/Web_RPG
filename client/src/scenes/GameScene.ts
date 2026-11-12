@@ -13,7 +13,7 @@ import type { Fx } from '@shared/sim/types';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
-import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
@@ -116,7 +116,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 세로로 긴 맵의 카메라 위쪽 y (맵에 들어오면 다시 맞춤) */
   private camYNow: number | null = null;
   private mapSig = '';
-  private companion: { id: string; root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; x: number } | null = null;
+  private companion: { id: string; root: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; x: number; walkT: number | null } | null = null;
   private viewW = 960;
   private zoom = 1;
 
@@ -313,7 +313,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const me = this.deps.session.me(), x = me.x + me.w / 2 - me.face * COMPANION.gap;
     const root = makeStaticAvatar(this, x, GROUND_Y, me.face).setDepth(4.9);
     const label = this.text(TALK_NPCS[id]?.name ?? id, 12, '#fff').setOrigin(0.5, 0).setDepth(4.9);
-    this.companion = { id, root, label, x };
+    this.companion = { id, root, label, x, walkT: null };
   }
 
   /** 따라다니는 NPC: 멀어지면 후다닥 따라옴 */
@@ -328,7 +328,9 @@ export class GameScene extends Phaser.Scene implements Stage {
       const speed = Math.abs(d) > COMPANION.runFrom ? COMPANION.run : COMPANION.walk;
       c.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
       c.root.setScale(AVATAR_SCALE * (Math.sign(d) || 1), AVATAR_SCALE);
-    }
+      c.walkT = (c.walkT ?? 0) + dt;
+      poseStaticAvatar(c.root, c.walkT, speed === COMPANION.run);
+    } else if (c.walkT !== null) { c.walkT = null; poseStaticAvatar(c.root, null); }
     c.root.setPosition(c.x, GROUND_Y);
     c.label.setPosition(c.x, GROUND_Y + 6);
   }

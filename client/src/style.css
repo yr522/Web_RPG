@@ -86,10 +86,12 @@ html, body {
   font-weight: 300; font-size: max(11px, 20 * var(--u)); color: #fff; letter-spacing: .04em; text-shadow: 0 1px 2px rgba(0, 0, 0, .5);
 }
 
-/* 버프 아이콘 (아직 버프 없음 → 자리만) */
+/* 버프·디버프 아이콘 (걸린 것만, 걸린 순서대로) */
 .buffs { display: flex; gap: calc(6 * var(--u)); align-items: flex-end; }
 .buff { width: max(16px, 30 * var(--u)); height: max(16px, 30 * var(--u)); border-radius: 3px; background: #1e2460; }
-.buff.placeholder { opacity: .35; }
+.buff { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.7); }
+.buff.debuff { border-color: #ff6b6b; }
+.buff i { position: absolute; left: 0; top: 0; width: 100%; background: rgba(0,0,0,.55); }
 
 /* 포션 */
 .potion {
@@ -468,3 +470,48 @@ html, body {
 
 /* 컷신: 화면 UI 숨기기 */
 body.ui-off #hud, body.ui-off .inv { visibility: hidden; }
+.cc-back {
+  position: absolute; left: calc(12 * var(--cu)); top: calc(12 * var(--cu)); z-index: 3;
+  width: calc(40 * var(--cu)); height: calc(40 * var(--cu)); border-radius: 50%; padding: 0;
+  border: calc(2 * var(--cu)) solid var(--frame); background: rgba(255, 255, 255, .08); font-size: calc(20 * var(--cu));
+}
+
+/* ===== 캐릭터 선택 화면 (구상도 920×520 기준, --cu = 1px) ===== */
+.cs {
+  --cu: min(100vh / 520, 100vw / 920);
+  position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: calc(26 * var(--cu));
+  background: radial-gradient(ellipse at 50% 30%, #2a2650 0%, #12112a 70%);
+  color: #f2efe6; font-size: calc(16 * var(--cu));
+  padding: var(--sat) var(--sar) var(--sab) var(--sal);
+}
+.cs button { font: inherit; color: inherit; cursor: pointer; }
+.cs-title { font-family: var(--title); font-weight: 700; font-size: calc(30 * var(--cu)); text-shadow: 0 2px 8px #000; }
+.cs-slots { display: flex; gap: calc(22 * var(--cu)); }
+.cs-slot {
+  position: relative; overflow: hidden; padding: 0;
+  width: calc(220 * var(--cu)); height: calc(300 * var(--cu)); border-radius: calc(18 * var(--cu));
+  border: calc(3 * var(--cu)) solid rgba(255, 255, 255, .55); background: #0c0b1c;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch;
+}
+.cs-slot.sel { border-color: #fff; box-shadow: 0 0 calc(18 * var(--cu)) rgba(255, 240, 180, .55); }
+.cs-slot img {
+  position: absolute; left: 50%; top: calc(4 * var(--cu)); transform: translateX(-50%); width: calc(210 * var(--cu));
+  -webkit-mask-image: linear-gradient(#000 50%, transparent 85%); mask-image: linear-gradient(#000 50%, transparent 85%);
+}
+.cs-slot img.full { width: calc(330 * var(--cu)); }
+.cs-info { position: relative; padding: calc(12 * var(--cu)) calc(14 * var(--cu)); background: rgba(10, 10, 28, .82); text-align: left; }
+.cs-name { font-weight: 700; font-size: calc(19 * var(--cu)); }
+.cs-sub { font-size: calc(13.5 * var(--cu)); opacity: .8; margin-top: calc(3 * var(--cu)); }
+.cs-slot.empty { justify-content: center; align-items: center; border-style: dashed; background: rgba(255, 255, 255, .04); }
+.cs-plus { font-size: calc(90 * var(--cu)); font-weight: 300; line-height: 1; opacity: .7; }
+.cs-slot.empty:hover .cs-plus { opacity: 1; }
+.cs-btns { display: flex; gap: calc(14 * var(--cu)); min-height: calc(48 * var(--cu)); }
+.cs-start, .cs-del {
+  height: calc(48 * var(--cu)); padding: 0 calc(26 * var(--cu)); border-radius: calc(10 * var(--cu));
+  font-weight: 700; font-size: calc(19 * var(--cu));
+}
+.cs-start { border: calc(3 * var(--cu)) solid #111; background: #f2efe6; color: #111 !important; min-width: calc(150 * var(--cu)); }
+.cs-del { border: calc(2 * var(--cu)) solid rgba(255, 120, 120, .7); background: transparent; color: #ff9a9a !important; font-size: calc(15 * var(--cu)); }
+.cs-del.ask { background: #a33; color: #fff !important; }
+.cs-btns button:disabled { opacity: .35; cursor: default; }

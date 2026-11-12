@@ -7,6 +7,7 @@ import { QUESTS } from '@shared/data/quests';
 import { TALK_NPCS } from '@shared/data/npcs';
 import { questProgressText, questState, reportTo } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
+import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 
@@ -37,6 +38,8 @@ export class Hud {
   private slotEls = new Map<SlotKey, HTMLElement>();
   private cache: Record<string, string> = {};
   private bannerTimer = 0;
+  /** 버프 아이콘: 걸린 순서대로 (끝나면 빠지고 앞으로 당겨짐) */
+  private buffEls = new Map<BuffId, HTMLElement>();
   onMenu: (id: MenuId) => void = () => {};
   /** 매 프레임 같이 갱신할 창들 (인벤토리 등) */
   onUpdate: (() => void)[] = [];
@@ -77,7 +80,6 @@ export class Hud {
     const bottom = h('div', 'bottom');
     const top = h('div', 'bottom-top');
     this.els.buffs = top.appendChild(h('div', 'buffs'));
-    for (let i = 0; i < 3; i++) this.els.buffs.appendChild(h('div', 'buff placeholder'));
     const potions = h('div', 'potions');
     this.els.potHp = potions.appendChild(this.potion('hp'));
     this.els.potMp = potions.appendChild(this.potion('mp'));
@@ -259,6 +261,23 @@ export class Hud {
 
     this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(countItem(save, 'hp')));
     this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(countItem(save, 'mp')));
+
+    // 버프·디버프: 없으면 아무것도 없음, 새로 걸리면 뒤에 붙음, 끝나면 빠짐
+    const buffs = playerBuffs(p);
+    for (const [id, el] of this.buffEls) if (!buffs.some(b => b.id === id)) { el.remove(); this.buffEls.delete(id); }
+    for (const b of buffs) {
+      let el = this.buffEls.get(b.id);
+      if (!el) {
+        const def = BUFFS[b.id];
+        el = h('div', `buff${def.debuff ? ' debuff' : ''}`, '<i></i>');
+        el.style.background = def.color;
+        el.title = def.name;
+        this.els.buffs.appendChild(el);
+        this.buffEls.set(b.id, el);
+      }
+      // 지나간 시간만큼 위에서부터 어둡게
+      (el.firstChild as HTMLElement).style.height = `${(100 * (1 - b.t / b.max)).toFixed(1)}%`;
+    }
 
     const ti = timeInfo(s.nowMs());
     const sec = Math.ceil(ti.remain / 1000);
