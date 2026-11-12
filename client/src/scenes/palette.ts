@@ -15,18 +15,12 @@ const mix = (a: number, b: number, f: number) => {
   return out;
 };
 
-/** 그림(건물·땅)에 덮는 시간대 색 (아침 · 낮 · 밤) */
+/** 건물 등 배경 위 그림에 덮는 시간대 색 (아침 · 낮 · 밤) */
 const IMG_TINT = [0xf4ecf2, 0xffffff, 0x7480b8];
 
 /** next = 다음 시간대, f = 다음 시간대로 섞인 정도 (0~1), imgTint = 그림에 덮을 색 */
 export type Palette = Pal & { phase: DayPhase; next: DayPhase; f: number; imgTint: number };
 
-/** 색 a 에 색 b(0xRRGGBB)를 곱함 (그림 tint 처럼) */
-export const tintColor = (a: number, b: number) => {
-  let out = 0;
-  for (const s of [16, 8, 0]) out |= Math.round((((a >> s) & 255) * ((b >> s) & 255)) / 255) << s;
-  return out;
-};
 
 export function palette(ms: number): Palette {
   const ti = timeInfo(ms), a = PAL[ti.phase], b = PAL[(ti.phase + 1) % 3];

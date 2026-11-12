@@ -34,7 +34,8 @@ export interface MapDef {
   bg?: { img: string; groundY: number };
   /**
    * 시간대별 배경 그림 [아침, 낮, 밤] (assets/img/bg/, .png 빼고). 시간대가 바뀌기 직전에 부드럽게 섞인다.
-   * 맵 폭에 맞춰 늘리고, 그림의 groundY 줄(픽셀)이 땅 높이에 온다 (그림 위쪽은 화면 밖으로 넘어가도 됨)
+   * 그림 맨 아래가 화면 맨 아래에, 그림의 groundY 줄(픽셀, 바닥 타일 윗면)이 땅 높이에 오게 크기를 맞춘다.
+   * 맵 가운데에 놓고, 맵보다 넓은 양옆·화면보다 높은 위쪽은 잘려도 됨
    */
   bgTime?: { imgs: [string, string, string]; groundY: number };
   /**
@@ -42,8 +43,6 @@ export interface MapDef {
    * 시간대에 따라 색이 바뀜 (밤엔 어둡고 푸르게)
    */
   props?: { img: string; x: number; groundY: number; scale: number }[];
-  /** 땅(발 밑) 색. 없으면 기본 어두운 땅. 시간대에 따라 색이 바뀜 */
-  floor?: number;
   /** 플레이어·몬스터가 움직일 수 있는 범위 [왼쪽 x, 오른쪽 x] (없으면 맵 전체). 그림 양옆 전경까지는 못 가게 */
   walk?: [number, number];
   /** 조건이 맞으면 같은 자리의 다른 맵으로 바뀜 (몬스터 없는 맵 → 있는 맵 등) */
@@ -94,9 +93,8 @@ export const MAPS: Record<MapId, MapDef> = {
   school: {
     // 배경: 아침·낮·밤 그림 (그림 맨 아래 = 땅) + 가운데 학교 건물
     name: '마법 학교', width: 1700, safe: true,
-    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 724 },
+    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 592 },
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.65 }],
-    floor: 0xb4b2c4,
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [{ x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' }],
     npcs: [
