@@ -91,8 +91,9 @@ const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 58
 
 export const MAPS: Record<MapId, MapDef> = {
   school: {
-    // 배경: 아침·낮·밤 그림 (그림 맨 아래 = 땅) + 가운데 학교 건물
-    name: '마법 학교', width: 1700, safe: true,
+    // 배경: 아침·낮·밤 그림 (그림 맨 아래 타일 = 땅) + 가운데 학교 건물.
+    // 그림 위쪽 여유만큼 맵을 위로 늘려서(top) 점프하면 카메라가 조금 따라 올라감
+    name: '마법 학교', width: 1700, safe: true, top: -150,
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
