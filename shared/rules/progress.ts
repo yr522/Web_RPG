@@ -25,6 +25,8 @@ export type MenuAction =
   | { type: 'skillUp'; skill: string }
   /** 스킬 키 등록: 스킬 창에서 끌어다 놓기 (다른 키에 있던 같은 스킬은 빠짐, 그 키에 있던 스킬은 밀려남) */
   | { type: 'bindSkill'; key: SlotKey; skill: string }
+  /** 스킬 키 비우기 (스킬 창 키 칸 우클릭) */
+  | { type: 'unbindKey'; key: SlotKey }
   /** 스킬 키끼리 옮기기 (둘 다 있으면 자리 바꿈) */
   | { type: 'swapKeys'; from: SlotKey; to: SlotKey }
   /** 가방 index 칸의 장비 끼기 / 벗기 */
@@ -175,6 +177,11 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       if (!learned(s, a.skill)) return fail('배운 스킬만 등록할 수 있어');
       for (const k of SLOT_KEYS) if (s.skillKeys[k] === a.skill) delete s.skillKeys[k];
       s.skillKeys[a.key] = a.skill;
+      return { ok: true };
+    }
+    case 'unbindKey': {
+      if (!SLOT_KEYS.includes(a.key)) return fail('없는 키야');
+      delete s.skillKeys[a.key];
       return { ok: true };
     }
     case 'swapKeys': {

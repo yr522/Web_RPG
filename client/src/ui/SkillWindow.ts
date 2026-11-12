@@ -4,7 +4,7 @@
 // - 테두리 색 = 배운 원소 (안 배움·무속성은 흰색). 아래 "레벨/마스터"
 // - 스킬 포인트(초기화 주문서로 돌려받은 레벨)가 있을 때만 왼쪽 위에 SP 가 깜빡이고, 배운 스킬에 + 버튼
 // - 오른쪽 아래 ▼ 를 누르면 스킬 키 칸이 펼쳐짐. 배운 스킬을 끌어다 키에 등록·교체, 키끼리 끌어서 옮기기
-//   (화면 아래 고정 스킬 칸은 끌기 안 됨)
+//   키 칸 우클릭(모바일은 두 번 터치) = 키에서 빼기 (화면 아래 고정 스킬 칸은 끌기 안 됨)
 import { CLASSES, MAX_SKILL_LEVEL, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS } from '@shared/data/elements';
 import { learned, skillLevel } from '@shared/rules/progress';
@@ -17,6 +17,8 @@ import { el, esc } from './Dialog';
 const ROW_CELLS = 3;
 /** 이만큼(px) 움직이면 끌기 시작 */
 const DRAG_START = 6;
+/** 두 번 터치 인정 시간 (ms) */
+const DOUBLE_TAP = 350;
 
 type DragSrc = { skill: string } | { key: SlotKey };
 
@@ -27,6 +29,10 @@ export class SkillWindow {
   private toggleBtn: HTMLButtonElement;
   private expanded = false;
   private sig = '';
+  /** 모바일 두 번 터치 (키 칸) */
+  private lastTap = { key: '', t: 0 };
+  /** 마지막으로 누른 포인터 종류 (모바일 길게 누르기가 우클릭으로 처리되지 않게) */
+  private lastPointer = 'mouse';
   private drag: { pid: number; src: DragSrc; x: number; y: number; on: boolean; ghost: HTMLElement | null } | null = null;
 
   constructor(private session: Session, private hud: Hud) {
@@ -111,6 +117,16 @@ export class SkillWindow {
           cell.appendChild(el('span', 'skw-kname' + (on ? '' : ' off'), esc(sk.short ?? sk.name)));
           cell.style.setProperty('--ec', this.color(id));
           this.bindDrag(cell, { key: k });
+          // 키에서 빼기: PC 우클릭, 모바일 두 번 터치
+          const unbind = () => this.result(this.session.act({ type: 'unbindKey', key: k }));
+          cell.addEventListener('pointerdown', e => { this.lastPointer = e.pointerType; });
+          cell.addEventListener('contextmenu', e => { e.preventDefault(); if (this.lastPointer === 'mouse') unbind(); });
+          cell.addEventListener('pointerup', e => {
+            if (e.pointerType === 'mouse' || this.drag?.on) return;
+            const now = performance.now();
+            if (this.lastTap.key === k && now - this.lastTap.t < DOUBLE_TAP) { this.lastTap = { key: '', t: 0 }; unbind(); }
+            else this.lastTap = { key: k, t: now };
+          });
         }
         this.keysEl.appendChild(cell);
       }
@@ -182,6 +198,8 @@ export class SkillWindow {
     if (!d.on) { this.drag = null; return; }
     const t = this.dropTarget(e);
     this.dragCancel();
+    // 끌기 직후의 터치는 두 번 터치로 치지 않음
+    this.lastTap = { key: '', t: 0 };
     const key = t?.dataset.key as SlotKey | undefined;
     if (!key) return;
     if ('skill' in d.src) this.result(this.session.act({ type: 'bindSkill', key, skill: d.src.skill }));

@@ -458,7 +458,7 @@ html, body {
   /* 뼈대 그림의 몸 가운데(49, 72)를 창 가운데에 */
   position: absolute; left: 50%; top: 50%; width: calc(384 * var(--s)); height: calc(384 * var(--s));
   margin: calc(-288 * var(--s)) 0 0 calc(-196 * var(--s));
-  background-repeat: no-repeat; background-position: 0 0; background-size: 500% 100%;
+  background-repeat: no-repeat; background-position: 0 0; background-size: 600% 100%;
   image-rendering: pixelated; opacity: .28; pointer-events: none;
 }
 .inv-eq-grid { position: relative; display: grid; grid-template-columns: repeat(3, var(--cell)); gap: calc(5 * var(--s)) calc(9 * var(--s)); padding: calc(4 * var(--s)) calc(7 * var(--s)); }
