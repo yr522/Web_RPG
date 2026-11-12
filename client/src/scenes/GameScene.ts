@@ -5,7 +5,7 @@ import { CLASSES } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
-import { palette } from './palette';
+import { palette, type Palette } from './palette';
 import { professorHasNews } from '@shared/rules/progress';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
@@ -93,6 +93,9 @@ export class GameScene extends Phaser.Scene implements Stage {
   private camHold: number | null = null;
   private uiOn = true;
   private bg!: Phaser.GameObjects.Graphics;
+  /** 시간대별 배경 그림 [아침, 낮, 밤], 그 위 건물 그림 (시간대에 따라 바꿈) */
+  private timeBgs: Phaser.GameObjects.Image[] = [];
+  private timeProps: Phaser.GameObjects.Image[] = [];
   private fx!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
   private mapLayer!: Phaser.GameObjects.Container;
@@ -206,16 +209,35 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.flash.clear();
     this.fxList = [];
     const { world, save } = this.deps.session, map = world.map;
+    this.timeBgs = []; this.timeProps = [];
+    // 시간대별 배경 그림 (맨 뒤, NPC·간판보다 먼저): 맵 폭에 맞춰 늘리고, 그림 속 땅 줄이 땅 높이에 오게. 그 위에 건물 등
+    if (map.bgTime && map.bgTime.imgs.every(i => this.textures.exists(`bg:${i}`))) {
+      for (const img of map.bgTime.imgs) {
+        const im = this.add.image(0, 0, `bg:${img}`).setOrigin(0, 0);
+        // 그림 맨 아래 = 화면 맨 아래, 바닥 타일 윗면 = 땅 높이. 맵 가운데에
+        const sc = (VIEW_H - GROUND_Y) / (im.height - map.bgTime.groundY);
+        im.setScale(sc).setPosition((map.width - im.width * sc) / 2, GROUND_Y - map.bgTime.groundY * sc).setVisible(false);
+        this.mapLayer.add(im);
+        this.timeBgs.push(im);
+      }
+      for (const pr of map.props ?? []) {
+        if (!this.textures.exists(`bg:${pr.img}`)) continue;
+        const im = this.add.image(pr.x, GROUND_Y, `bg:${pr.img}`);
+        im.setOrigin(0.5, pr.groundY / im.height).setScale(pr.scale);
+        this.mapLayer.add(im);
+        this.timeProps.push(im);
+      }
+    }
     const g = this.add.graphics();
     this.mapLayer.add(g);
 
-    if (map.building) this.drawSchool(g);
-
     for (const p of world.solids) {
+      // 시간대별 배경 그림이 있으면 바닥 타일이 그림에 있음
+      if (p.ground && map.bgTime) continue;
       if (p.ground) {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
-        g.fillStyle(map.building ? 0x7a6a8a : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
+        g.fillStyle(0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
       }
     }
     // 발판은 배경 그림 위에 그림
@@ -354,20 +376,22 @@ export class GameScene extends Phaser.Scene implements Stage {
     c.label.setPosition(c.x, GROUND_Y + 6);
   }
 
-  private drawSchool(g: Phaser.GameObjects.Graphics) {
-    const x0 = 470;
-    g.fillStyle(0x5b4f86).fillRect(x0, 210, 780, 260);
-    g.fillStyle(0x4a3f72).fillRect(x0 - 40, 150, 110, 320).fillRect(x0 + 710, 150, 110, 320);
-    g.fillStyle(0x3a2f60)
-      .fillTriangle(x0 - 55, 150, x0 + 15, 70, x0 + 85, 150)
-      .fillTriangle(x0 + 695, 150, x0 + 765, 70, x0 + 835, 150)
-      .fillTriangle(x0 + 290, 210, x0 + 390, 120, x0 + 490, 210);
-    g.fillStyle(0xe8d9a0).fillCircle(x0 + 390, 175, 18);
-    g.fillStyle(0x3a2f60).fillRect(x0 + 389, 162, 2, 14).fillRect(x0 + 389, 174, 10, 2);
-    g.fillStyle(0x2c2550);
-    for (let r = 0; r < 2; r++) for (let c = 0; c < 8; c++) if (c !== 3 && c !== 4) g.fillRect(x0 + 50 + c * 86, 250 + r * 90, 30, 46);
-    g.fillStyle(0x2a1f45).fillRoundedRect(x0 + 345, 360, 90, 110, { tl: 40, tr: 40, bl: 0, br: 0 });
-    this.mapLayer.add(this.text('마 법 학 교', 18, '#fff3d0').setStroke('#000', 0).setOrigin(0.5).setPosition(x0 + 390, 228).setFontFamily('Esamanru, ' + FONT));
+  /**
+   * 시간대별 배경 그림 섞기 + 건물·땅 색. 아래쪽 그림은 다 보이게 두고 위쪽 그림의 투명도로 섞는다
+   * (둘 다 반투명이면 뒤의 하늘이 비쳐서)
+   */
+  private applyTimeOfDay(pal: Palette) {
+    if (this.timeBgs.length === 3) {
+      const cur = pal.phase, next = pal.next, f = pal.f;
+      this.timeBgs.forEach((im, i) => {
+        let a = 0;
+        if (next > cur) a = i === cur ? 1 : i === next ? f : 0;
+        else a = i === next ? 1 : i === cur ? 1 - f : 0;
+        if (i === cur && f === 0) a = 1;
+        im.setVisible(a > 0).setAlpha(a);
+      });
+    }
+    for (const im of this.timeProps) im.setTint(pal.imgTint);
   }
 
   private cameraTarget(cx: number, face: number) {
@@ -424,6 +448,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
     const pal = palette(session.nowMs());
     this.drawBackground(pal);
+    this.applyTimeOfDay(pal);
     this.drawPortals();
     this.drawEnemies(dt);
     this.drawFx(dt);
