@@ -1,6 +1,6 @@
 // NPC 대화창: 교수님(스킬 배우기 · 수업 · 퀘스트), 매점 모리(물약·주문서 구매), 대화 NPC(대사 + 선택지).
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL } from '@shared/data/classes';
+import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
 import { countItem } from '@shared/rules/inventory';
@@ -10,7 +10,7 @@ import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { checkCond, pickTalk } from '@shared/rules/story';
 import { BOSSES, DIFFICULTIES, DIFFICULTY_ORDER, bossDef } from '@shared/data/bosses';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
-import { canAttend, learned, nextToLearn, skillLevel, type ActionResult, type MenuAction } from '@shared/rules/progress';
+import { canAttend, learnable, learned, nextLocked, skillKeyOf, skillLevel, type ActionResult, type MenuAction } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { DialogHost, el, esc } from './Dialog';
@@ -33,6 +33,8 @@ export class NpcDialog {
   private body: HTMLElement | null = null;
   private refresh: (() => void) | null = null;
   private pickElem: Element | null = null;
+  /** 배울 수 있는 스킬이 여럿일 때 고른 것 */
+  private pickSkill: string | null = null;
 
   constructor(private host: DialogHost, private session: Session, private hud: Hud) {}
 
@@ -68,7 +70,7 @@ export class NpcDialog {
     const go = (v: ProfView) => { view = v; this.refresh!(); };
     this.refresh = () => this.renderProf(view, go);
     this.refresh();
-    this.host.open(box, () => { this.refresh = null; this.pickElem = null; });
+    this.host.open(box, () => { this.refresh = null; this.pickElem = null; this.pickSkill = null; });
   }
 
   /** 예 / 아니오 묻기 (포탈 들어가기 전 등) */
@@ -238,8 +240,7 @@ export class NpcDialog {
 
     if (view === 'main') {
       b.appendChild(el('p', 'line', `"어서 와, ${esc(s.name)}. 오늘도 열심히 해보자."`));
-      const ni = nextToLearn(s);
-      const learnNew = ni >= 0 && s.level >= UNLOCK_LEVELS[ni];
+      const learnNew = learnable(s).length > 0;
       const classOk = canAttend(s, now) === null;
       const questNew = PROF_QUESTS().some(q => { const st = questState(s, q.id); return st === 'none' || st === 'ready'; });
       const opts = el('div', 'opts');
@@ -255,32 +256,44 @@ export class NpcDialog {
     }
 
     if (view === 'learn') {
-      const cls = CLASSES[s.cls], ni = nextToLearn(s);
-      if (ni < 0) b.appendChild(el('p', 'line', '"모든 스킬을 배웠구나! 이제 수업으로 마스터를 노려보자."'));
-      else {
-        const id = cls.skills[ni], sk = SKILLS[id];
-        if (s.level < UNLOCK_LEVELS[ni]) {
-          b.appendChild(el('p', 'line', `"다음은 <b>${sk.name}</b>이야. <b>Lv ${UNLOCK_LEVELS[ni]}</b>이 되면 다시 오렴." <span class="note">(지금 Lv ${s.level})</span>`));
-        } else {
-          b.appendChild(el('p', 'line', `"이번에 배울 건 <b>${sk.name}</b>이야. <span class="note">(${SLOT_KEYS[ni]} 키)</span>`));
-          if (sk.elements.length) {
-            if (this.pickElem && !sk.elements.includes(this.pickElem)) this.pickElem = null;
-            b.appendChild(el('p', 'note', '어떤 원소로 배울지 골라줘. 한 번 고르면 스킬트리 초기화 주문서로만 바꿀 수 있어."'));
-            const row = el('div', 'chips');
-            for (const e of sk.elements) {
-              const c = el('button', 'chip' + (this.pickElem === e ? ' sel' : ''), `${ELEMENTS[e].icon} ${ELEMENTS[e].name}`, () => { this.pickElem = e; this.refresh!(); });
-              c.style.setProperty('--c', ELEMENTS[e].color);
-              row.appendChild(c);
-            }
-            b.appendChild(row);
-          } else b.appendChild(el('p', 'note', '원소가 없는 버프 스킬이야."'));
-          const btn = el('button', 'big', '배우기', () => {
-            const r = this.act({ type: 'learn', skill: id, element: sk.elements.length ? this.pickElem : null });
-            if (r.ok) { this.pickElem = null; go('main'); }
-          }) as HTMLButtonElement;
-          btn.disabled = !!sk.elements.length && !this.pickElem;
-          b.appendChild(btn);
+      const list = learnable(s);
+      if (!list.length) {
+        const nx = nextLocked(s);
+        if (!nx) b.appendChild(el('p', 'line', '"모든 스킬을 배웠구나! 이제 수업으로 마스터를 노려보자."'));
+        else b.appendChild(el('p', 'line', `"다음은 <b>${SKILLS[nx].name}</b>이야. <b>Lv ${unlockLevel(s.cls, nx)}</b>이 되면 다시 오렴." <span class="note">(지금 Lv ${s.level})</span>`));
+      } else {
+        if (!this.pickSkill || !list.includes(this.pickSkill)) { this.pickSkill = list[0]; this.pickElem = null; }
+        const id = this.pickSkill, sk = SKILLS[id];
+        // 배울 수 있는 스킬이 여럿이면 고르기
+        if (list.length > 1) {
+          const row = el('div', 'chips');
+          for (const o of list) {
+            const c = el('button', 'chip' + (o === id ? ' sel' : ''), SKILLS[o].name, () => { this.pickSkill = o; this.pickElem = null; this.refresh!(); });
+            c.style.setProperty('--c', '#c8b8ff');
+            row.appendChild(c);
+          }
+          b.appendChild(row);
         }
+        // 등록될 키: 기본 스킬은 지금 키, 힌트 스킬은 비어 있는 첫 키
+        const key = sk.passive ? null : skillKeyOf(s, id) ?? SLOT_KEYS.find(k => !s.skillKeys[k]) ?? null;
+        b.appendChild(el('p', 'line', `"이번에 배울 건 <b>${sk.name}</b>이야.${key ? ` <span class="note">(${key} 키)</span>` : ''}`));
+        if (sk.elements.length) {
+          if (this.pickElem && !sk.elements.includes(this.pickElem)) this.pickElem = null;
+          b.appendChild(el('p', 'note', '어떤 원소로 배울지 골라줘. 한 번 고르면 스킬트리 초기화 주문서로만 바꿀 수 있어."'));
+          const row = el('div', 'chips');
+          for (const e of sk.elements) {
+            const c = el('button', 'chip' + (this.pickElem === e ? ' sel' : ''), `${ELEMENTS[e].icon} ${ELEMENTS[e].name}`, () => { this.pickElem = e; this.refresh!(); });
+            c.style.setProperty('--c', ELEMENTS[e].color);
+            row.appendChild(c);
+          }
+          b.appendChild(row);
+        } else if (!sk.passive) b.appendChild(el('p', 'note', '원소가 없는 버프 스킬이야."'));
+        const btn = el('button', 'big', '배우기', () => {
+          const r = this.act({ type: 'learn', skill: id, element: sk.elements.length ? this.pickElem : null });
+          if (r.ok) { this.pickElem = null; this.pickSkill = null; go('main'); }
+        }) as HTMLButtonElement;
+        btn.disabled = !!sk.elements.length && !this.pickElem;
+        b.appendChild(btn);
       }
       back();
       return;
@@ -296,7 +309,7 @@ export class NpcDialog {
       else {
         b.appendChild(el('p', 'line', `"🌅 아침 수업 시간이야! 어떤 스킬을 연습할래?" <span class="note">남은 시간 ${mmss(ti.remain)} · +1 레벨, 레벨당 데미지 +10%</span>`));
         const opts = el('div', 'opts');
-        for (const id of CLASSES[s.cls].skills.filter(x => learned(s, x))) {
+        for (const id of classSkillIds(s.cls).filter(x => learned(s, x))) {
           const lv = skillLevel(s, id);
           const btn = el('button', 'opt', lv >= MAX_SKILL_LEVEL ? `${SKILLS[id].name} 마스터` : `${SKILLS[id].name} Lv${lv} → ${lv + 1}`, () => this.act({ type: 'attend', skill: id })) as HTMLButtonElement;
           btn.disabled = lv >= MAX_SKILL_LEVEL;

@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES } from '@shared/data/classes';
+import { CLASSES, HINT } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -740,6 +740,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
         g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
       }
+      // 마력 씨앗: 원소 색 마름모 (반짝임)
+      if (e.seed && !e.dead) {
+        const sx = e.x + e.w / 2 + 16, sy = e.y - 20, r = 5 + Math.sin(this.time.now / 120);
+        g.fillStyle(e.seed.elem ? hex(ELEMENTS[e.seed.elem].color) : 0xc8b8ff).fillTriangle(sx, sy - r - 2, sx - r, sy, sx + r, sy).fillTriangle(sx - r, sy, sx + r, sy, sx, sy + r + 2);
+        g.lineStyle(1.2, 0xffffff).strokeTriangle(sx, sy - r - 2, sx - r, sy, sx + r, sy).strokeTriangle(sx - r, sy, sx + r, sy, sx, sy + r + 2);
+      }
+      // 출혈: 붉은 방울
+      if (e.bleed && !e.dead) {
+        const bx = e.x + e.w / 2 - 16, by = e.y - 22;
+        g.fillStyle(0xd04050).fillCircle(bx, by + 2, 4).fillTriangle(bx - 4, by + 1, bx + 4, by + 1, bx, by - 6);
+      }
+      // 묶임: 발밑 고리
+      if (e.root && e.root > 0 && !e.dead) {
+        g.lineStyle(3, hex(ELEMENTS.earth.color), 0.9).strokeEllipse(e.x + e.w / 2, e.y + e.h - 3, e.w + 14, 12);
+      }
     }
     // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
     if (world.orb) {
@@ -818,6 +833,23 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.lineStyle(3, c, al).beginPath().arc(v.x, v.y, 45 + i * 22, a0, a0 + 1.8).strokePath();
       }
       g.lineStyle(3, c, 0.15 * al).strokeCircle(v.x, v.y, v.r);
+    }
+
+    // 궁수 덫: 바닥 위 톱니 모양 (작동 전엔 흐리게)
+    for (const tr of world.traps) {
+      const c = elCol(tr.elem), on = tr.t >= HINT.deot.arm, al = on ? 1 : 0.45, hw = tr.w / 2;
+      u.fillStyle(0x1a1a22, 0.8 * al).fillRect(tr.x - hw, tr.y - 5, tr.w, 5);
+      u.fillStyle(c, al);
+      for (let i = 0; i < 4; i++) { const x0 = tr.x - hw + i * (tr.w / 4); u.fillTriangle(x0, tr.y - 5, x0 + tr.w / 8, tr.y - 13, x0 + tr.w / 4, tr.y - 5); }
+    }
+
+    // 흘려베기 받아내기 자세: 몸 주위 원
+    for (const p of world.players.values()) {
+      if (p.action?.guard) {
+        const el = p.data.learned.heullyeo, c = el ? hex(ELEMENTS[el].color) : 0xffffff;
+        g.lineStyle(3, c, 0.8).strokeCircle(p.x + p.w / 2, p.y + p.h / 2, 36 + 2 * Math.sin(t * 30));
+        g.fillStyle(c, 0.15).fillCircle(p.x + p.w / 2, p.y + p.h / 2, 36);
+      }
     }
 
     for (const o of world.projectiles) {
