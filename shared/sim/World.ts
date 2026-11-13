@@ -700,11 +700,18 @@ export class World implements SkillWorld {
         else if (ai === 'golem') this.golemAi(e, target, dt);
         else this.groundAi(e, target, dt);
       }
+      // 출혈: 스스로 움직이는 옆 이동이 느려짐 (보스 제외, 맞아서 밀려나는 건 그대로)
+      const slow = e.bleed && e.stun <= 0 && !MONSTERS[e.mob].boss ? 1 - HINT.hyeolseom.slow : 1;
       if (MONSTERS[e.mob].ai === 'flyer') {
         // 날아다님: 중력·발판 없이 맵 안에서만
-        e.x = Math.max(this.bounds.l, Math.min(this.bounds.r - e.w, e.x + e.vx * dt));
-        e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * dt));
-      } else stepBody(e, dt, this.solids, this.bounds);
+        e.x = Math.max(this.bounds.l, Math.min(this.bounds.r - e.w, e.x + e.vx * slow * dt));
+        e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * slow * dt));
+      } else {
+        const vx = e.vx;
+        e.vx *= slow;
+        stepBody(e, dt, this.solids, this.bounds);
+        if (slow !== 1 && e.vx !== 0) e.vx = vx;
+      }
       // 맵 끝에 닿으면 돌아섬 (골렘 돌진 중은 제외: 돌진이 벽에서 끝나야 함)
       if (!(e.pat === 'charge' && e.leap === 'leap')) {
         if (e.x <= this.bounds.l) e.dir = 1;

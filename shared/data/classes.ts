@@ -94,8 +94,8 @@ export function unlockLevel(cls: ClassId, id: string) {
  * 힌트 스킬·패시브 수치 (임시, 스킬트리 문서 "정할 것"). lv = 스킬 레벨 1~5
  */
 export const HINT = {
-  /** 혈섬: 베기 + 출혈 (tick 초마다 공격력 × tickCoef × 레벨 배율, time 초 동안) */
-  hyeolseom: { coef: 1.2, bleedTime: 5, tick: 1, tickCoef: 0.3 },
+  /** 혈섬: 베기 + 출혈 (tick 초마다 공격력 × tickCoef × 레벨 배율, time 초 동안 + 이동 속도 slow 만큼 느려짐, 보스는 안 느려짐) */
+  hyeolseom: { coef: 1.2, bleedTime: 5, tick: 1, tickCoef: 0.3, slow: 0.3 },
   /** 흘려베기: guard 초 받아내기 (슈퍼아머, 받는 피해 × taken). 받은 피해 / 최대 HP × perHp 만큼 계수 증가, 최대 maxCoef */
   heullyeo: { guard: 0.8, taken: 0.5, coef: 1.5, perHp: 6, maxCoef: 4.5 },
   /** 마력 씨앗: 심을 때 coef 피해, 그 적에게 burstDmg 만큼 피해를 주거나 죽이면 터지며 MP mp 회복 */
