@@ -60,7 +60,7 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
 
 /**
  * 정예몹: 사냥터 몬스터가 나올 때(다시 나올 때도) chance 확률로 정예가 됨 (보스·한 번만 나오는 몬스터·안전 지대·던전은 제외, 던전은 정해 둔 자리만).
- * 체력·몸통 피해·경험치·골드 배수, 크기 배율. 특성 하나가 붙음
+ * 체력·몸통 피해·경험치·골드 배수, 크기 배율. 특성 하나가 붙음. overlay = 몸 위에 계속 도는 그림 이펙트 (client vfx.ts 이름)
  */
 export type EliteAffix = 'swift' | 'iron' | 'rage';
 export const ELITE = {
@@ -68,12 +68,12 @@ export const ELITE = {
   color: '#ffd24a',
   affixes: {
     /** 빠름 */
-    swift: { name: '신속', speed: 1.6 },
+    swift: { name: '신속', speed: 1.6, overlay: 'buff_haste_loop' },
     /** 받는 피해 줄고 안 밀림 */
-    iron: { name: '강철', taken: 0.6 },
+    iron: { name: '강철', taken: 0.6, overlay: 'buff_mana_regen_loop' },
     /** HP 가 below 아래로 내려가면 빨라지고 세짐 */
-    rage: { name: '분노', below: 0.5, speed: 1.5, touch: 1.5 },
-  } satisfies Record<EliteAffix, { name: string } & Record<string, unknown>>,
+    rage: { name: '분노', below: 0.5, speed: 1.5, touch: 1.5, overlay: 'buff_rage_loop' },
+  } satisfies Record<EliteAffix, { name: string; overlay: string } & Record<string, unknown>>,
 };
 export const ELITE_AFFIXES = Object.keys(ELITE.affixes) as EliteAffix[];
 

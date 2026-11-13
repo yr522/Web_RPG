@@ -118,6 +118,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private fxList: { f: Fx; t: number }[] = [];
   /** 재생 중인 그림 이펙트 */
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
+  /** 정예몹 특성 오버레이 (몬스터 id + 특성 → 계속 도는 그림) */
+  private eliteFx = new Map<string, Phaser.GameObjects.Sprite>();
   private combat!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
   /** 캐릭터 뒤에 그리는 것 (마법진) */
@@ -213,6 +215,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.enemyLabels.clear();
     for (const sp of this.enemySprites.values()) sp.destroy();
     this.enemySprites.clear();
+    for (const sp of this.eliteFx.values()) sp.destroy();
+    this.eliteFx.clear();
     this.flash.clear();
     this.fxList = [];
     for (const o of this.vfxSprites) o.sp.destroy();
@@ -703,7 +707,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawEnemies(dt: number) {
     const g = this.combat, world = this.deps.session.world;
     g.clear();
-    const alive = new Set<string>();
+    const alive = new Set<string>(), liveFx = new Set<string>();
     for (const e of world.enemies) {
       const fl = Math.max(0, (this.flash.get(e.id) ?? 0) - dt);
       this.flash.set(e.id, fl);
@@ -744,6 +748,16 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
       if (label.text !== name) label.setText(name);
       label.setColor(e.elite ? ELITE.color : '#ffffff');
+      // 특성 오버레이: 몸 위에 계속 도는 그림 (몸 높이에 맞춤, 특성이 여러 개면 겹쳐서)
+      for (const a of e.elite ?? []) {
+        const key = `${e.id}:${a}`, name = ELITE.affixes[a].overlay, d = VFX[name];
+        if (!d) continue;
+        let fx = this.eliteFx.get(key);
+        if (!fx) { fx = this.add.sprite(0, 0, vfxKey(name), 0).setOrigin(0.5, 1).setDepth(4.2).play(vfxKey(name)); this.eliteFx.set(key, fx); }
+        const sc = (e.h * 1.35) / (d.frameH ?? d.frame);
+        fx.setScale(sc).setPosition(e.x + e.w / 2, e.y + e.h + 2).setAlpha(alpha).setVisible(!e.dead || e.deadT < 0.35);
+        liveFx.add(key);
+      }
       if (e.elite && !e.dead) {
         const pulse = 0.35 + 0.2 * Math.sin(this.time.now / 160);
         g.fillStyle(hex(ELITE.color), pulse).fillEllipse(e.x + e.w / 2, e.y + e.h, e.w + 22, 14);
@@ -811,6 +825,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
+    for (const [k, sp] of this.eliteFx) if (!liveFx.has(k)) { sp.destroy(); this.eliteFx.delete(k); }
 
     // 골드: 금액에 따라 동전·철전·은전·금전 그림이 계속 돎, 사라지기 5초 전부터 깜빡임
     const drops = new Set<string>(), coins = new Set<string>();
