@@ -70,7 +70,7 @@ export const ELITE = {
     /** 빠름 */
     swift: { name: '신속', speed: 1.6, overlay: 'buff_haste_loop' },
     /** 받는 피해 줄고 안 밀림 */
-    iron: { name: '강철', taken: 0.6, overlay: 'buff_mana_regen_loop' },
+    iron: { name: '강철', taken: 0.6, overlay: 'buff_protect_shield_loop' },
     /** HP 가 below 아래로 내려가면 빨라지고 세짐 */
     rage: { name: '분노', below: 0.5, speed: 1.5, touch: 1.5, overlay: 'buff_rage_loop' },
   } satisfies Record<EliteAffix, { name: string; overlay: string } & Record<string, unknown>>,
