@@ -1024,6 +1024,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (!d) return;
     const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
     if (f.color) sp.setTint(hex(f.color));
+    if (f.flipY) sp.setFlipY(true);
     const follow = () => {
       const p = f.owner ? this.deps.session.world.players.get(f.owner) : undefined;
       if (p) sp.setPosition(p.x + p.w / 2 + (f.dx ?? 0) * f.face, p.y + p.h / 2 + (f.dy ?? 0));
