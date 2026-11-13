@@ -2,11 +2,13 @@
 // shared 의 { kind: 'anim', anim: 이름 } 이펙트가 여기 이름으로 재생된다.
 import Phaser from 'phaser';
 import smearH1 from '../../../assets/img/vfx/Smear VFX 01/Smear 01 Horizontal 1.png';
+import swordSlash from '../../../assets/img/vfx/slash_temp/pixel_art_sword_slash_sprites.png';
 
 export interface VfxDef {
   url: string;
-  /** 한 칸 크기 (px) */
+  /** 한 칸 크기 (px). 세로가 다르면 frameH */
   frame: number;
+  frameH?: number;
   frames: number;
   /** 초당 프레임 */
   fps: number;
@@ -17,12 +19,14 @@ export interface VfxDef {
 export const VFX: Record<string, VfxDef> = {
   /** 임시: 가로 베기 (검사 기본 공격) */
   smear_h1: { url: smearH1, frame: 48, frames: 5, fps: 25, scale: 2 },
+  /** 임시: 위에서 앞으로 내려 베기, 거의 회색이라 원소 색을 입힘 (검사 일섬) */
+  sword_slash: { url: swordSlash, frame: 64, frameH: 47, frames: 5, fps: 40, scale: 1.5 },
 };
 
 export const vfxKey = (name: string) => `vfx:${name}`;
 
 export function preloadVfx(scene: Phaser.Scene) {
-  for (const [name, d] of Object.entries(VFX)) scene.load.spritesheet(vfxKey(name), d.url, { frameWidth: d.frame, frameHeight: d.frame });
+  for (const [name, d] of Object.entries(VFX)) scene.load.spritesheet(vfxKey(name), d.url, { frameWidth: d.frame, frameHeight: d.frameH ?? d.frame });
 }
 
 export function createVfxAnims(scene: Phaser.Scene) {

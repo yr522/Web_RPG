@@ -27,13 +27,12 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
 
   ilseom(w, p, chain) {
     const el = w.elemOf(p, 'ilseom'), c = color(el);
-    const hit = (i: number) => {
-      w.addHB(p, { dx: -10, dy: -44, w: 88, h: 74, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
-      w.fx({ kind: 'arc', x: cx(p) + p.face * 6, y: cy(p) - 4, face: p.face, r: i ? 50 : 58, a0: i ? 0.9 : -1.2, a1: i ? -1.2 : 0.9, color: c, w: 7, life: 0.14 });
-    };
+    const hit = () => w.addHB(p, { dx: -10, dy: -44, w: 88, h: 74, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
+    // 베기 그림 (임시 sword_slash, 원소 색): 첫 번째는 위→아래, 두 번째는 위아래 뒤집어 아래→위
+    const slash = (i: number) => w.fx({ kind: 'anim', anim: 'sword_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 28, dy: -8, color: c, flipY: i === 1, life: 0.13 });
     p.action = {
       name: 'ilseom', t: 0, dur: 0.24,
-      events: [{ at: 0.02, fn: () => hit(0) }, { at: 0.15, fn: () => hit(1) }],
+      events: [{ at: 0, fn: () => slash(0) }, { at: 0.02, fn: hit }, { at: 0.13, fn: () => slash(1) }, { at: 0.15, fn: hit }],
       end: () => { p.lockT = 0.18; },
       update: () => { p.vx = p.onGround ? p.face * 40 : p.cmd.move * 130; },
     };
