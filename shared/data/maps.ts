@@ -50,6 +50,8 @@ export interface MapDef {
   walk?: [number, number];
   /** 조건이 맞으면 같은 자리의 다른 맵으로 바뀜 (몬스터 없는 맵 → 있는 맵 등) */
   becomes?: { when: Cond; to: MapId };
+  /** 실내 맵: 밤이어도 화면을 어둡게 하지 않음 (시간은 그대로 흐름) */
+  indoor?: boolean;
   /** 세로로 긴 맵: 맵 맨 위 y (음수, 없으면 한 화면) */
   top?: number;
   /** 배경을 그림·하늘 대신 한 가지 색으로 */
@@ -98,12 +100,15 @@ const SCHOOL_DOOR_X = 1018;
 const HALL_ARCH_X = 499;
 /** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
 const HALLWAY_DOORS = [261, 569, 880, 1197, 1516];
+/** 강의실 그림 속 교탁 자리 */
+const CLASSROOM_PROF_X = 916;
 /** 강의실 맵 (그림은 같고, 나가면 그 강의실 문 앞으로) */
-const classroom = (name: string, door: number): MapDef => ({
-  name, width: 1367, safe: true, bg: { img: 'school_classroom', groundY: 791 },
+const classroom = (name: string, door: number, cls: 'warrior' | 'mage' | 'archer'): MapDef => ({
+  name, width: 1367, safe: true, indoor: true, bg: { img: 'school_classroom', groundY: 791 },
   platforms: [],
   portals: [{ x: 70, to: 'school_hallway', toX: HALLWAY_DOORS[door], label: '학교 복도' }],
-  npcs: [], signs: [], spawns: [],
+  // 교수님(내 학과 교수님)은 내 학과 강의실 교탁 앞에만 서 있음
+  npcs: [{ id: 'prof', x: CLASSROOM_PROF_X, when: { cls } }], signs: [], spawns: [],
 });
 
 export const MAPS: Record<MapId, MapDef> = {
@@ -120,7 +125,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
     ],
     npcs: [
-      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'prof', x: 860 }, { id: 'shop', x: 1160 },
+      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
       // 미니 챕터를 끝내고 학교로 돌아옴
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },
@@ -216,7 +221,7 @@ export const MAPS: Record<MapId, MapDef> = {
   // 내 기숙사 방 (임시 맵)
   // ---- 마법 학교 안: 홀 → 복도 → 강의실 ----
   school_hall: {
-    name: '학교 홀', width: 1426, safe: true, bg: { img: 'school_hall', groundY: 758 },
+    name: '학교 홀', width: 1426, indoor: true, safe: true, bg: { img: 'school_hall', groundY: 758 },
     platforms: [],
     portals: [
       { x: 80, to: 'school', toX: SCHOOL_DOOR_X, label: '마법 학교' },
@@ -226,7 +231,7 @@ export const MAPS: Record<MapId, MapDef> = {
     npcs: [], signs: [], spawns: [],
   },
   school_hallway: {
-    name: '학교 복도', width: 1846, safe: true, bg: { img: 'school_hallway', groundY: 553 },
+    name: '학교 복도', width: 1846, indoor: true, safe: true, bg: { img: 'school_hallway', groundY: 553 },
     platforms: [],
     portals: [
       { x: 70, to: 'school_hall', toX: HALL_ARCH_X, label: '학교 홀' },
@@ -239,9 +244,9 @@ export const MAPS: Record<MapId, MapDef> = {
     ],
     npcs: [], signs: [], spawns: [],
   },
-  classroom_sword: classroom('검술과 강의실', 0),
-  classroom_magic: classroom('마법학과 강의실', 1),
-  classroom_bow: classroom('궁술과 강의실', 2),
+  classroom_sword: classroom('검술과 강의실', 0, 'warrior'),
+  classroom_magic: classroom('마법학과 강의실', 1, 'mage'),
+  classroom_bow: classroom('궁술과 강의실', 2, 'archer'),
   dorm: {
     name: '기숙사 방', width: 900, safe: true,
     platforms: [],
@@ -252,7 +257,7 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   // 공방 내부 (배경 그림 1774×887, 발 줄 716)
   workshop: {
-    name: '공방 내부', width: 1164, bg: { img: 'workshop', groundY: 716 }, safe: true,
+    name: '공방 내부', width: 1164, indoor: true, bg: { img: 'workshop', groundY: 716 }, safe: true,
     platforms: [],
     portals: [
       { x: 1100, to: 'workshop_gate', toX: 600, label: '공방 입구' },
@@ -271,7 +276,7 @@ export const MAPS: Record<MapId, MapDef> = {
   // 공방 지하 (세로로 긴 맵, 배경 색만): 위 발판에서 시작 → 양옆 발판 3개씩 → 바닥 가운데 골렘 방 포탈
   // 시험: 들어오면 갇힘 (나가는 포탈 없음), 몬스터 한 번씩만. 다 잡으면 바닥 가운데 포탈이 열림. 골렘을 잡으면 보통 사냥터로 바뀜
   under_trial: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
+    name: '공방 지하', width: UNDER.width, indoor: true, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [],
     // 다 잡으면 마법사가 문 옆에 나타나 골렘 퀘스트를 줌
@@ -283,7 +288,7 @@ export const MAPS: Record<MapId, MapDef> = {
   // 지하 시험을 끝낸 뒤 ~ 골렘을 처음 잡기 전: 몬스터 없음, 여전히 갇힘, 골렘 방 문이 열려 있음.
   // 골렘 방에서 쓰러지면 여기 위쪽 발판에서 깨어남. 골렘을 처음 잡으면(퀘스트 끝) 몬스터가 나오는 보통 지하로
   under_cleared: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
+    name: '공방 지하', width: UNDER.width, indoor: true, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [
       { x: UNDER.mid, to: 'golem_room', toX: 220, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
@@ -294,7 +299,7 @@ export const MAPS: Record<MapId, MapDef> = {
     becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
   },
   under: {
-    name: '공방 지하', width: UNDER.width, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
+    name: '공방 지하', width: UNDER.width, indoor: true, top: UNDER.mapTop, bgColor: 0x1a1626, bg: { img: 'under', groundY: 1421 },
     platforms: UNDER.platforms,
     portals: [
       { x: UNDER.mid, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' },
@@ -306,7 +311,7 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   // 골렘 방 (슬라임 맵 크기). 입장 포탈에서 고른 난이도로 골렘이 한 번만 나옴. 골렘 퀘스트를 끝냈으면 나가는 포탈
   golem_room: {
-    name: '???', width: GOLEM_ROOM.width, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 },
+    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 },
     platforms: [],
     portals: [{ x: 220, to: 'under', toX: UNDER.mid, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [],
@@ -317,7 +322,7 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
   golem_scene: {
-    name: '???', width: GOLEM_ROOM.width, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 }, safe: true,
+    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 }, safe: true,
     platforms: [],
     portals: [{ x: 220, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [

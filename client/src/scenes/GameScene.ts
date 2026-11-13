@@ -230,17 +230,28 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.timeProps.push(im);
       }
     }
+    // 배경 그림 (맨 뒤, NPC·간판보다 먼저): 그림 속 땅 줄이 땅 높이에 오게
+    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
+      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
+      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
+      const top = map.top ?? 0;
+      const eg = this.add.graphics();
+      this.mapLayer.add(eg);
+      eg.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
+      // 땅도 그림 뒤에 (그림이 땅 아래까지 그려져 있으면 그림이 보이고, 그림이 끝난 아래는 땅 색)
+      for (const p of world.solids) if (p.ground) eg.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
+      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
+    }
     const g = this.add.graphics();
     this.mapLayer.add(g);
 
     for (const p of world.solids) {
-      // 시간대별 배경 그림이 있으면 바닥 타일이 그림에 있음
-      if (p.ground && map.bgTime) continue;
+      // 배경 그림 맵은 땅이 그림에 있음 (그림 밖은 위에서 그림 뒤에 칠함)
+      if (p.ground && (map.bgTime || map.bg)) continue;
       if (p.ground) {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
-        // 풀색 땅 윗줄 (배경 그림 맵은 그림 밖 양옆에 풀색 줄이 튀지 않게 땅과 같은 색)
-        g.fillStyle(map.bg ? 0x2b2a3f : 0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
+        g.fillStyle(0x4a7a4a).fillRect(-EDGE, p.y, map.width + EDGE * 2, 6);
       }
     }
     // 발판은 배경 그림 위에 그림
@@ -249,14 +260,6 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (p.ground) continue;
       plat.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
       plat.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
-    }
-    // 배경 그림: 그림 속 땅 줄이 땅 높이에 오게
-    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
-      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
-      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
-      const top = map.top ?? 0;
-      g.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
-      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
     }
     this.mapLayer.add(plat);
     for (const s of map.signs) {
@@ -486,7 +489,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
     this.fade = Math.max(0, this.fade - dt * 2.5);
     this.overlay.clear();
-    if (pal.phase === 2) this.overlay.fillStyle(0x0a0a32, 0.18).fillRect(0, 0, this.viewW, VIEW_H);
+    if (pal.phase === 2 && !session.world.map.indoor) this.overlay.fillStyle(0x0a0a32, 0.18).fillRect(0, 0, this.viewW, VIEW_H);
     if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
