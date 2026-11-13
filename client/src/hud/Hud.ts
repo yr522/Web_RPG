@@ -1,6 +1,6 @@
 // 화면 위 UI (HTML). UI 구상도(PC / 모바일)를 따른다.
 // 게임 상태를 읽어서 보여주기만 하고, 버튼 입력은 Input 으로 넘긴다.
-import { CLASSES, DOWN_TIME, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, expNeed, type SlotKey } from '@shared/data/classes';
+import { CLASSES, DOWN_TIME, SKILLS, SLOT_KEYS, unlockLevel, expNeed, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
@@ -268,7 +268,7 @@ export class Hud {
     if (!learned && i === 0) return { slot: k, name: SKILLS.basic.name, sub: '무속성', color: NO_ELEMENT.color, locked: false, empty: false, cd: 0 };
     const sk = SKILLS[id];
     const name = sk.short ?? sk.name;
-    if (!learned) return { slot: k, name, sub: `Lv${UNLOCK_LEVELS[i]}`, color: '', locked: true, empty: false, cd: 0 };
+    if (!learned) return { slot: k, name, sub: `Lv${unlockLevel(save.cls, id)}`, color: '', locked: true, empty: false, cd: 0 };
     const el = save.learned[id];
     const e = el ? ELEMENTS[el] : NO_ELEMENT;
     const me = s.me();

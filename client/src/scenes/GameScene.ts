@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES } from '@shared/data/classes';
+import { CLASSES, HINT } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -230,12 +230,24 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.timeProps.push(im);
       }
     }
+    // 배경 그림 (맨 뒤, NPC·간판보다 먼저): 그림 속 땅 줄이 땅 높이에 오게
+    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
+      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
+      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
+      const top = map.top ?? 0;
+      const eg = this.add.graphics();
+      this.mapLayer.add(eg);
+      eg.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
+      // 땅도 그림 뒤에 (그림이 땅 아래까지 그려져 있으면 그림이 보이고, 그림이 끝난 아래는 땅 색)
+      for (const p of world.solids) if (p.ground) eg.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
+      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
+    }
     const g = this.add.graphics();
     this.mapLayer.add(g);
 
     for (const p of world.solids) {
-      // 시간대별 배경 그림이 있으면 바닥 타일이 그림에 있음
-      if (p.ground && map.bgTime) continue;
+      // 배경 그림 맵은 땅이 그림에 있음 (그림 밖은 위에서 그림 뒤에 칠함)
+      if (p.ground && (map.bgTime || map.bg)) continue;
       if (p.ground) {
         // 화면이 맵보다 넓을 때(아주 넓은 화면) 양옆이 비지 않게 땅을 맵 밖까지 그린다
         g.fillStyle(0x2b2a3f).fillRect(-EDGE, p.y, map.width + EDGE * 2, p.h);
@@ -248,14 +260,6 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (p.ground) continue;
       plat.fillStyle(0x6b5640).fillRect(p.x, p.y, p.w, p.h);
       plat.fillStyle(0x8fae6a).fillRect(p.x, p.y, p.w, 4);
-    }
-    // 배경 그림: 그림 속 땅 줄이 땅 높이에 오게
-    if (map.bg && this.textures.exists(`bg:${map.bg.img}`)) {
-      // 화면이 그림보다 넓을 때 양옆이 하늘색으로 비지 않게 어둡게 채움
-      // 세로로 긴 맵은 그림 맨 위가 맵 맨 위에 오게
-      const top = map.top ?? 0;
-      g.fillStyle(0x0c1420).fillRect(-EDGE, top - EDGE, EDGE, GROUND_Y - top + EDGE).fillRect(map.width, top - EDGE, EDGE, GROUND_Y - top + EDGE);
-      this.mapLayer.add(this.add.image(0, top, `bg:${map.bg.img}`).setOrigin(0, 0).setScale((GROUND_Y - top) / map.bg.groundY));
     }
     this.mapLayer.add(plat);
     for (const s of map.signs) {
@@ -485,7 +489,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
     this.fade = Math.max(0, this.fade - dt * 2.5);
     this.overlay.clear();
-    if (pal.phase === 2) this.overlay.fillStyle(0x0a0a32, 0.18).fillRect(0, 0, this.viewW, VIEW_H);
+    if (pal.phase === 2 && !session.world.map.indoor) this.overlay.fillStyle(0x0a0a32, 0.18).fillRect(0, 0, this.viewW, VIEW_H);
     if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
@@ -736,6 +740,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.fillStyle(hex(ELEMENTS[e.record].color)).fillCircle(e.x + e.w / 2, e.y - 20, 6);
         g.lineStyle(1.5, 0xffffff).strokeCircle(e.x + e.w / 2, e.y - 20, 6);
       }
+      // 마력 씨앗: 원소 색 마름모 (반짝임)
+      if (e.seed && !e.dead) {
+        const sx = e.x + e.w / 2 + 16, sy = e.y - 20, r = 5 + Math.sin(this.time.now / 120);
+        g.fillStyle(e.seed.elem ? hex(ELEMENTS[e.seed.elem].color) : 0xc8b8ff).fillTriangle(sx, sy - r - 2, sx - r, sy, sx + r, sy).fillTriangle(sx - r, sy, sx + r, sy, sx, sy + r + 2);
+        g.lineStyle(1.2, 0xffffff).strokeTriangle(sx, sy - r - 2, sx - r, sy, sx + r, sy).strokeTriangle(sx - r, sy, sx + r, sy, sx, sy + r + 2);
+      }
+      // 출혈: 붉은 방울
+      if (e.bleed && !e.dead) {
+        const bx = e.x + e.w / 2 - 16, by = e.y - 22;
+        g.fillStyle(0xd04050).fillCircle(bx, by + 2, 4).fillTriangle(bx - 4, by + 1, bx + 4, by + 1, bx, by - 6);
+      }
+      // 묶임: 발밑 고리
+      if (e.root && e.root > 0 && !e.dead) {
+        g.lineStyle(3, hex(ELEMENTS.earth.color), 0.9).strokeEllipse(e.x + e.w / 2, e.y + e.h - 3, e.w + 14, 12);
+      }
     }
     // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
     if (world.orb) {
@@ -814,6 +833,23 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.lineStyle(3, c, al).beginPath().arc(v.x, v.y, 45 + i * 22, a0, a0 + 1.8).strokePath();
       }
       g.lineStyle(3, c, 0.15 * al).strokeCircle(v.x, v.y, v.r);
+    }
+
+    // 궁수 덫: 바닥 위 톱니 모양 (작동 전엔 흐리게)
+    for (const tr of world.traps) {
+      const c = elCol(tr.elem), on = tr.t >= HINT.deot.arm, al = on ? 1 : 0.45, hw = tr.w / 2;
+      u.fillStyle(0x1a1a22, 0.8 * al).fillRect(tr.x - hw, tr.y - 5, tr.w, 5);
+      u.fillStyle(c, al);
+      for (let i = 0; i < 4; i++) { const x0 = tr.x - hw + i * (tr.w / 4); u.fillTriangle(x0, tr.y - 5, x0 + tr.w / 8, tr.y - 13, x0 + tr.w / 4, tr.y - 5); }
+    }
+
+    // 흘려베기 받아내기 자세: 몸 주위 원
+    for (const p of world.players.values()) {
+      if (p.action?.guard) {
+        const el = p.data.learned.heullyeo, c = el ? hex(ELEMENTS[el].color) : 0xffffff;
+        g.lineStyle(3, c, 0.8).strokeCircle(p.x + p.w / 2, p.y + p.h / 2, 36 + 2 * Math.sin(t * 30));
+        g.fillStyle(c, 0.15).fillCircle(p.x + p.w / 2, p.y + p.h / 2, 36);
+      }
     }
 
     for (const o of world.projectiles) {
@@ -1068,9 +1104,11 @@ export class GameScene extends Phaser.Scene implements Stage {
     g.clear();
     for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId)) {
       const py = (p.y ?? GROUND_Y) - 48;
-      g.fillStyle(0xa078ff, 0.25).fillEllipse(p.x, py, 48, 88);
+      // 닫힌 포탈은 흐린 회색
+      const [fill, line, a] = p.closed ? [0x9a9aa8, 0xb8b8c4, 0.45] : [0xa078ff, 0xbea0ff, 1];
+      g.fillStyle(fill, 0.25 * a).fillEllipse(p.x, py, 48, 88);
       for (let i = 0; i < 3; i++) {
-        g.lineStyle(4, 0xbea0ff, 0.8 - i * 0.2);
+        g.lineStyle(4, line, (0.8 - i * 0.2) * a);
         g.strokeEllipse(p.x, py, (26 - i * 6 + Math.sin(t * 4 + i) * 2) * 2, (46 - i * 8) * 2);
       }
     }

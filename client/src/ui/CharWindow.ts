@@ -1,7 +1,7 @@
 // 캐릭터 창 (C): 능력치 분배, 소지품(초기화 주문서 사용), 스킬 목록
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type StatId } from '@shared/data/classes';
+import { CLASSES, SKILLS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel, expNeed, type StatId } from '@shared/data/classes';
 import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
-import { learned, skillLevel } from '@shared/rules/progress';
+import { learned, skillKeyOf, skillLevel } from '@shared/rules/progress';
 import { countItem, equipBonus } from '@shared/rules/inventory';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -67,16 +67,17 @@ export class CharWindow {
     b.appendChild(inv);
 
     b.appendChild(el('h3', '', '스킬'));
-    cls.skills.forEach((id, i) => {
-      const sk = SKILLS[id];
+    for (const id of classSkillIds(s.cls)) {
+      const sk = SKILLS[id], need = unlockLevel(s.cls, id);
       let t: string;
       if (learned(s, id)) {
         const e = s.learned[id] ? ELEMENTS[s.learned[id]!] : NO_ELEMENT, lv = skillLevel(s, id);
-        t = `${sk.name} · ${e.icon} ${e.name} · Lv ${lv}${lv >= MAX_SKILL_LEVEL ? ' (마스터)' : ''}`;
+        t = `${sk.name}${sk.passive ? '' : ` · ${e.icon} ${e.name}`} · Lv ${lv}${lv >= MAX_SKILL_LEVEL ? ' (마스터)' : ''}`;
       } else {
-        t = `${sk.name} · <span class="note">Lv ${UNLOCK_LEVELS[i]}에 해금${s.level >= UNLOCK_LEVELS[i] ? ' — 교수님께 배우러 가자!' : ''}</span>`;
+        t = `${sk.name} · <span class="note">Lv ${need}에 해금${s.level >= need ? ' — 교수님께 배우러 가자!' : ''}</span>`;
       }
-      b.appendChild(el('div', 'card', `[${SLOT_KEYS[i]}] ${t}`));
-    });
+      const k = sk.passive ? null : skillKeyOf(s, id);
+      b.appendChild(el('div', 'card', `${k ? `[${k}] ` : ''}${t}`));
+    }
   }
 }

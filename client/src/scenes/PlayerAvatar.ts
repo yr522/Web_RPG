@@ -87,6 +87,8 @@ function attackPose(me: PlayerState): Pose | null {
     return null;
   }
   if (a.name === 'dash') return { sheet, frame: 1 };
+  // 흘려베기 받아내기: 휘두르기 전 자세로 버팀
+  if (a.name === 'guard') return { sheet, frame: 0 };
   if (a.events?.length) {
     // 판정이 나오는 순간 휘두른 그림, 다음 판정 전에는 다시 휘두르기 전 그림
     let last = -1;

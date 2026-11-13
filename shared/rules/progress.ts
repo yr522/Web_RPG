@@ -1,6 +1,6 @@
 // 메뉴에서 하는 행동들 (상점, 퀘스트, 수업, 스킬 배우기, 능력치).
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
-import { CLASSES, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, MAX_SKILL_LEVEL, expNeed, type SlotKey, type StatId } from '../data/classes';
+import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
@@ -75,9 +75,32 @@ export function skillKeyOf(s: SaveData, skill: string): SlotKey | null {
   return SLOT_KEYS.find(k => s.skillKeys[k] === id) ?? null;
 }
 
-/** 다음에 배울 스킬 순번 (0~3), 다 배웠으면 -1 */
+/** 패시브 레벨 (안 배웠으면 0) */
+export const passiveLv = (s: SaveData, id: string) => (learned(s, id) ? skillLevel(s, id) : 0);
+
+/** 다음에 배울 기본 스킬 순번 (0~3), 다 배웠으면 -1 */
 export function nextToLearn(s: SaveData) {
   return CLASSES[s.cls].skills.findIndex(id => !learned(s, id));
+}
+
+/** 지금 배울 수 있는 스킬 (기본 스킬은 순서대로, 힌트 스킬·패시브는 레벨만 되면) */
+export function learnable(s: SaveData): string[] {
+  const basics = CLASSES[s.cls].skills, ni = nextToLearn(s);
+  return classSkillIds(s.cls).filter(id => {
+    if (learned(s, id) || s.level < unlockLevel(s.cls, id)) return false;
+    const bi = basics.indexOf(id);
+    return bi < 0 || bi === ni;
+  });
+}
+
+/** 아직 레벨이 안 돼서 못 배우는 스킬 중 가장 먼저 열리는 것 */
+export function nextLocked(s: SaveData): string | null {
+  let best: string | null = null;
+  for (const id of classSkillIds(s.cls)) {
+    if (learned(s, id) || s.level >= unlockLevel(s.cls, id)) continue;
+    if (!best || unlockLevel(s.cls, id) < unlockLevel(s.cls, best)) best = id;
+  }
+  return best;
 }
 
 export function gainExp(s: SaveData, n: number): ActionResult {
@@ -90,15 +113,14 @@ export function gainExp(s: SaveData, n: number): ActionResult {
     ups++;
   }
   if (!ups) return { ok: true, msg: `+${n} EXP` };
-  const ni = nextToLearn(s);
-  const unlock = ni >= 0 && UNLOCK_LEVELS[ni] === s.level ? ` · 새 스킬 해금: ${SKILLS[CLASSES[s.cls].skills[ni]].name}` : '';
+  const opened = classSkillIds(s.cls).filter(id => !learned(s, id) && unlockLevel(s.cls, id) === s.level);
+  const unlock = opened.length ? ` · 새 스킬 해금: ${opened.map(id => SKILLS[id].name).join(', ')}` : '';
   return { ok: true, msg: `+${n} EXP`, banner: `레벨 업! Lv ${s.level}${unlock}`, statsChanged: true, fullHeal: true };
 }
 
 /** 교수님 머리 위 "!" : 배울 스킬, 받을·보고할 퀘스트, 들을 수업이 있음 */
 export function professorHasNews(s: SaveData, nowMs: number) {
-  const ni = nextToLearn(s);
-  if (ni >= 0 && s.level >= UNLOCK_LEVELS[ni]) return true;
+  if (learnable(s).length) return true;
   for (const q of QUESTS) {
     if (q.giver !== 'prof') continue;
     const st = questState(s, q.id);
@@ -112,7 +134,7 @@ export function professorHasNews(s: SaveData, nowMs: number) {
 /** 지금 수업을 들을 수 있으면 null, 아니면 이유 */
 export function canAttend(s: SaveData, nowMs: number): string | null {
   const ti = timeInfo(nowMs);
-  const list = CLASSES[s.cls].skills.filter(id => learned(s, id));
+  const list = classSkillIds(s.cls).filter(id => learned(s, id));
   if (ti.phase !== 0) return 'notMorning';
   if (s.attendedCycle === ti.cycle) return 'done';
   if (!list.length) return 'noSkill';
@@ -144,14 +166,21 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
     case 'questPin': return togglePin(s, a.id);
     case 'learn': {
       const cls = CLASSES[s.cls], i = cls.skills.indexOf(a.skill);
-      if (i < 0) return fail('우리 학과 스킬이 아니야');
-      if (i !== nextToLearn(s)) return fail('스킬은 순서대로 배워야 해');
-      if (s.level < UNLOCK_LEVELS[i]) return fail(`Lv ${UNLOCK_LEVELS[i]}에 배울 수 있어`);
+      if (!classSkillIds(s.cls).includes(a.skill)) return fail('우리 학과 스킬이 아니야');
+      if (learned(s, a.skill)) return fail('이미 배운 스킬이야');
+      if (i >= 0 && i !== nextToLearn(s)) return fail('스킬은 순서대로 배워야 해');
+      const need = unlockLevel(s.cls, a.skill);
+      if (s.level < need) return fail(`Lv ${need}에 배울 수 있어`);
       const sk = SKILLS[a.skill];
       if (sk.elements.length ? !a.element || !sk.elements.includes(a.element) : a.element !== null) return fail('원소를 골라줘');
       s.learned[a.skill] = a.element;
       s.skillLevels[a.skill] ??= 1;
-      return { ok: true, banner: `${sk.name} 습득!` };
+      // 힌트 스킬: 비어 있는 첫 키에 등록 (기본 스킬은 처음부터 Z A S D 에 있음)
+      if (i < 0 && !sk.passive && !skillKeyOf(s, a.skill)) {
+        const k = SLOT_KEYS.find(k => !s.skillKeys[k]);
+        if (k) s.skillKeys[k] = a.skill;
+      }
+      return { ok: true, banner: `${sk.name} 습득!`, statsChanged: sk.passive };
     }
     case 'attend': {
       const why = canAttend(s, nowMs);
@@ -161,7 +190,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       if (lv >= MAX_SKILL_LEVEL) return fail('이미 마스터한 스킬이야');
       s.skillLevels[a.skill] = lv + 1;
       s.attendedCycle = timeInfo(nowMs).cycle;
-      return { ok: true, banner: `${SKILLS[a.skill].name} Lv ${lv + 1}${lv + 1 >= MAX_SKILL_LEVEL ? ' (마스터!)' : ''}` };
+      return { ok: true, statsChanged: SKILLS[a.skill].passive, banner: `${SKILLS[a.skill].name} Lv ${lv + 1}${lv + 1 >= MAX_SKILL_LEVEL ? ' (마스터!)' : ''}` };
     }
     case 'skillUp': {
       if (s.skillPts <= 0) return fail('스킬 포인트가 없어');
@@ -170,10 +199,10 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       if (lv >= MAX_SKILL_LEVEL) return fail('이미 마스터한 스킬이야');
       s.skillPts--;
       s.skillLevels[a.skill] = lv + 1;
-      return { ok: true };
+      return { ok: true, statsChanged: SKILLS[a.skill].passive };
     }
     case 'bindSkill': {
-      if (!SLOT_KEYS.includes(a.key) || !CLASSES[s.cls].skills.includes(a.skill)) return fail('등록할 수 없어');
+      if (!SLOT_KEYS.includes(a.key) || !classActiveIds(s.cls).includes(a.skill)) return fail('등록할 수 없어');
       if (!learned(s, a.skill)) return fail('배운 스킬만 등록할 수 있어');
       for (const k of SLOT_KEYS) if (s.skillKeys[k] === a.skill) delete s.skillKeys[k];
       s.skillKeys[a.key] = a.skill;
@@ -203,7 +232,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       for (const lv of Object.values(s.skillLevels)) s.skillPts += Math.max(0, lv - 1);
       s.skillLevels = {};
       s.learned = {};
-      return { ok: true, banner: '스킬트리 초기화! 교수님께 다시 배우자' };
+      return { ok: true, statsChanged: true, banner: '스킬트리 초기화! 교수님께 다시 배우자' };
     }
     case 'equip': {
       const why = toggleEquip(s, a.index);

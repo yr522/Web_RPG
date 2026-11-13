@@ -30,6 +30,8 @@ export interface PlayerAction {
   minT?: number;
   /** 충전·조준 중인 스킬의 원소 */
   elem?: import('../data/elements').Element | null;
+  /** 흘려베기 받아내기 중: 받은 피해(줄이기 전) 합 */
+  guard?: { taken: number };
   /** 조준 각도 (사슬 화살) */
   ang?: number;
   maxAng?: number;
@@ -123,7 +125,16 @@ export interface Enemy extends Body {
   held?: boolean;
   /** 한 번만 나오는 몬스터 (죽으면 다시 안 나타남) */
   once?: boolean;
+  /** 출혈 (혈섬): 남은 시간, 다음 피해까지, 한 번 피해 */
+  bleed?: { t: number; tick: number; dmg: number; owner: PlayerState; elem: Element | null } | null;
+  /** 마력 씨앗: 심은 사람, 심은 뒤 그 사람이 준 피해 합 */
+  seed?: { owner: PlayerState; dmg: number; elem: Element | null } | null;
+  /** 묶임 (땅 덫): 남은 시간 동안 못 움직임 */
+  root?: number;
 }
+
+/** 궁수 덫: 바닥에 설치, 밟으면 작동. (x, y) = 아래 가운데 */
+export interface Trap { id: EntityId; owner: PlayerState; x: number; y: number; w: number; elem: Element | null; t: number }
 
 export interface Coin {
   id: EntityId;
@@ -153,6 +164,12 @@ export interface Attack {
   light?: boolean;
   /** 스킬 레벨 배율 */
   sm: number;
+  /** 어떤 스킬의 공격인지 (출혈·씨앗 등 스킬별 효과) */
+  skill: string;
+  /** 잃은 HP 비례 추가 피해 (그림자 화살): 잃은 HP × pct, 최대 공격력 × cap */
+  exec?: { pct: number; cap: number };
+  /** 맞은 몬스터를 이 시간(초)만큼 묶음 (보스 제외) */
+  root?: number;
 }
 
 /** 날아가는 공격 (마력탄, 화살) */
@@ -171,6 +188,10 @@ export interface Projectile extends Attack {
   pierce?: boolean;
   hit: Set<EntityId>;
   dead: boolean;
+  /** 궤도탄: 몸 주위를 도는 중 (ang = 각도, t = 남은 시간, wait = 적을 찾은 뒤 출발까지) */
+  orbit?: { ang: number; t: number; wait: number };
+  /** 궤도탄: 쫓아가는 몬스터 */
+  target?: EntityId;
 }
 
 /** 소용돌이 화살: 범위 안 몬스터를 가운데로 끌어모음 */

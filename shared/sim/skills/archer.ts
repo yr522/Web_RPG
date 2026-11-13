@@ -2,6 +2,8 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
+import { HINT, PASSIVE } from '../../data/classes';
+import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
 
@@ -40,6 +42,15 @@ function chargeShot(w: SkillWorld, p: PlayerState, name: string, el: Element | n
         coef: (0.8 + 2.4 * g) * power, elem: el, kb: 80 + 220 * g, skill: name,
       });
       if (g >= 1) w.float(cx(p), p.y - 26, '최대 충전!', color(el), 14, 0.6);
+      // 정령의 숨결 (패시브): 풀차징 마법 화살에 정령 화살 1발
+      const sp = passiveLv(p.data, 'jeongryeong');
+      if (g >= 1 && name === 'hwasal' && sp > 0) {
+        const f = PASSIVE.jeongryeong.base + PASSIVE.jeongryeong.perLv * (sp - 1), face = p.face, x0 = cx(p), y0 = cy(p);
+        w.later(p, 0.08, () => w.addProj(p, {
+          kind: 'arrow', x: x0 + face * 18, y: y0 - 10, vx: face * 1420, vy: 0, range: 800, size: 14, len: 34,
+          coef: 3.2 * power * f, elem: el, kb: 120, skill: name,
+        }));
+      }
       p.action = { name: 'recover', t: 0, dur: 0.08 };
       p.lockT = 0.22;
     },
@@ -147,7 +158,35 @@ export const ARCHER: ClassSkills = {
     },
   },
 
+  // ---------- 힌트 스킬 ----------
+  // (start 에 아래에서 추가)
+
   // 충전하면서 걸으면 조금 느려진다
   walk: { charge: 0.8, recover: 1, draw: 1 },
   auto: [],
+};
+
+/** 덫 (2라인 인간의 길 힌트): 앞 바닥에 설치, 밟은 적을 불 = 터트림 / 땅 = 묶음 */
+ARCHER.start.deot = (w, p) => {
+  p.action = {
+    name: 'draw', skill: 'deot', elem: w.elemOf(p, 'deot'), t: 0, dur: 0.2, update: () => { if (p.onGround) p.vx = 0; },
+    end: () => { w.addTrap(p, cx(p) + p.face * HINT.deot.dist); p.lockT = 0.15; },
+  };
+};
+
+/** 그림자 화살 (3라인 일식 사수 힌트): 관통 화살 + 적의 잃은 HP 비례 추가 피해 */
+ARCHER.start.geurimja = (w, p) => {
+  const H = HINT.geurimja, el = w.elemOf(p, 'geurimja');
+  p.action = {
+    name: 'draw', skill: 'geurimja', elem: el, t: 0, dur: 0.24, update: () => { p.vx = 0; },
+    end: () => {
+      w.addProj(p, {
+        kind: 'arrow', x: cx(p) + p.face * 18, y: cy(p) - 6, vx: p.face * 1300, vy: 0, range: H.range, size: 16, len: 40,
+        coef: H.coef, elem: el, kb: 160, pierce: true, skill: 'geurimja', exec: { pct: H.lostPct, cap: H.capCoef },
+      });
+      w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: color(el), life: 0.2 });
+      p.action = { name: 'recover', t: 0, dur: 0.08 };
+      p.lockT = 0.22;
+    },
+  };
 };

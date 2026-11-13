@@ -1,5 +1,6 @@
 // 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
+import { HINT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
 
@@ -102,9 +103,53 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
   },
 };
 
+// ---------- 힌트 스킬 ----------
+/** 혈섬 (2라인 암살자 힌트): 빠른 베기 + 출혈 */
+WARRIOR_START.hyeolseom = (w, p) => {
+  const el = w.elemOf(p, 'hyeolseom'), c = color(el);
+  p.action = {
+    name: 'hyeolseom', t: 0, dur: 0.22,
+    events: [{
+      at: 0.05, fn: () => {
+        w.addHB(p, { dx: -6, dy: -46, w: 104, h: 80, coef: HINT.hyeolseom.coef, elem: el, kb: 140, life: 0.06, skill: 'hyeolseom' });
+        w.fx({ kind: 'arc', x: cx(p) + p.face * 4, y: cy(p) - 2, face: p.face, r: 64, a0: -1.0, a1: 1.0, color: c, w: 6, life: 0.16 });
+        w.fx({ kind: 'arc', x: cx(p) + p.face * 10, y: cy(p) - 2, face: p.face, r: 52, a0: -0.8, a1: 0.8, color: '#d04050', w: 3, life: 0.2 });
+      },
+    }],
+    end: () => { p.lockT = 0.16; },
+    update: () => { if (p.onGround) p.vx = p.face * 30; },
+  };
+};
+
+/** 흘려베기 (3라인 수호기사 힌트): 받아내기 자세 → 받은 피해에 비례한 베기 */
+WARRIOR_START.heullyeo = (w, p) => {
+  const H = HINT.heullyeo, el = w.elemOf(p, 'heullyeo'), c = color(el);
+  const guard = { taken: 0 };
+  w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 40, r1: 30, life: 0.25 });
+  p.action = {
+    name: 'guard', skill: 'heullyeo', t: 0, dur: H.guard, superArmor: true, guard,
+    update: () => { p.vx = 0; },
+    end: () => {
+      const coef = Math.min(H.maxCoef, H.coef + H.perHp * guard.taken / p.stats.maxHp);
+      const big = coef > H.coef;
+      p.action = {
+        name: 'heullyeo', t: 0, dur: 0.24, superArmor: true,
+        events: [{
+          at: 0.04, fn: () => {
+            w.addHB(p, { dx: -10, dy: -60, w: big ? 150 : 124, h: 104, coef, elem: el, kb: 320, life: 0.08, skill: 'heullyeo' });
+            w.fx({ kind: 'arc', x: cx(p), y: cy(p) - 4, face: p.face, r: big ? 96 : 80, a0: 1.4, a1: -1.4, color: c, w: big ? 16 : 11, life: 0.22 });
+          },
+        }],
+        update: () => { p.vx = 0; },
+        end: () => { p.lockT = 0.2; },
+      };
+    },
+  };
+};
+
 export const WARRIOR: ClassSkills = {
   can: WARRIOR_CAN,
   start: WARRIOR_START,
-  walk: { basic: 1, ilseom: 1, wolcham: 1, cheonbung: 1 },
+  walk: { basic: 1, ilseom: 1, wolcham: 1, cheonbung: 1, hyeolseom: 1 },
   auto: ['basic', 'ilseom'],
 };
