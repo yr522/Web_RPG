@@ -20,6 +20,7 @@ import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
+import { HIT_COMBO, comboExpMult } from '../data/combo';
 
 export type { PlayerState, Enemy, Coin, Projectile, Vortex, Trap } from './entities';
 export const TICK = 1 / 60;
@@ -103,7 +104,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, push: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
+      lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
     // 가기 퀘스트: 이 맵에 들어오면 완료
@@ -228,6 +229,8 @@ export class World implements SkillWorld {
     p.invT = Math.max(0, p.invT - dt);
     p.hurt = Math.max(0, p.hurt - dt);
     p.cbWindow = Math.max(0, p.cbWindow - dt);
+    // 콤보: 정해진 시간 동안 못 맞히면 끊김
+    if (p.hits > 0) { p.hitsT -= dt; if (p.hitsT <= 0) p.hits = 0; }
     p.lockT = Math.max(0, p.lockT - dt);
     // 마력 해방: 쿨타임 2배속, 끝나면 그때부터 해방 쿨타임
     if (p.buffT > 0) {
@@ -353,7 +356,7 @@ export class World implements SkillWorld {
       // 쓰러짐: 쓰러져 있는 동안 무적 (몸통 접촉 무적이 아니라서 골렘 돌진도 막음)
       p.hp = 0;
       this.resetCombat(p);
-      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0;
+      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0; p.hits = 0;
     }
   }
 
@@ -628,6 +631,7 @@ export class World implements SkillWorld {
       e.seed = { owner: p, dmg: 0, elem: h.elem };
     }
     p.lastHit = { order: h.order, t: this.time };
+    p.hits = Math.min(HIT_COMBO.max, p.hits + 1); p.hitsT = HIT_COMBO.timeout;
     this.events.push({ type: 'hit', enemyId: e.id, heavy: !h.light, reaction });
     if (e.hp <= 0 && !e.dead) this.kill(e, p);
   }
@@ -674,7 +678,7 @@ export class World implements SkillWorld {
     this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const def = MONSTERS[e.mob];
     const em = e.elite ? ELITE.exp : 1;
-    const r = gainExp(s, Math.round(def.exp * this.diff.exp * em));
+    const r = gainExp(s, Math.round(def.exp * this.diff.exp * em * comboExpMult(p.hits)));
     this.float(cx(e), e.y - 46, r.msg!, '#9ef0a0', 14, 1.0);
     if (r.banner) {
       this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#ffe066' });

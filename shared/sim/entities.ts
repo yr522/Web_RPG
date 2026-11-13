@@ -60,6 +60,9 @@ export interface PlayerState extends Body {
   lockT: number;
   buffer: { name: string; t: number } | null;
   lastHit: { order: number; t: number } | null;
+  /** 콤보 (적을 맞힌 수, 최대 HIT_COMBO.max). hitsT = 끊기기까지 남은 시간 */
+  hits: number;
+  hitsT: number;
   /** 검사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
   combo: number;
   /** 질풍참 직후 천붕을 쓸 수 있는 시간 */

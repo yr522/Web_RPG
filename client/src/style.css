@@ -742,3 +742,14 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .bb-under { width: 100%; }
 .bb-trail { background: rgba(255, 255, 255, .85); }
 .bb-fill { box-shadow: inset 0 3px 0 rgba(255, 255, 255, .28), inset 0 -3px 0 rgba(0, 0, 0, .25); }
+
+/* 콤보 (오른쪽 가운데): 큰 기울인 숫자, 아래 작고 굵은 Combo */
+.hcombo {
+  position: absolute; right: calc(60 * var(--u) + var(--sar, 0px)); top: 34%; display: none; flex-direction: column; align-items: flex-end;
+  pointer-events: none; color: var(--cc, #fff); text-shadow: 0 2px 0 rgba(0, 0, 0, .55), 0 0 10px rgba(0, 0, 0, .55);
+}
+.hcombo.on { display: flex; }
+.hc-n { font-size: max(40px, 84 * var(--u)); font-weight: 900; font-style: italic; line-height: .95; letter-spacing: -.02em; transform-origin: 80% 70%; -webkit-text-stroke: max(1px, 2 * var(--u)) rgba(0, 0, 0, .55); }
+.hc-n.pop { animation: hc-pop .16s ease-out; }
+@keyframes hc-pop { 0% { transform: scale(1.28); } 100% { transform: scale(1); } }
+.hc-l { font-size: max(12px, 20 * var(--u)); font-weight: 900; font-style: italic; letter-spacing: .08em; margin-top: calc(-4 * var(--u)); margin-right: calc(6 * var(--u)); }

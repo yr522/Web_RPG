@@ -8,6 +8,7 @@ import { hudQuests, questLines } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import { BOSS_BAR } from '@shared/data/bosses';
+import { comboColor } from '@shared/data/combo';
 import { MONSTERS } from '@shared/data/monsters';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
@@ -106,6 +107,8 @@ export class Hud {
     this.els.info = r.appendChild(h('div', 'info'));
     // 위 가운데: 보스 이름 + 여러 줄 HP 바 (보스가 있을 때만)
     this.els.boss = r.appendChild(h('div', 'bossbar', '<div class="bb-head"><b class="bb-name"></b><span class="bb-n"></span></div><div class="bb-bar"><i class="bb-under"></i><i class="bb-trail"></i><i class="bb-fill"></i></div>'));
+    // 오른쪽 가운데: 콤보 (큰 기울인 숫자 + 아래 작고 굵은 Combo)
+    this.els.combo = r.appendChild(h('div', 'hcombo', '<b class="hc-n"></b><span class="hc-l">Combo</span>'));
     this.els.banner = r.appendChild(h('div', 'banner'));
     this.els.toast = r.appendChild(h('div', 'toast'));
 
@@ -310,6 +313,19 @@ export class Hud {
     this.set('bossUnder', q('.bb-under'), 'background', li > 0 ? col(li - 1) : 'transparent');
   }
 
+  private lastHits = 0;
+  /** 콤보: 1 이상일 때만 보임. 오를 때마다 톡 튀고, 끊기기 1초 전부터 흐려짐 */
+  private comboView(p: { hits: number; hitsT: number }) {
+    const el = this.els.combo, n = el.querySelector<HTMLElement>('.hc-n')!;
+    this.set('comboOn', el, 'class', p.hits > 0 ? 'hcombo on' : 'hcombo');
+    if (p.hits <= 0) { this.lastHits = 0; return; }
+    this.set('comboN', n, 'text', String(p.hits));
+    el.style.setProperty('--cc', comboColor(p.hits));
+    el.style.opacity = String(Math.max(0.25, Math.min(1, p.hitsT)));
+    if (p.hits > this.lastHits) { n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop'); }
+    this.lastHits = p.hits;
+  }
+
   update(s: Session) {
     const p = s.me(), save = s.save, st = p.stats;
 
@@ -321,6 +337,7 @@ export class Hud {
     }
 
     this.bossBar(s);
+    this.comboView(p);
 
     const hpTxt = `${Math.ceil(p.hp)} / ${st.maxHp}`;
     this.set('hpW', this.els.hp.querySelector('i')!, 'width', `${(100 * p.hp / st.maxHp).toFixed(2)}%`);
