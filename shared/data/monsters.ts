@@ -64,7 +64,7 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
  */
 export type EliteAffix = 'swift' | 'iron' | 'rage';
 export const ELITE = {
-  chance: 0.08, hp: 4, touch: 1.5, exp: 4, gold: 4, size: 1.3,
+  chance: 0.03, hp: 4, touch: 1.5, exp: 4, gold: 4, size: 1.3,
   color: '#ffd24a',
   affixes: {
     /** 빠름 */
