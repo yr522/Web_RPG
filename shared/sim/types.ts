@@ -60,4 +60,9 @@ export type Fx =
   /** 원소 파도 한 칸: x = 왼쪽, y = 바닥 */
   | { kind: 'flame'; x: number; y: number; w: number; h: number; color: string; life: number }
   /** 화살비 범위 (땅까지 세로 띠) */
-  | { kind: 'zone'; x: number; w: number; color: string; life: number };
+  | { kind: 'zone'; x: number; w: number; color: string; life: number }
+  /**
+   * 그림 이펙트 (client/src/scenes/vfx.ts 의 이름). owner 가 있으면 그 플레이어를 따라감: (x, y) 대신 몸 가운데 + (dx × 바라보는 방향, dy).
+   * color 가 있으면 그 색을 입힘 (원소 색). life 는 쓰지 않음 (그림이 끝나면 사라짐)
+   */
+  | { kind: 'anim'; anim: string; x: number; y: number; face: number; owner?: string; dx?: number; dy?: number; color?: string; life: number };

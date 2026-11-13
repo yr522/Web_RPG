@@ -13,6 +13,7 @@ import type { Fx } from '@shared/sim/types';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
+import { VFX, createVfxAnims, preloadVfx, vfxKey } from './vfx';
 import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
@@ -115,6 +116,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private shake = 0;
   private flash = new Map<string, number>();
   private fxList: { f: Fx; t: number }[] = [];
+  /** 재생 중인 그림 이펙트 */
+  private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
   private combat!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
   /** 캐릭터 뒤에 그리는 것 (마법진) */
@@ -141,6 +144,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   preload() {
     preloadAvatar(this);
+    preloadVfx(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
@@ -149,6 +153,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   }
 
   create() {
+    createVfxAnims(this);
     this.makeGraySlime();
     this.makeTempMobs();
     this.makeTempMobs2();
@@ -210,6 +215,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.enemySprites.clear();
     this.flash.clear();
     this.fxList = [];
+    for (const o of this.vfxSprites) o.sp.destroy();
+    this.vfxSprites = [];
     const { world, save } = this.deps.session, map = world.map;
     this.timeBgs = []; this.timeProps = [];
     // 시간대별 배경 그림 (맨 뒤, NPC·간판보다 먼저): 맵 폭에 맞춰 늘리고, 그림 속 땅 줄이 땅 높이에 오게. 그 위에 건물 등
@@ -430,7 +437,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
       if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
       if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
-      if (ev.type === 'fx') this.fxList.push({ f: ev.fx, t: 0 });
+      if (ev.type === 'fx') { if (ev.fx.kind === 'anim') this.playVfx(ev.fx); else this.fxList.push({ f: ev.fx, t: 0 }); }
       if (ev.type === 'hit') {
         this.flash.set(ev.enemyId, 0.1);
         this.hitstop = Math.max(this.hitstop, ev.reaction ? 0.08 : ev.heavy ? 0.045 : 0.02);
@@ -1011,8 +1018,26 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
+  /** 그림 이펙트 재생 (끝나면 사라짐). owner 가 있으면 그 플레이어를 따라감 */
+  private playVfx(f: Extract<Fx, { kind: 'anim' }>) {
+    const d = VFX[f.anim];
+    if (!d) return;
+    const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
+    if (f.color) sp.setTint(hex(f.color));
+    const follow = () => {
+      const p = f.owner ? this.deps.session.world.players.get(f.owner) : undefined;
+      if (p) sp.setPosition(p.x + p.w / 2 + (f.dx ?? 0) * f.face, p.y + p.h / 2 + (f.dy ?? 0));
+      else if (!f.owner) sp.setPosition(f.x + (f.dx ?? 0) * f.face, f.y + (f.dy ?? 0));
+    };
+    follow();
+    this.vfxSprites.push({ sp, follow });
+    sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); });
+    sp.play(vfxKey(f.anim));
+  }
+
   /** 검기·원 퍼짐·잔상 */
   private drawFx(dt: number) {
+    for (const o of this.vfxSprites) o.follow();
     const g = this.fxG;
     g.clear();
     for (const o of this.fxList) {
