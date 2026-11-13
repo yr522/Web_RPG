@@ -1,0 +1,183 @@
+{
+ "frames": [
+  {
+   "filename": "slash-arc 0.png",
+   "frame": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  },
+  {
+   "filename": "slash-arc 1.png",
+   "frame": {
+    "x": 42,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  },
+  {
+   "filename": "slash-arc 2.png",
+   "frame": {
+    "x": 84,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  },
+  {
+   "filename": "slash-arc 3.png",
+   "frame": {
+    "x": 0,
+    "y": 47,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  },
+  {
+   "filename": "slash-arc 4.png",
+   "frame": {
+    "x": 42,
+    "y": 47,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  },
+  {
+   "filename": "slash-arc 5.png",
+   "frame": {
+    "x": 84,
+    "y": 47,
+    "w": 42,
+    "h": 47
+   },
+   "rotated": false,
+   "trimmed": false,
+   "spriteSourceSize": {
+    "x": 0,
+    "y": 0,
+    "w": 42,
+    "h": 47
+   },
+   "sourceSize": {
+    "w": 42,
+    "h": 47
+   },
+   "pivot": {
+    "x": 0.2619047619047619,
+    "y": 0.40425531914893614
+   },
+   "duration": 83
+  }
+ ],
+ "meta": {
+  "app": "PixelLab VFX Creator",
+  "image": "slash-arc.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 126,
+   "h": 94
+  },
+  "scale": "1",
+  "anchor": {
+   "kind": "origin",
+   "x": 11,
+   "y": 19
+  },
+  "frameTags": [
+   {
+    "name": "slash-arc",
+    "from": 0,
+    "to": 5,
+    "direction": "forward"
+   }
+  ]
+ }
+}
