@@ -16,12 +16,11 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
   basic(w, p) {
     p.action = {
       name: 'basic', t: 0, dur: 0.2,
-      events: [{
-        at: 0.08, fn: () => {
-          w.addHB(p, { dx: -6, dy: -30, w: 52, h: 52, coef: 0.6, elem: null, kb: 120, life: 0.06, skill: 'basic' });
-          w.fx({ kind: 'arc', x: cx(p) + p.face * 8, y: cy(p), face: p.face, r: 30, a0: -0.8, a1: 0.8, color: '#dddddd', w: 5, life: 0.12 });
-        },
-      }],
+      events: [
+        // 베기 그림 (임시 Smear): 0.04초마다 한 장, 판정이 나오는 0.08초에 휘두르는 장면
+        { at: 0, fn: () => w.fx({ kind: 'anim', anim: 'smear_h1', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 12, dy: -6, life: 0.2 }) },
+        { at: 0.08, fn: () => w.addHB(p, { dx: -6, dy: -30, w: 52, h: 52, coef: 0.6, elem: null, kb: 120, life: 0.06, skill: 'basic' }) },
+      ],
       end: () => { p.lockT = 0.16; },
     };
   },
