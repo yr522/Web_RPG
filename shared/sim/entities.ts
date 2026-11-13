@@ -133,6 +133,10 @@ export interface Enemy extends Body {
   seed?: { owner: PlayerState; dmg: number; elem: Element | null } | null;
   /** 묶임 (땅 덫): 남은 시간 동안 못 움직임 */
   root?: number;
+  /** 정예몹 특성 (없으면 보통) */
+  elite?: import('../data/monsters').EliteAffix[];
+  /** 분노 특성이 발동함 */
+  raged?: boolean;
 }
 
 /** 궁수 덫: 바닥에 설치, 밟으면 작동. (x, y) = 아래 가운데 */

@@ -1,7 +1,7 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem';
+export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss';
 
 /**
  * 움직임 종류
@@ -30,6 +30,8 @@ export interface MonsterDef {
   elemental?: boolean;
   /** 보스: 맞아도 안 밀리고 경직 없음, 소용돌이에 안 끌려감 */
   boss?: boolean;
+  /** 그림이 없으면 이 몬스터 그림을 빌려 씀 (크기는 w·h 에 맞춤) */
+  look?: MonsterId;
   /** 잡으면 확률로 떨어뜨리는 물건. max = 이만큼 가지고 있으면(바닥에 떨어진 것 포함) 안 떨어뜨림, quest = 이 퀘스트를 하는 중일 때만 */
   drops?: readonly { item: string; chance: number; max?: number; quest?: string }[];
 }
@@ -51,8 +53,29 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   },
   guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
   guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
+  // 던전 잊힌 공방 마지막 방 (그림은 경비기계C 를 키워서 임시)
+  guard_boss: { name: '고대 수호기계', hp: 5000, exp: 300, touch: 30, gold: [150, 220], w: 80, h: 96, ai: 'charger', speed: [40, 50], chase: 1.4, boss: true, look: 'guard_c' },
   golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
 };
+
+/**
+ * 정예몹: 사냥터 몬스터가 나올 때(다시 나올 때도) chance 확률로 정예가 됨 (보스·한 번만 나오는 몬스터·안전 지대·던전은 제외, 던전은 정해 둔 자리만).
+ * 체력·몸통 피해·경험치·골드 배수, 크기 배율. 특성 하나가 붙음
+ */
+export type EliteAffix = 'swift' | 'iron' | 'rage';
+export const ELITE = {
+  chance: 0.08, hp: 4, touch: 1.5, exp: 4, gold: 4, size: 1.3,
+  color: '#ffd24a',
+  affixes: {
+    /** 빠름 */
+    swift: { name: '신속', speed: 1.6 },
+    /** 받는 피해 줄고 안 밀림 */
+    iron: { name: '강철', taken: 0.6 },
+    /** HP 가 below 아래로 내려가면 빨라지고 세짐 */
+    rage: { name: '분노', below: 0.5, speed: 1.5, touch: 1.5 },
+  } satisfies Record<EliteAffix, { name: string } & Record<string, unknown>>,
+};
+export const ELITE_AFFIXES = Object.keys(ELITE.affixes) as EliteAffix[];
 
 /** 몬스터를 알아채는 거리 등 (모든 몬스터 공통) */
 export const MONSTER_AI = {

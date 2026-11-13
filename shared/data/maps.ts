@@ -17,15 +17,18 @@ export interface Portal {
   boss?: string;
   /** 닫힌 포탈: ↑ 를 누르면 이 글만 뜨고 안 들어가짐 (나중에 열 곳. to 는 아무 맵이나) */
   closed?: string;
+  /** 던전 방: 몬스터 웨이브를 다 잡아야 나타남 */
+  afterClear?: boolean;
 }
 /** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
-export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean }
+export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[] }
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
-  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow';
+  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow'
+  | 'dungeon1' | 'dungeon2' | 'dungeon3';
 
 export interface MapDef {
   name: string;
@@ -62,6 +65,10 @@ export interface MapDef {
   respawn?: { map: MapId; x: number; y?: number };
   /** 몬스터가 없는 안전 지대: 체력이 천천히 회복 */
   safe?: boolean;
+  /** 던전 방: 몬스터가 웨이브로 나옴 (spawns 대신). 한 웨이브를 다 잡으면 다음, 다 끝나면 afterClear 포탈이 열림 */
+  waves?: Spawn[][];
+  /** 던전 마지막 방: 다 잡으면 주는 보상 */
+  clearReward?: { gold: number; exp: number };
   platforms: Platform[];
   portals: Portal[];
   npcs: Npc[];
@@ -91,6 +98,20 @@ const UNDER = (() => {
   ];
   return { width, mapTop, mid, top, platforms, spawns };
 })();
+/**
+ * 던전 방: 배경 그림 하나, 왼쪽 포탈 = 나가기(공방 지하), 오른쪽 포탈 = 다음 방 (다 잡아야 나타남). 쓰러지면 공방 지하에서 깨어남
+ */
+function dungeonRoom(name: string, img: string, groundY: number, width: number, walk: [number, number] | undefined, next: MapId | null, waves: Spawn[][], clearReward?: { gold: number; exp: number }): MapDef {
+  const [l, r] = walk ?? [0, width];
+  const portals: Portal[] = [{ x: l + 70, to: 'under', toX: 150, label: '나가기' }];
+  if (next) portals.push({ x: r - 70, to: next, toX: 220, label: '다음 방', afterClear: true });
+  return {
+    name, width, indoor: true, walk, bgColor: 0x15121e, bg: { img, groundY },
+    platforms: [], portals, npcs: [], signs: [], spawns: [], waves, clearReward,
+    respawn: { map: 'under', x: UNDER.mid, y: UNDER.top },
+  };
+}
+
 /** 골렘 방 배경 golem_room.png 1774×887, 땅 줄 714 → 폭 1168. 양옆 전경(그림 x 230 / 1545 밖)으로는 못 감 */
 const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 584 };
 
@@ -304,6 +325,8 @@ export const MAPS: Record<MapId, MapDef> = {
     portals: [
       { x: UNDER.mid, y: UNDER.top, to: 'workshop', toX: 220, label: '공방 내부' },
       { x: UNDER.mid, to: 'golem_room', toX: 220, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
+      // 던전 입구 (바닥 왼쪽)
+      { x: 150, to: 'dungeon1', toX: 220, label: '잊힌 공방', confirm: '던전 잊힌 공방에 들어갈까? (방 3개, 다 잡아야 다음 방)' },
     ],
     npcs: [],
     signs: [],
@@ -311,7 +334,7 @@ export const MAPS: Record<MapId, MapDef> = {
   },
   // 골렘 방 (슬라임 맵 크기). 입장 포탈에서 고른 난이도로 골렘이 한 번만 나옴. 골렘 퀘스트를 끝냈으면 나가는 포탈
   golem_room: {
-    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 },
+    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 150 },
     platforms: [],
     portals: [{ x: 220, to: 'under', toX: UNDER.mid, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [],
@@ -320,9 +343,24 @@ export const MAPS: Record<MapId, MapDef> = {
     // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
     respawn: { map: 'under_trial', x: UNDER.mid, y: UNDER.top },
   },
+  // ===== 던전: 잊힌 공방 (공방 지하 바닥 왼쪽 포탈). 방 3개, 웨이브를 다 잡으면 다음 방 포탈이 열림. 왼쪽 포탈은 언제나 나가기 =====
+  dungeon1: dungeonRoom('잊힌 공방 1', 'workshop', 716, 1164, undefined, 'dungeon2', [
+    [{ x: 600, mob: 'guard_a' }, { x: 800, mob: 'guard_a' }, { x: 1000, mob: 'guard_a' }, { x: 900, mob: 'guard_d', y: GROUND_Y - 160 }],
+    [{ x: 650, mob: 'guard_b' }, { x: 950, mob: 'guard_b' }, { x: 700, mob: 'guard_d', y: GROUND_Y - 150 }, { x: 1000, mob: 'guard_d', y: GROUND_Y - 200 }],
+    [{ x: 750, mob: 'guard_c' }, { x: 1000, mob: 'guard_a', elite: ['swift'] }],
+  ]),
+  dungeon2: dungeonRoom('잊힌 공방 2', 'workshop', 716, 1164, undefined, 'dungeon3', [
+    [{ x: 650, mob: 'guard_c' }, { x: 950, mob: 'guard_c' }, { x: 600, mob: 'guard_d', y: GROUND_Y - 160 }, { x: 1000, mob: 'guard_d', y: GROUND_Y - 200 }],
+    [{ x: 600, mob: 'guard_b' }, { x: 1000, mob: 'guard_b' }, { x: 800, mob: 'guard_c' }, { x: 850, mob: 'guard_d', y: GROUND_Y - 180, elite: ['rage'] }],
+    [{ x: 600, mob: 'guard_a' }, { x: 750, mob: 'guard_a', elite: ['iron'] }, { x: 900, mob: 'guard_a' }, { x: 1050, mob: 'guard_a', elite: ['swift'] }],
+  ]),
+  dungeon3: dungeonRoom('잊힌 공방 3', 'golem_room', 714, GOLEM_ROOM.width, GOLEM_ROOM.walk, null, [
+    [{ x: 500, mob: 'guard_d', y: GROUND_Y - 160 }, { x: 750, mob: 'guard_d', y: GROUND_Y - 200 }, { x: 900, mob: 'guard_d', y: GROUND_Y - 150 }],
+    [{ x: 780, mob: 'guard_boss', elite: ['iron', 'rage'] }, { x: 600, mob: 'guard_a' }, { x: 950, mob: 'guard_a' }],
+  ], { gold: 400, exp: 600 }),
   // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
   golem_scene: {
-    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 70 }, safe: true,
+    name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 150 }, safe: true,
     platforms: [],
     portals: [{ x: 220, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [
