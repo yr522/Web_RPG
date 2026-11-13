@@ -7,6 +7,8 @@ import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
 import { hudQuests, questLines } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
+import { BOSS_BAR } from '@shared/data/bosses';
+import { MONSTERS } from '@shared/data/monsters';
 import type { Session } from '../session/LocalSession';
 import type { Action, Input } from '../input/Input';
 import icoProfile from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Profile.png';
@@ -102,6 +104,8 @@ export class Hud {
 
     // 오른쪽 위: 맵 · 시간 · 골드 (구상도에 없던 것, 임시 위치)
     this.els.info = r.appendChild(h('div', 'info'));
+    // 위 가운데: 보스 이름 + 여러 줄 HP 바 (보스가 있을 때만)
+    this.els.boss = r.appendChild(h('div', 'bossbar', '<div class="bb-head"><b class="bb-name"></b><span class="bb-n"></span></div><div class="bb-bar"><i class="bb-under"></i><i class="bb-trail"></i><i class="bb-fill"></i></div>'));
     this.els.banner = r.appendChild(h('div', 'banner'));
     this.els.toast = r.appendChild(h('div', 'toast'));
 
@@ -251,7 +255,7 @@ export class Hud {
     t.classList.add('show');
   }
 
-  private set(key: string, el: HTMLElement, prop: 'text' | 'html' | 'width' | 'height' | 'class', value: string) {
+  private set(key: string, el: HTMLElement, prop: 'text' | 'html' | 'width' | 'height' | 'class' | 'background', value: string) {
     if (this.cache[key] === value) return;
     this.cache[key] = value;
     if (prop === 'text') el.textContent = value;
@@ -281,6 +285,31 @@ export class Hud {
     return { slot: k, name, sub: remain > 0 ? remain.toFixed(1) : `${e.name} Lv${save.skillLevels[id] ?? 1}`, color: e.color, locked: false, empty: false, cd, ready: id === 'cheonbung' && me.cbWindow > 0 };
   }
 
+  /** 보스 HP 바 뒤로 천천히 따라오는 흰 줄 (지금 줄 안에서 0~1) */
+  private bossTrail = { id: '', layer: -1, f: 1, t: 0 };
+
+  /** 보스 HP 바: 한 줄 = BOSS_BAR.layerHp 쯤. 한 줄이 다 깎이면 아래 줄 색이 나옴 */
+  private bossBar(s: Session) {
+    const e = s.world.enemies.find(o => MONSTERS[o.mob].boss && !o.dead && !o.held);
+    this.set('bossOn', this.els.boss, 'class', e ? 'bossbar on' : 'bossbar');
+    if (!e) return;
+    const layers = Math.max(1, Math.round(e.maxHp / BOSS_BAR.layerHp)), per = e.maxHp / layers;
+    const hp = Math.max(0, e.hp), li = Math.max(0, Math.ceil(hp / per) - 1), f = hp <= 0 ? 0 : (hp - li * per) / per;
+    const col = (i: number) => BOSS_BAR.colors[i % BOSS_BAR.colors.length];
+    const tr = this.bossTrail, now = performance.now();
+    if (tr.id !== e.id || tr.layer !== li) { tr.id = e.id; tr.layer = li; tr.f = 1; }
+    const dt = Math.min(0.1, (now - (tr.t || now)) / 1000);
+    tr.t = now;
+    tr.f = Math.max(f, tr.f - dt * 0.8);
+    const q = (c: string) => this.els.boss.querySelector<HTMLElement>(c)!;
+    this.set('bossName', q('.bb-name'), 'text', MONSTERS[e.mob].name);
+    this.set('bossN', q('.bb-n'), 'text', `x${li + 1}`);
+    this.set('bossFill', q('.bb-fill'), 'width', `${(f * 100).toFixed(2)}%`);
+    this.set('bossFillC', q('.bb-fill'), 'background', col(li));
+    this.set('bossTrail', q('.bb-trail'), 'width', `${(tr.f * 100).toFixed(2)}%`);
+    this.set('bossUnder', q('.bb-under'), 'background', li > 0 ? col(li - 1) : 'transparent');
+  }
+
   update(s: Session) {
     const p = s.me(), save = s.save, st = p.stats;
 
@@ -290,6 +319,8 @@ export class Hud {
       this.set('downT', this.els.down.querySelector('.down-time')!, 'text', `자동 부활까지 ${Math.ceil(p.downT)}초`);
       this.set('downW', this.els.down.querySelector('.down-gauge i')!, 'width', `${(100 * p.downT / DOWN_TIME).toFixed(2)}%`);
     }
+
+    this.bossBar(s);
 
     const hpTxt = `${Math.ceil(p.hp)} / ${st.maxHp}`;
     this.set('hpW', this.els.hp.querySelector('i')!, 'width', `${(100 * p.hp / st.maxHp).toFixed(2)}%`);

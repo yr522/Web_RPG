@@ -108,7 +108,9 @@ export interface Enemy extends Body {
   /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
   pulled: boolean;
   /** 보스 패턴 (골렘: 내려치기 / 돌진) */
-  pat?: 'slam' | 'charge';
+  pat?: 'slam' | 'charge' | 'quake';
+  /** 대지 붕괴를 쓴 횟수 (GOLEM_NORMAL.quakeAt 순서) */
+  quakes?: number;
   /** 돌진 방향 (예고할 때 고정) */
   chargeDir?: 1 | -1;
   /** 연달아 쓴 내려치기 수 (다 차면 돌진) */

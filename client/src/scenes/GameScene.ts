@@ -24,7 +24,7 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { BOSS_ORB, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
+import { BOSS_ORB, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
 import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
 import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
 import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
@@ -764,11 +764,29 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
     }
     // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
+    // 보스 패턴 예고: 반투명 상자 (끝날수록 진해짐, 테두리 깜빡임)
+    for (const w of world.warns) {
+      const p = Math.min(1, w.t / w.life), c = hex(w.color);
+      g.fillStyle(c, 0.12 + 0.22 * p).fillRect(w.x, w.y, w.w, w.h);
+      g.lineStyle(2, c, 0.5 + 0.5 * Math.abs(Math.sin(this.time.now / (p > 0.7 ? 40 : 90)))).strokeRect(w.x, w.y, w.w, w.h);
+    }
+    // 천장 잔해: 떨어지기 직전에 위에서 내려옴
+    for (const r of world.rubble) {
+      const fall = 0.25, left = GOLEM_NORMAL.rubbleWarn - r.t;
+      if (left > fall) continue;
+      const top = world.map.top ?? 0, y = top + (GROUND_Y - top) * (1 - left / fall), s2 = GOLEM_NORMAL.rubbleW * 0.6;
+      g.fillStyle(0x4a4450).fillRect(r.x - s2 / 2, y - s2, s2, s2);
+      g.fillStyle(0x6b6470).fillRect(r.x - s2 / 2 + 3, y - s2 + 3, s2 - 6, s2 / 3);
+    }
     if (world.orb) {
       const o = world.orb;
-      if (o.dir) {
-        const a = 0.35 + 0.35 * Math.abs(Math.sin(this.time.now / 60));
-        g.lineStyle(3, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      if (o.dir && !o.locked) {
+        // 따라가는 중: 흐린 조준선
+        g.lineStyle(2, 0x6ec8ff, 0.35).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      } else if (o.dir) {
+        // 방향 고정: 굵고 빠르게 깜빡임
+        const a = 0.45 + 0.45 * Math.abs(Math.sin(this.time.now / 40));
+        g.lineStyle(4, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
       }
       g.fillStyle(0x2a3a5a).fillRect(o.x - 26, o.y - 40, 52, 14);
       g.fillStyle(0x6ec8ff, o.dir ? 1 : 0.75).fillCircle(o.x, o.y, 16);

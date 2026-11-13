@@ -95,8 +95,9 @@ export const GOLEM_AI = {
   /** 1. 전방 내려치기: 플레이어가 앞쪽 이 거리 안이면. 예고 후 앞쪽 범위(폭·높이)에 피해 */
   slamRange: 170,
   slamWindup: 0.8,
-  slamW: 215,
-  slamH: 150,
+  /** 범위: 골렘 가운데부터 앞으로 slamW, 바닥에서 slamH (플레이어 키 46 의 절반 + 조금 → 점프로 피함). 예고 동안 반투명 상자 */
+  slamW: 320,
+  slamH: 32,
   slamDmg: 45,
   slamRecover: 0.7,
   /** 가까이 붙어 있어도 내려치기를 이만큼 연달아 쓰면 다음은 돌진 */
@@ -113,8 +114,25 @@ export const GOLEM_AI = {
   groggyMult: 2,
 };
 
-/** 골렘 방 천장의 보안장치 (푸른 오브): 주기적으로 플레이어를 조준 → 그 방향으로 발사. 골렘도 맞음 */
-export const BOSS_ORB = { every: 4.5, aimTime: 1.1, speed: 520, r: 12, dmg: 25 };
+/**
+ * 골렘 방 천장의 보안장치 (푸른 오브): 주기적으로 조준선을 띄움 → track 초 동안 플레이어를 따라감 → 방향을 정하고 aimTime 초 뒤 발사. 골렘도 맞음
+ */
+export const BOSS_ORB = { every: 4.5, track: 1.6, aimTime: 0.6, speed: 520, r: 12, dmg: 25 };
+
+/** 노멀부터 골렘 추가 패턴 */
+export const GOLEM_NORMAL = {
+  /** 치명적: 대지 붕괴. HP 가 이 비율 아래로 처음 내려갈 때마다. 예고(바닥 전체 붉은 상자) 뒤 땅에 서 있으면 최대 HP × hpPct 피해 → 점프나 공중으로 피함 */
+  quakeAt: [0.75, 0.5, 0.25],
+  quakeWindup: 1.6,
+  quakeHpPct: 0.6,
+  quakeRecover: 1.0,
+  /** 환경: 천장 잔해. every 초마다 n 개 (하나는 플레이어 위). warn 초 예고(세로 띠) 뒤 떨어져서 폭 w 범위에 피해 */
+  rubbleEvery: [5, 7] as const,
+  rubbleN: 3,
+  rubbleWarn: 1.0,
+  rubbleW: 64,
+  rubbleDmg: 30,
+};
 
 export const COIN = { life: 30, blinkLast: 5, size: 14 };
 /** 떨어진 골드 동전 그림: 동전 하나의 금액이 min 이상이면 그 동전 (위에서부터 검사) */
