@@ -1,11 +1,11 @@
 // 스킬 창 (왼쪽 위 [스킬], K). 게임을 멈추지 않는 떠 있는 창 (인벤토리·퀘스트 창과 같은 틀).
-// - 스킬 트리: 줄마다 왼쪽에 열리는 레벨, 직업 스킬이 위에서부터 한 줄씩. 한 줄에 스킬 최대 3칸 + 맨 오른쪽 패시브 1칸
-//   (지금은 첫 칸만 쓰고, 갈래 2칸·패시브는 빈 칸 틀)
+// - 스킬 트리: 줄마다 왼쪽에 열리는 레벨. 한 줄에 스킬 3칸(기본 · 2라인 힌트 · 3라인 힌트) + 맨 오른쪽 패시브 1칸
+//   직업당 8칸 (skillTree), 나머지는 빈 칸 틀
 // - 테두리 색 = 배운 원소 (안 배움·무속성은 흰색). 아래 "레벨/마스터"
 // - 스킬 포인트(초기화 주문서로 돌려받은 레벨)가 있을 때만 왼쪽 위에 SP 가 깜빡이고, 배운 스킬에 + 버튼
 // - 오른쪽 아래 ▼ 를 누르면 스킬 키 칸이 펼쳐짐. 배운 스킬을 끌어다 키에 등록·교체, 키끼리 끌어서 옮기기
 //   키 칸 우클릭(모바일은 두 번 터치) = 키에서 빼기 (화면 아래 고정 스킬 칸은 끌기 안 됨)
-import { CLASSES, MAX_SKILL_LEVEL, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, type SlotKey } from '@shared/data/classes';
+import { CLASSES, MAX_SKILL_LEVEL, SKILLS, SLOT_KEYS, UNLOCK_LEVELS, skillTree, type SlotKey } from '@shared/data/classes';
 import { ELEMENTS } from '@shared/data/elements';
 import { learned, skillLevel } from '@shared/rules/progress';
 import type { ActionResult } from '@shared/rules/progress';
@@ -13,7 +13,7 @@ import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { el, esc } from './Dialog';
 
-/** 한 줄 칸 수 (첫 칸 = 직업 스킬, 나머지는 나중에 갈래 스킬) */
+/** 한 줄 스킬 칸 수 (기본 · 2라인 힌트 · 3라인 힌트), 그 오른쪽에 패시브 1칸 */
 const ROW_CELLS = 3;
 /** 이만큼(px) 움직이면 끌기 시작 */
 const DRAG_START = 6;
@@ -94,13 +94,17 @@ export class SkillWindow {
     this.body.appendChild(top);
 
     // 스킬 트리
-    const tree = el('div', 'skw-tree');
-    cls.skills.forEach((id, i) => {
+    const tree = el('div', 'skw-tree'), cells = skillTree(s.cls);
+    cls.skills.forEach((_, i) => {
       const row = el('div', 'skw-row');
       row.appendChild(el('div', `skw-lv${s.level >= UNLOCK_LEVELS[i] ? ' open' : ''}`, `Lv.${UNLOCK_LEVELS[i]}`));
-      row.appendChild(this.node(id, i));
-      for (let c = 1; c < ROW_CELLS; c++) row.appendChild(el('div', 'skw-cell skw-empty'));
-      row.appendChild(el('div', 'skw-cell skw-empty skw-passive'));
+      for (let c = 0; c <= ROW_CELLS; c++) {
+        const cell = cells.find(o => o.row === i && o.col === c);
+        const passive = c === ROW_CELLS ? ' skw-passive' : '';
+        const node = cell ? this.node(cell.id, i, c) : el('div', 'skw-cell skw-empty');
+        if (passive) node.classList.add('skw-passive');
+        row.appendChild(node);
+      }
       tree.appendChild(row);
     });
     this.body.appendChild(tree);
@@ -134,14 +138,15 @@ export class SkillWindow {
   }
 
   /** 스킬 칸 하나 (+ 아래 레벨, 위 선) */
-  private node(id: string, i: number) {
+  private node(id: string, i: number, col: number) {
     const s = this.session.save, sk = SKILLS[id], on = learned(s, id);
     const lv = on ? skillLevel(s, id) : 0;
     const prev = i > 0 ? learned(s, CLASSES[s.cls].skills[i - 1]) : false;
     const cell = el('div', `skw-cell skw-node${on ? ' on' : ''}`, `<span class="skw-name">${esc(sk.short ?? sk.name)}</span><span class="skw-badge">${lv}/${MAX_SKILL_LEVEL}</span>`);
     cell.style.setProperty('--ec', this.color(id));
-    if (i > 0) cell.appendChild(el('i', `skw-line${prev && on ? ' on' : ''}`));
-    if (on) this.bindDrag(cell, { skill: id });
+    // 위아래 잇는 선은 기본 스킬 줄만
+    if (i > 0 && col === 0) cell.appendChild(el('i', `skw-line${prev && on ? ' on' : ''}`));
+    if (on && !sk.passive) this.bindDrag(cell, { skill: id });
     // 스킬 포인트로 레벨 올리기
     if (on && s.skillPts > 0 && lv < MAX_SKILL_LEVEL) {
       const plus = el('button', 'skw-plus', '+');

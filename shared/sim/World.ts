@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { CLASSES, SKILLS, UNLOCK_LEVELS, MAGE_RECOIL, DOWN_TIME } from '../data/classes';
+import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -13,14 +13,14 @@ import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_OR
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
-import { gainExp, keySkill, learned, skillKeyOf, skillLevel } from '../rules/progress';
-import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Vortex } from './entities';
+import { gainExp, keySkill, learned, passiveLv, skillKeyOf, skillLevel } from '../rules/progress';
+import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Trap, Vortex } from './entities';
 import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
 
-export type { PlayerState, Enemy, Coin, Projectile, Vortex } from './entities';
+export type { PlayerState, Enemy, Coin, Projectile, Vortex, Trap } from './entities';
 export const TICK = 1 / 60;
 
 const cx = (o: { x: number; w: number }) => o.x + o.w / 2;
@@ -44,6 +44,7 @@ export class World implements SkillWorld {
   hitboxes: Hitbox[] = [];
   projectiles: Projectile[] = [];
   vortices: Vortex[] = [];
+  traps: Trap[] = [];
   private timers: { t: number; fn: () => void; owner: PlayerState }[] = [];
   time = 0;
   readonly rng: Rng;
@@ -102,7 +103,14 @@ export class World implements SkillWorld {
     this.events.push({ type: 'banner', playerId: p.id, text: questReadyText(q), color: '#9ef0a0' });
   }
 
-  removePlayer(id: EntityId) { this.players.delete(id); }
+  removePlayer(id: EntityId) {
+    const p = this.players.get(id);
+    this.players.delete(id);
+    if (!p) return;
+    // 이 사람이 건 출혈·씨앗·덫은 같이 사라짐
+    this.traps = this.traps.filter(o => o.owner !== p);
+    for (const e of this.enemies) { if (e.bleed?.owner === p) e.bleed = null; if (e.seed?.owner === p) e.seed = null; }
+  }
 
   /** 틱 밖에서 생긴 이벤트(입장 때 퀘스트 완료 등)를 꺼냄 */
   takeEvents() { const out = this.events; this.events = []; return out; }
@@ -128,6 +136,7 @@ export class World implements SkillWorld {
     this.hitboxes = this.hitboxes.filter(h => h.owner !== p);
     this.projectiles = this.projectiles.filter(o => o.owner !== p);
     this.timers = this.timers.filter(o => o.owner !== p);
+    this.traps = this.traps.filter(o => o.owner !== p);
   }
 
   /**
@@ -168,6 +177,7 @@ export class World implements SkillWorld {
     this.stepHitboxes(dt);
     this.stepProjectiles(dt);
     this.stepVortices(dt);
+    this.stepTraps(dt);
     this.stepOrb(dt);
     this.stepTimers(dt);
     this.stepCoins(dt);
@@ -224,7 +234,7 @@ export class World implements SkillWorld {
       const bound = p.data.skillKeys[key];
       if (!bound) continue;
       const name = keySkill(p.data, key), a = p.action;
-      if (!name) { this.warn(p, `Lv ${UNLOCK_LEVELS[this.slotOf(p, bound)]}에 배울 수 있어`); continue; }
+      if (!name) { this.warn(p, `Lv ${unlockLevel(p.data.cls, bound)}에 배울 수 있어`); continue; }
       // 사슬 화살이 날아가는 중 한 번 더 누르면 끌려감
       if (name === 'sasl' && p.chainArrow && !p.chainArrow.dead && !(a && a.name === 'aim')) { startGrapple(this, p); continue; }
       // 조준·충전·돌진·끌려가는 중에는 다른 스킬 완전 무효
@@ -302,12 +312,12 @@ export class World implements SkillWorld {
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
-        const dmg = this.mobDmg(charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch);
+        const dmg = this.guardDmg(p, this.mobDmg(charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch));
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
         if (charging) { p.stunT = GOLEM_AI.stunTime; this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, 1.2); }
         p.touchInv = !charging;
-        if (p.action && p.action.superArmor) p.invT = 0.6;
+        if (this.armorRoll(p)) p.invT = 0.6;
         else {
           p.invT = 1.0; p.hurt = 0.3; p.action = null;
           const dir = Math.sign(cx(p) - cx(e)) || 1;
@@ -342,7 +352,7 @@ export class World implements SkillWorld {
     if (sk.cd && name !== 'haebang') p.cd[name] = sk.cd;
     const order = this.slotOf(p, name);
     // 연계 보너스는 검사 전용
-    const chain = p.data.cls === 'warrior' && !!(p.lastHit && this.time - p.lastHit.t < 0.9 && order > p.lastHit.order);
+    const chain = p.data.cls === 'warrior' && !!(p.lastHit && this.time - p.lastHit.t < this.comboWindow(p) && order > p.lastHit.order);
     // 검사 초식 순서: 일섬 → 월참 → 질풍참이 이어져야(연계) 천붕이 열린다
     if (name === 'ilseom') p.combo = 1;
     else if (name === 'wolcham') p.combo = chain && p.combo === 1 ? 2 : 0;
@@ -351,6 +361,10 @@ export class World implements SkillWorld {
     start(this, p, chain);
     return true;
   }
+
+  /** 연계 인정 시간·보너스 (검의 길 패시브로 늘어남) */
+  private comboWindow(p: PlayerState) { return COMBO.window + PASSIVE.geomgil.window * passiveLv(p.data, 'geomgil'); }
+  private comboBonus(p: PlayerState) { return COMBO.bonus + PASSIVE.geomgil.bonus * passiveLv(p.data, 'geomgil'); }
 
   // SkillWorld 구현 (스킬 코드가 쓰는 것들)
   private skillMult(p: PlayerState, skill: string) {
@@ -367,12 +381,17 @@ export class World implements SkillWorld {
       id: `j${this.nextId++}`, kind: s.kind, x: s.x, y: s.y, ang: Math.atan2(s.vy, s.vx), speed: Math.hypot(s.vx, s.vy),
       range: s.range, traveled: 0, size: s.size, len: s.len, pierce: s.pierce, hit: new Set(), dead: false,
       owner: p, face: Math.sign(s.vx) || p.face, coef: s.coef, elem: s.elem, order: s.order ?? 0, chain: s.chain ?? false, kb: s.kb,
-      sm: this.skillMult(p, s.skill),
+      sm: this.skillMult(p, s.skill), skill: s.skill, exec: s.exec,
     };
     this.projectiles.push(o);
     return o;
   }
   addVortex(_p: PlayerState, v: Vortex) { this.vortices.push(v); }
+  addTrap(p: PlayerState, x: number) {
+    const H = HINT.deot, mine = this.traps.filter(o => o.owner === p);
+    if (mine.length >= H.max) this.traps = this.traps.filter(o => o !== mine[0]);
+    this.traps.push({ id: `t${this.nextId++}`, owner: p, x, y: p.y + p.h, w: 44, elem: this.elemOf(p, 'deot'), t: 0 });
+  }
   later(p: PlayerState, t: number, fn: () => void) { this.timers.push({ t, fn, owner: p }); }
   nearestFront(p: PlayerState, range: number) {
     let best: Enemy | null = null, bd = Infinity;
@@ -427,6 +446,7 @@ export class World implements SkillWorld {
   private stepProjectiles(dt: number) {
     for (const o of this.projectiles) {
       if (o.dead) continue;
+      if (o.orbit && !this.steerOrbit(o, dt)) continue;
       const step = o.speed * dt;
       o.x += Math.cos(o.ang) * step; o.y += Math.sin(o.ang) * step; o.traveled += step;
       const r = { x: o.x - o.size / 2, y: o.y - o.size / 2, w: o.size, h: o.size };
@@ -444,6 +464,59 @@ export class World implements SkillWorld {
     }
     for (const p of this.players.values()) if (p.chainArrow?.dead) p.chainArrow = null;
     this.projectiles = this.projectiles.filter(o => !o.dead);
+  }
+
+  /** 궤도탄: 몸 주위를 돌다가 가까운 적을 찾으면 쫓아감. false = 이번 틱은 날아가지 않음 */
+  private steerOrbit(o: Projectile, dt: number) {
+    const H = HINT.gwedo, own = o.owner, orb = o.orbit!;
+    const near = (x: number, y: number) => {
+      let best: Enemy | null = null, bd = H.range;
+      for (const e of this.enemies) {
+        if (e.dead || e.held) continue;
+        const d = Math.hypot(cx(e) - x, cy(e) - y);
+        if (d < bd) { bd = d; best = e; }
+      }
+      return best;
+    };
+    if (!o.target) {
+      orb.t -= dt; orb.ang += 4.5 * dt;
+      o.x = cx(own) + Math.cos(orb.ang) * H.r; o.y = cy(own) - 6 + Math.sin(orb.ang) * H.r;
+      if (orb.t <= 0 || !this.players.has(own.id) || own.downT > 0) { o.dead = true; return false; }
+      const e = near(cx(own), cy(own));
+      if (!e) return false;
+      if (orb.wait > 0) { orb.wait -= dt; return false; }
+      o.target = e.id;
+    }
+    let e = this.enemies.find(x => x.id === o.target);
+    if (!e || e.dead) {
+      e = near(o.x, o.y) ?? undefined;
+      if (!e) { o.dead = true; return false; }
+      o.target = e.id;
+    }
+    o.ang = Math.atan2(cy(e) - o.y, cx(e) - o.x);
+    return true;
+  }
+
+  /** 덫: 설치 뒤 잠깐 지나면 작동. 몬스터가 밟으면 불 = 폭발, 땅 = 묶기 */
+  private stepTraps(dt: number) {
+    const H = HINT.deot;
+    this.traps = this.traps.filter(tr => {
+      tr.t += dt;
+      if (tr.t > H.life) return false;
+      if (tr.t < H.arm) return true;
+      const r = { x: tr.x - tr.w / 2, y: tr.y - 40, w: tr.w, h: 40 };
+      if (!this.enemies.some(e => !e.dead && !e.held && overlaps(r, e))) return true;
+      const p = tr.owner, c = tr.elem ? ELEMENTS[tr.elem].color : '#dddddd';
+      if (tr.elem === 'earth') {
+        this.addHB(p, { abs: { x: tr.x - 60, y: tr.y - 70, w: 120, h: 70 }, coef: H.rootCoef, elem: tr.elem, kb: 0, launch: -60, root: H.rootTime, life: 0.05, face: 1, skill: 'deot' });
+        this.fx({ kind: 'flame', x: tr.x - 60, y: tr.y, w: 120, h: 40, color: c, life: 0.5 });
+      } else {
+        this.addHB(p, { abs: { x: tr.x - H.boomW / 2, y: tr.y - 110, w: H.boomW, h: 110 }, coef: H.boomCoef, elem: tr.elem, kb: 220, launch: -420, life: 0.05, face: 1, skill: 'deot' });
+        this.fx({ kind: 'ring', x: tr.x, y: tr.y - 30, color: c, r0: 10, r1: H.boomW * 0.6, life: 0.4 });
+        this.events.push({ type: 'shake', amount: 4 });
+      }
+      return false;
+    });
   }
 
   /** 소용돌이: 범위 안 몬스터를 가운데로 끌어당김 */
@@ -472,12 +545,20 @@ export class World implements SkillWorld {
     const p = h.owner;
     // 기절(취약) 중인 보스는 피해 배수
     const weak = e.groggy && e.groggy > 0 ? GOLEM_AI.groggyMult : 1;
-    const base = p.stats.atk * h.coef * h.sm * (h.chain ? 1.2 : 1) * (0.92 + this.rng() * 0.16) * weak;
+    // 원소 공명 (마법사 패시브): 마지막으로 맞은 원소와 다른 원소
+    const res = h.elem && e.record && e.record !== h.elem ? PASSIVE.gongmyeong.bonus * passiveLv(p.data, 'gongmyeong') : 0;
+    // 치명타 (궁수 패시브)
+    const critLv = passiveLv(p.data, 'crit');
+    const crit = critLv > 0 && this.rng() < PASSIVE.crit.chance * critLv;
+    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1);
+    // 그림자 화살: 잃은 HP 비례 추가 피해
+    if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
     const m = elemMult(h.elem, e);
     const d = Math.max(1, Math.round(base * m));
     e.hp -= d;
     const col = h.elem ? ELEMENTS[h.elem].color : '#c8c8e0';
-    this.float(cx(e), e.y - 8, `${d}${m !== 1 ? ` ×${m}` : ''}`, col, m >= 2 ? 24 : m < 1 ? 15 : h.coef >= 2.5 ? 23 : 19);
+    this.float(cx(e), e.y - 8, `${d}${crit ? '!' : ''}${m !== 1 ? ` ×${m}` : ''}`, col, (m >= 2 ? 24 : m < 1 ? 15 : h.coef >= 2.5 ? 23 : 19) + (crit ? 5 : 0));
+    let dealt = d;
     let reaction = false;
     // 원소 반응: 마지막으로 맞은 원소 + 이번 원소
     if (h.elem && e.record && e.record !== h.elem) {
@@ -487,6 +568,7 @@ export class World implements SkillWorld {
         const rm = elemMult(r.element, e);
         const rd = Math.max(1, Math.round(base * 0.5 * rm));
         e.hp -= rd;
+        dealt += rd;
         const rc = ELEMENTS[r.element].color;
         this.float(cx(e), e.y - 34, `${r.name}! ${rd}${rm !== 1 ? ` ×${rm}` : ''}`, rc, 26, 1.2);
         this.events.push({ type: 'banner', playerId: p.id, text: `${ELEMENTS[r.element].icon} ${r.name}!`, color: rc });
@@ -501,13 +583,57 @@ export class World implements SkillWorld {
       e.stun = h.launch && h.launch < -300 ? 0.7 : 0.3;
       e.leap = 'none';
     }
+    // 스킬별 효과
+    if (h.root && !MONSTERS[e.mob].boss) { e.root = h.root; e.vx = 0; }
+    if (h.skill === 'hyeolseom') {
+      const H = HINT.hyeolseom;
+      e.bleed = { t: H.bleedTime + 0.05, tick: H.tick, dmg: Math.max(1, Math.round(p.stats.atk * H.tickCoef * h.sm)), owner: p, elem: h.elem };
+    }
+    if (e.seed?.owner === p && h.skill !== 'ssiat') {
+      e.seed.dmg += dealt;
+      if (e.seed.dmg >= HINT.ssiat.burstDmg) this.burstSeed(e);
+    }
+    if (h.skill === 'ssiat') {
+      for (const o of this.enemies) if (o.seed?.owner === p) o.seed = null;
+      e.seed = { owner: p, dmg: 0, elem: h.elem };
+    }
     p.lastHit = { order: h.order, t: this.time };
     this.events.push({ type: 'hit', enemyId: e.id, heavy: !h.light, reaction });
-    if (e.hp <= 0 && !e.dead) {
-      e.dead = true; e.deadT = 0;
-      this.fx({ kind: 'ring', x: cx(e), y: cy(e), color: '#ffffff', r0: 5, r1: 40, life: 0.3 });
-      this.onKill(p, e);
+    if (e.hp <= 0 && !e.dead) this.kill(e, p);
+  }
+
+  private kill(e: Enemy, p: PlayerState) {
+    e.dead = true; e.deadT = 0; e.bleed = null; e.root = 0;
+    if (e.seed) this.burstSeed(e);
+    this.fx({ kind: 'ring', x: cx(e), y: cy(e), color: '#ffffff', r0: 5, r1: 40, life: 0.3 });
+    this.onKill(p, e);
+  }
+
+  /** 마력 씨앗이 터짐: 심은 사람 MP 회복 */
+  private burstSeed(e: Enemy) {
+    const sd = e.seed;
+    e.seed = null;
+    if (!sd || !this.players.has(sd.owner.id)) return;
+    const p = sd.owner, n = HINT.ssiat.mp, c = sd.elem ? ELEMENTS[sd.elem].color : '#c8b8ff';
+    p.mp = Math.min(p.stats.maxMp, p.mp + n);
+    this.fx({ kind: 'ring', x: cx(e), y: cy(e), color: c, r0: 6, r1: 50, life: 0.35 });
+    this.fx({ kind: 'line', x1: cx(e), y1: cy(e), x2: cx(p), y2: cy(p), color: c, w: 2, life: 0.25 });
+    this.float(cx(p), p.y - 10, `+${n} MP`, '#8ab0ff', 16);
+  }
+
+  /** 출혈 피해 (혈섬) */
+  private stepBleed(e: Enemy, dt: number) {
+    const b = e.bleed!;
+    if (!this.players.has(b.owner.id)) { e.bleed = null; return; }
+    b.t -= dt; b.tick -= dt;
+    if (b.tick <= 0) {
+      b.tick += HINT.hyeolseom.tick;
+      e.hp -= b.dmg;
+      this.float(cx(e) + 10, e.y - 4, `${b.dmg}`, '#d04050', 14, 0.6);
+      if (e.seed?.owner === b.owner) { e.seed.dmg += b.dmg; if (e.seed.dmg >= HINT.ssiat.burstDmg) this.burstSeed(e); }
+      if (e.hp <= 0) { this.kill(e, b.owner); return; }
     }
+    if (b.t <= 0) e.bleed = null;
   }
 
   private onKill(p: PlayerState, e: Enemy) {
@@ -545,12 +671,19 @@ export class World implements SkillWorld {
         if (e.once) continue;
         // 5초 뒤, 근처에 플레이어가 없으면 다시 나타남
         if (e.deadT > 5 && players.every(p => Math.abs(cx(p) - e.spawnX) > 320)) {
-          e.dead = false; e.hp = e.maxHp; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none'; e.leapCd = this.patternCd(e.mob);
+          e.dead = false; e.hp = e.maxHp; e.bleed = null; e.seed = null; e.root = 0; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none'; e.leapCd = this.patternCd(e.mob);
         }
         continue;
       }
+      if (e.bleed) { this.stepBleed(e, dt); if (e.dead) continue; }
       // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
       if (e.pulled) { e.pulled = false; continue; }
+      // 묶임 (땅 덫): 제자리
+      if (e.root && e.root > 0) {
+        e.root = Math.max(0, e.root - dt); e.vx = 0; e.leap = 'none';
+        if (MONSTERS[e.mob].ai === 'flyer') e.vy = 0; else stepBody(e, dt, this.solids, this.bounds);
+        continue;
+      }
       // 컷신 중 붙잡힘: 제자리에 서 있기 (떨어지는 것만)
       if (e.held) { e.vx = 0; e.leap = 'none'; stepBody(e, dt, this.solids, this.bounds); continue; }
       const target = this.nearestPlayer(e);
@@ -567,11 +700,18 @@ export class World implements SkillWorld {
         else if (ai === 'golem') this.golemAi(e, target, dt);
         else this.groundAi(e, target, dt);
       }
+      // 출혈: 스스로 움직이는 옆 이동이 느려짐 (보스 제외, 맞아서 밀려나는 건 그대로)
+      const slow = e.bleed && e.stun <= 0 && !MONSTERS[e.mob].boss ? 1 - HINT.hyeolseom.slow : 1;
       if (MONSTERS[e.mob].ai === 'flyer') {
         // 날아다님: 중력·발판 없이 맵 안에서만
-        e.x = Math.max(this.bounds.l, Math.min(this.bounds.r - e.w, e.x + e.vx * dt));
-        e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * dt));
-      } else stepBody(e, dt, this.solids, this.bounds);
+        e.x = Math.max(this.bounds.l, Math.min(this.bounds.r - e.w, e.x + e.vx * slow * dt));
+        e.y = Math.max(this.map.top ?? 0, Math.min(GROUND_Y - e.h, e.y + e.vy * slow * dt));
+      } else {
+        const vx = e.vx;
+        e.vx *= slow;
+        stepBody(e, dt, this.solids, this.bounds);
+        if (slow !== 1 && e.vx !== 0) e.vx = vx;
+      }
       // 맵 끝에 닿으면 돌아섬 (골렘 돌진 중은 제외: 돌진이 벽에서 끝나야 함)
       if (!(e.pat === 'charge' && e.leap === 'leap')) {
         if (e.x <= this.bounds.l) e.dir = 1;
@@ -728,12 +868,28 @@ export class World implements SkillWorld {
 
   /** 몬스터 공격(접촉 말고)에 맞음 */
   private hurtPlayer(p: PlayerState, dmg: number, dir: number) {
+    dmg = this.guardDmg(p, dmg);
     p.hp -= dmg;
     p.touchInv = false;
     this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
-    if (p.action && p.action.superArmor) { p.invT = 0.6; return; }
+    if (this.armorRoll(p)) { p.invT = 0.6; return; }
     p.invT = 1.0; p.hurt = 0.3; p.action = null;
     p.vx = dir * 300; p.vy = -340;
+  }
+
+  /** 흘려베기 받아내기 중이면 받은 피해를 쌓고 줄인 피해를 돌려줌 */
+  private guardDmg(p: PlayerState, dmg: number) {
+    const g = p.action?.guard;
+    if (!g) return dmg;
+    g.taken += dmg;
+    return Math.max(1, Math.round(dmg * HINT.heullyeo.taken));
+  }
+
+  /** 맞아도 안 밀림: 슈퍼아머 행동 중, 또는 슈퍼아머 확률 패시브 */
+  private armorRoll(p: PlayerState) {
+    if (p.action && p.action.superArmor) return true;
+    const lv = passiveLv(p.data, 'armor');
+    return lv > 0 && this.rng() < PASSIVE.armor.chance * lv;
   }
 
   /** 보안장치 오브: 주기적으로 조준(방향 고정) → 발사. 탄은 플레이어·골렘 모두 맞음. 골렘이 3번 맞으면 기절 */

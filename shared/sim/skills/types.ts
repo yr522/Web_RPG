@@ -14,6 +14,7 @@ export interface ProjSpec {
   coef: number; elem: Element | null; kb: number;
   pierce?: boolean; order?: number; chain?: boolean;
   skill: string;
+  exec?: { pct: number; cap: number };
 }
 
 /** 스킬 코드가 월드에 할 수 있는 일 */
@@ -33,6 +34,8 @@ export interface SkillWorld {
   elemOf(p: PlayerState, skill: string): Element | null;
   learned(p: PlayerState, skill: string): boolean;
   held(p: PlayerState, skill: string): boolean;
+  /** 덫 설치 (x = 가운데, 바닥 위) */
+  addTrap(p: PlayerState, x: number): void;
 }
 
 /** 직업별 스킬 묶음 */

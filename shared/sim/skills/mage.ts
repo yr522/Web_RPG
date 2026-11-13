@@ -1,7 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
-import { MAGE_RECOIL, MAGE_SHOT } from '../../data/classes';
+import { HINT, MAGE_RECOIL, MAGE_SHOT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -28,6 +28,7 @@ export const MAGE: ClassSkills = {
   can: {
     gidung: (w, p) => !!w.nearestFront(p, GIDUNG_RANGE) || '범위 안에 몬스터가 없어',
     haebang: (_w, p) => p.buffT <= 0 || '이미 해방 중',
+    ssiat: (w, p) => !!w.nearestFront(p, HINT.ssiat.range) || '범위 안에 몬스터가 없어',
   },
 
   start: {
@@ -87,6 +88,31 @@ export const MAGE: ClassSkills = {
         p.buffT = HAEBANG_TIME; p.cd.haebang = 0;
         w.float(cx(p), p.y - 30, '마력 해방!', '#c8b8ff', 22, 1.0);
         w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: '#c8b8ff', r0: 10, r1: 120, life: 0.5 });
+      });
+    },
+
+    // ---------- 힌트 스킬 ----------
+    /** 마력 씨앗 (2라인 빛술사 힌트): 앞쪽 가장 가까운 적 1명에게 심음 → 그 적이 죽거나 일정 피해를 받으면 터지며 MP 회복 */
+    ssiat(w, p) {
+      const el = w.elemOf(p, 'ssiat'), c = color(el), t = w.nearestFront(p, HINT.ssiat.range)!;
+      castAction(p, 'ssiat', 0.3, () => {
+        p.lockT = 0.2;
+        if (t.dead) return;
+        w.addHB(p, { abs: { x: t.x, y: t.y, w: t.w, h: t.h }, coef: HINT.ssiat.coef, elem: el, kb: 0, launch: -80, life: 0.05, light: true, skill: 'ssiat' });
+        w.fx({ kind: 'line', x1: cx(p) + p.face * 16, y1: cy(p) - 6, x2: t.x + t.w / 2, y2: t.y + t.h / 2, color: c, w: 2, life: 0.2 });
+        w.fx({ kind: 'ring', x: t.x + t.w / 2, y: t.y + t.h / 2, color: c, r0: 30, r1: 6, life: 0.3 });
+      });
+    },
+
+    /** 궤도탄 (3라인 마도학자 힌트): 몸 주위를 도는 마력구가 가까운 적에게 하나씩 유도돼 꽂힘 */
+    gwedo(w, p) {
+      const H = HINT.gwedo, el = w.elemOf(p, 'gwedo');
+      castAction(p, 'gwedo', 0.3, () => {
+        p.lockT = 0.2;
+        for (let i = 0; i < H.n; i++) {
+          const o = w.addProj(p, { kind: 'orb', x: cx(p), y: cy(p), vx: H.speed, vy: 0, range: 900, size: 14, coef: H.coef, elem: el, kb: 90, skill: 'gwedo' });
+          o.orbit = { ang: (i / H.n) * Math.PI * 2, t: H.orbit, wait: i * H.gap };
+        }
       });
     },
   },

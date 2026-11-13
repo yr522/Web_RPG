@@ -1,5 +1,5 @@
 // 저장 데이터 형태 + 능력치 계산 (기획서 5장 공식)
-import { CLASSES, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
+import { CLASSES, PASSIVE, classActiveIds, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
@@ -129,12 +129,15 @@ function cleanSave(s: SaveData) {
   }
   s.questPins = s.questPins.filter(id => s.quests[id]?.active);
   // 다른 직업 스킬·없는 스킬이 키에 있으면 빼기
-  for (const [k, id] of Object.entries(s.skillKeys) as [SlotKey, string][]) if (!CLASSES[s.cls].skills.includes(id)) delete s.skillKeys[k];
+  for (const [k, id] of Object.entries(s.skillKeys) as [SlotKey, string][]) if (!classActiveIds(s.cls).includes(id)) delete s.skillKeys[k];
   s.bag = s.bag.map(e => (e && itemDef(e.id) && e.n > 0 ? e : null));
   for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
     if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];
   }
 }
+
+/** 패시브 레벨 (안 배웠으면 0). rules/progress 를 부르면 순환이라 여기 따로 */
+const plv = (s: SaveData, id: string) => (id in s.learned ? s.skillLevels[id] ?? 1 : 0);
 
 export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number }
 
@@ -142,7 +145,7 @@ export function deriveStats(s: SaveData): DerivedStats {
   const c = CLASSES[s.cls], st = totalStats(s);
   return {
     maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6),
-    maxMp: Math.round(c.mp + (s.level - 1) * 5),
+    maxMp: Math.round((c.mp + (s.level - 1) * 5) * (1 + PASSIVE.maxmp.pct * plv(s, 'maxmp'))),
     regen: c.regen * (1 + (st.int - 5) * 0.08),
     speed: Math.min(420, 260 + (st.dex - 5) * 6),
     atk: 20 + (st[c.main] - 5) * 1.6,
