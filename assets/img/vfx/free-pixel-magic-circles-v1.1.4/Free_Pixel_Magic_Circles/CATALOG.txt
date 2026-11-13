@@ -1,0 +1,27 @@
+Free Pixel Magic Circles: 24 animated circles (settings shown for the 128 px / 192x96 size)
+number, name, palette, view, symmetry, frames (charge/idle/activate/dissipate), seed, glyph script + script seed
+
+01  Arcane Keystone        Arcane   top-down  sym  9  frames 12/16/10/10  seed 3011  script Runic 101
+02  Arcane Lattice         Arcane   top-down  sym  8  frames 12/16/10/10  seed 3023  script Courtly 102
+03  Arcane Wardstone       Arcane   top-down  sym  4  frames 12/16/10/10  seed 3037  script Blocky 103
+04  Arcane Rift Floor      Arcane   ground   sym  7  frames 12/16/10/10  seed 3041  script Angular 104
+05  Ember Brand            Ember    top-down  sym  7  frames 12/16/10/10  seed 3053  script Angular 111
+06  Ember Forge Wheel      Ember    top-down  sym 10  frames 12/16/10/10  seed 3067  script Blocky 112
+07  Ember Cinder Ring      Ember    top-down  sym 12  frames 12/16/10/10  seed 3079  script Runic 113
+08  Ember Pyre Floor       Ember    ground   sym  5  frames 12/16/10/10  seed 3083  script Angular 114
+09  Frost Glyph            Frost    top-down  sym  6  frames 12/16/10/10  seed 3097  script Courtly 121
+10  Frost Snowflake Seal   Frost    top-down  sym 12  frames 12/16/10/10  seed 3109  script Courtly 122
+11  Frost Rime Ward        Frost    top-down  sym  8  frames 12/16/10/10  seed 3121  script Runic 123
+12  Frost Glacier Pad      Frost    ground   sym  6  frames 12/16/10/10  seed 3137  script Courtly 124
+13  Verdant Sprout         Verdant  top-down  sym  5  frames 12/16/10/10  seed 3163  script Courtly 131
+14  Verdant Grove Seal     Verdant  top-down  sym  7  frames 12/16/10/10  seed 3169  script Runic 132
+15  Verdant Thorn Knot     Verdant  top-down  sym  3  frames 12/16/10/10  seed 3181  script Angular 133
+16  Verdant Heal Circle    Verdant  top-down  sym  8  frames 12/16/10/10  seed 3191  script Courtly 134
+17  Void Eye               Void     top-down  sym 10  frames 12/16/10/10  seed 3203  script Angular 141
+18  Void Hex               Void     top-down  sym  6  frames 12/16/10/10  seed 3217  script Blocky 142
+19  Void Starless Gate     Void     top-down  sym 11  frames 12/16/10/10  seed 3229  script Runic 143
+20  Void Abyss Floor       Void     ground   sym  9  frames 12/16/10/10  seed 3251  script Angular 144
+21  Radiant Crown          Radiant  top-down  sym  8  frames 12/16/10/10  seed 3259  script Courtly 151
+22  Radiant Sun Disc       Radiant  top-down  sym 12  frames 12/16/10/10  seed 3271  script Courtly 152
+23  Radiant Aegis          Radiant  top-down  sym  4  frames 12/16/10/10  seed 3299  script Runic 153
+24  Radiant Sanctum Pad    Radiant  ground   sym 12  frames 12/16/10/10  seed 3307  script Courtly 154

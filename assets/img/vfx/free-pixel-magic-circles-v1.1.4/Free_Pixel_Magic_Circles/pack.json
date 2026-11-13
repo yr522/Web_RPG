@@ -1,0 +1,2360 @@
+{
+ "pack": "Free Pixel Magic Circles",
+ "version": "1.0",
+ "generator": "Circlesmith 1.0 (https://miraforge.itch.io/circlesmith)",
+ "sheet_layout": "rows top to bottom = charge, idle, activate, dissipate; columns = frames; unused cells transparent",
+ "circles": [
+  {
+   "n": 1,
+   "id": "arcane_keystone",
+   "name": "Arcane Keystone",
+   "palette": "Arcane",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/01_arcane_keystone",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/arcane_keystone_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/arcane_keystone_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/arcane_keystone_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "id": "arcane_lattice",
+   "name": "Arcane Lattice",
+   "palette": "Arcane",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/02_arcane_lattice",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/arcane_lattice_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/arcane_lattice_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/arcane_lattice_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "id": "arcane_wardstone",
+   "name": "Arcane Wardstone",
+   "palette": "Arcane",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/03_arcane_wardstone",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/arcane_wardstone_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/arcane_wardstone_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/arcane_wardstone_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "id": "arcane_rift_floor",
+   "name": "Arcane Rift Floor",
+   "palette": "Arcane",
+   "view": "ground",
+   "fps": 12,
+   "folder": "circles/04_arcane_rift_floor",
+   "sizes": [
+    {
+     "w": 64,
+     "h": 32,
+     "sheet": "64x32/arcane_rift_floor_64x32_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 64,
+     "sheet": "128x64/arcane_rift_floor_128x64_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 192,
+     "h": 96,
+     "sheet": "192x96/arcane_rift_floor_192x96_sheet.png",
+     "sheet_w": 3072,
+     "sheet_h": 384,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "id": "ember_brand",
+   "name": "Ember Brand",
+   "palette": "Ember",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/05_ember_brand",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/ember_brand_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/ember_brand_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/ember_brand_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "id": "ember_forge_wheel",
+   "name": "Ember Forge Wheel",
+   "palette": "Ember",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/06_ember_forge_wheel",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/ember_forge_wheel_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/ember_forge_wheel_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/ember_forge_wheel_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "id": "ember_cinder_ring",
+   "name": "Ember Cinder Ring",
+   "palette": "Ember",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/07_ember_cinder_ring",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/ember_cinder_ring_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/ember_cinder_ring_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/ember_cinder_ring_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "id": "ember_pyre_floor",
+   "name": "Ember Pyre Floor",
+   "palette": "Ember",
+   "view": "ground",
+   "fps": 12,
+   "folder": "circles/08_ember_pyre_floor",
+   "sizes": [
+    {
+     "w": 64,
+     "h": 32,
+     "sheet": "64x32/ember_pyre_floor_64x32_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 64,
+     "sheet": "128x64/ember_pyre_floor_128x64_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 192,
+     "h": 96,
+     "sheet": "192x96/ember_pyre_floor_192x96_sheet.png",
+     "sheet_w": 3072,
+     "sheet_h": 384,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "id": "frost_glyph",
+   "name": "Frost Glyph",
+   "palette": "Frost",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/09_frost_glyph",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/frost_glyph_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/frost_glyph_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/frost_glyph_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "id": "frost_snowflake_seal",
+   "name": "Frost Snowflake Seal",
+   "palette": "Frost",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/10_frost_snowflake_seal",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/frost_snowflake_seal_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/frost_snowflake_seal_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/frost_snowflake_seal_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "id": "frost_rime_ward",
+   "name": "Frost Rime Ward",
+   "palette": "Frost",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/11_frost_rime_ward",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/frost_rime_ward_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/frost_rime_ward_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/frost_rime_ward_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "id": "frost_glacier_pad",
+   "name": "Frost Glacier Pad",
+   "palette": "Frost",
+   "view": "ground",
+   "fps": 12,
+   "folder": "circles/12_frost_glacier_pad",
+   "sizes": [
+    {
+     "w": 64,
+     "h": 32,
+     "sheet": "64x32/frost_glacier_pad_64x32_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 64,
+     "sheet": "128x64/frost_glacier_pad_128x64_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 192,
+     "h": 96,
+     "sheet": "192x96/frost_glacier_pad_192x96_sheet.png",
+     "sheet_w": 3072,
+     "sheet_h": 384,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "id": "verdant_sprout",
+   "name": "Verdant Sprout",
+   "palette": "Verdant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/13_verdant_sprout",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/verdant_sprout_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/verdant_sprout_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/verdant_sprout_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 14,
+   "id": "verdant_grove_seal",
+   "name": "Verdant Grove Seal",
+   "palette": "Verdant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/14_verdant_grove_seal",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/verdant_grove_seal_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/verdant_grove_seal_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/verdant_grove_seal_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 15,
+   "id": "verdant_thorn_knot",
+   "name": "Verdant Thorn Knot",
+   "palette": "Verdant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/15_verdant_thorn_knot",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/verdant_thorn_knot_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/verdant_thorn_knot_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/verdant_thorn_knot_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 16,
+   "id": "verdant_heal_circle",
+   "name": "Verdant Heal Circle",
+   "palette": "Verdant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/16_verdant_heal_circle",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/verdant_heal_circle_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/verdant_heal_circle_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/verdant_heal_circle_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 17,
+   "id": "void_eye",
+   "name": "Void Eye",
+   "palette": "Void",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/17_void_eye",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/void_eye_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/void_eye_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/void_eye_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 18,
+   "id": "void_hex",
+   "name": "Void Hex",
+   "palette": "Void",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/18_void_hex",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/void_hex_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/void_hex_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/void_hex_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 19,
+   "id": "void_starless_gate",
+   "name": "Void Starless Gate",
+   "palette": "Void",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/19_void_starless_gate",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/void_starless_gate_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/void_starless_gate_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/void_starless_gate_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 20,
+   "id": "void_abyss_floor",
+   "name": "Void Abyss Floor",
+   "palette": "Void",
+   "view": "ground",
+   "fps": 12,
+   "folder": "circles/20_void_abyss_floor",
+   "sizes": [
+    {
+     "w": 64,
+     "h": 32,
+     "sheet": "64x32/void_abyss_floor_64x32_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 64,
+     "sheet": "128x64/void_abyss_floor_128x64_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 192,
+     "h": 96,
+     "sheet": "192x96/void_abyss_floor_192x96_sheet.png",
+     "sheet_w": 3072,
+     "sheet_h": 384,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 21,
+   "id": "radiant_crown",
+   "name": "Radiant Crown",
+   "palette": "Radiant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/21_radiant_crown",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/radiant_crown_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/radiant_crown_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/radiant_crown_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 22,
+   "id": "radiant_sun_disc",
+   "name": "Radiant Sun Disc",
+   "palette": "Radiant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/22_radiant_sun_disc",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/radiant_sun_disc_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/radiant_sun_disc_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/radiant_sun_disc_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 23,
+   "id": "radiant_aegis",
+   "name": "Radiant Aegis",
+   "palette": "Radiant",
+   "view": "top",
+   "fps": 12,
+   "folder": "circles/23_radiant_aegis",
+   "sizes": [
+    {
+     "w": 32,
+     "h": 32,
+     "sheet": "32x32/radiant_aegis_32x32_sheet.png",
+     "sheet_w": 512,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 64,
+     "h": 64,
+     "sheet": "64x64/radiant_aegis_64x64_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 128,
+     "sheet": "128x128/radiant_aegis_128x128_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 512,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  },
+  {
+   "n": 24,
+   "id": "radiant_sanctum_pad",
+   "name": "Radiant Sanctum Pad",
+   "palette": "Radiant",
+   "view": "ground",
+   "fps": 12,
+   "folder": "circles/24_radiant_sanctum_pad",
+   "sizes": [
+    {
+     "w": 64,
+     "h": 32,
+     "sheet": "64x32/radiant_sanctum_pad_64x32_sheet.png",
+     "sheet_w": 1024,
+     "sheet_h": 128,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 128,
+     "h": 64,
+     "sheet": "128x64/radiant_sanctum_pad_128x64_sheet.png",
+     "sheet_w": 2048,
+     "sheet_h": 256,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    },
+    {
+     "w": 192,
+     "h": 96,
+     "sheet": "192x96/radiant_sanctum_pad_192x96_sheet.png",
+     "sheet_w": 3072,
+     "sheet_h": 384,
+     "animations": {
+      "charge": {
+       "row": 0,
+       "frames": 12,
+       "loop": false
+      },
+      "idle": {
+       "row": 1,
+       "frames": 16,
+       "loop": true
+      },
+      "activate": {
+       "row": 2,
+       "frames": 10,
+       "loop": false
+      },
+      "dissipate": {
+       "row": 3,
+       "frames": 10,
+       "loop": false
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
