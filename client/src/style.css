@@ -177,7 +177,11 @@ html, body {
 }
 .stick-ring { position: absolute; left: 50%; top: 50%; width: 70%; height: 70%; transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); }
 .stick-knob { position: absolute; left: 50%; top: 50%; width: 36%; height: 36%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 255, 255, .8); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
-.mskills { position: absolute; right: var(--sar); bottom: var(--sab); width: 0; height: 0; }
+.mskills { position: absolute; right: var(--sar); bottom: var(--sab); width: 0; height: 0; transform: scale(var(--mctl)); transform-origin: 100% 100%; }
+/* 모바일 조작키 크기 배율 (조이스틱·스킬·점프·포션), 왼쪽 위 메뉴 배율 */
+#hud.mobile { --mctl: .8; --mmenu: .5; }
+#hud.mobile .stick { width: calc(324 * var(--u) * var(--mctl)); height: calc(324 * var(--u) * var(--mctl)); }
+#hud.mobile .menu { transform: scale(var(--mmenu)); transform-origin: 0 0; }
 .mbtn {
   position: absolute; box-sizing: border-box; border-radius: 4px; touch-action: none;
   background: rgba(200, 200, 200, .78); border: 2px solid var(--ec, transparent);
@@ -199,6 +203,9 @@ html, body {
 .mbtn.sQ { width: calc(98 * var(--u)); height: calc(98 * var(--u)); right: calc(14 * var(--u)); bottom: calc(290 * var(--u)); }
 .mbtn.sW { width: calc(67 * var(--u)); height: calc(67 * var(--u)); right: calc(125 * var(--u)); bottom: calc(452 * var(--u)); }
 .mbtn.sE { width: calc(67 * var(--u)); height: calc(67 * var(--u)); right: calc(43 * var(--u)); bottom: calc(452 * var(--u)); }
+/* 작은 W·E 칸: 키 글자와 스킬 이름이 겹치지 않게 이름을 작게, 아래로 */
+.mbtn.sW .name, .mbtn.sE .name { font-size: max(7px, 11 * var(--u)); margin-top: 42%; letter-spacing: -.04em; }
+.mbtn.sW small, .mbtn.sE small { display: none; }
 /* 점프: 구상도에 없어서 임시로 A 왼쪽에 둠 */
 .mbtn.jump { width: calc(92 * var(--u)); height: calc(92 * var(--u)); right: calc(445 * var(--u)); bottom: calc(90 * var(--u)); border-radius: 50%; border: 2px dashed rgba(60, 60, 60, .5); }
 .mbtn.jump span { font-size: max(11px, 18 * var(--u)); font-weight: 700; }
