@@ -177,10 +177,10 @@ html, body {
 }
 .stick-ring { position: absolute; left: 50%; top: 50%; width: 70%; height: 70%; transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); }
 .stick-knob { position: absolute; left: 50%; top: 50%; width: 36%; height: 36%; transform: translate(-50%, -50%); border-radius: 50%; background: rgba(255, 255, 255, .8); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
-.mskills { position: absolute; right: var(--sar); bottom: var(--sab); width: 0; height: 0; transform: scale(var(--mctl)); transform-origin: 100% 100%; }
+.mskills { position: absolute; right: var(--sar); bottom: var(--sab); width: 0; height: 0; transform: scale(var(--mpad)); transform-origin: 100% 100%; }
 /* 모바일 조작키 크기 배율 (조이스틱·스킬·점프·포션), 왼쪽 위 메뉴 배율 */
-#hud.mobile { --mctl: .9; --mmenu: .7; }
-#hud.mobile .stick { width: calc(324 * var(--u) * var(--mctl)); height: calc(324 * var(--u) * var(--mctl)); }
+#hud.mobile { --mctl: .9; --mpad: 1; --mmenu: .7; }
+#hud.mobile .stick { width: calc(324 * var(--u) * var(--mctl)); height: calc(324 * var(--u) * var(--mctl)); left: calc(43 * var(--u) + 22px + var(--sal)); }
 #hud.mobile .menu { transform: scale(var(--mmenu)); transform-origin: 0 0; }
 .mbtn {
   position: absolute; box-sizing: border-box; border-radius: 4px; touch-action: none;
@@ -194,7 +194,7 @@ html, body {
 .mbtn.locked { opacity: .55; }
 .mbtn.on { background: rgba(255, 255, 255, .95); }
 /* 구상도 위치 (오른쪽 아래 기준, 구상도 px) */
-.mbtn.sZ { width: calc(185 * var(--u)); height: calc(185 * var(--u)); right: calc(90 * var(--u)); bottom: calc(80 * var(--u)); border-radius: 50%; }
+.mbtn.sZ { width: calc(160 * var(--u)); height: calc(160 * var(--u)); right: calc(102 * var(--u)); bottom: calc(92 * var(--u)); border-radius: 50%; }
 .mbtn.sZ .key { left: 50%; top: 50%; transform: translate(-50%, -80%); font-size: max(16px, 44 * var(--u)); font-weight: 500; }
 .mbtn.sZ .name { margin-top: 38%; }
 .mbtn.sA { width: calc(92 * var(--u)); height: calc(92 * var(--u)); right: calc(335 * var(--u)); bottom: calc(90 * var(--u)); }
@@ -207,7 +207,7 @@ html, body {
 .mbtn.sW .name, .mbtn.sE .name { font-size: max(7px, 11 * var(--u)); margin-top: 42%; letter-spacing: -.04em; }
 .mbtn.sW small, .mbtn.sE small { display: none; }
 /* 점프: 구상도에 없어서 임시로 A 왼쪽에 둠 */
-.mbtn.jump { width: calc(92 * var(--u)); height: calc(92 * var(--u)); right: calc(445 * var(--u)); bottom: calc(90 * var(--u)); border-radius: 50%; border: 2px dashed rgba(60, 60, 60, .5); }
+.mbtn.jump { width: calc(86 * var(--u)); height: calc(86 * var(--u)); right: calc(22 * var(--u)); bottom: calc(26 * var(--u)); border-radius: 50%; border: 2px dashed rgba(60, 60, 60, .5); }
 .mbtn.jump span { font-size: max(11px, 18 * var(--u)); font-weight: 700; }
 .mskills .potion { position: absolute; bottom: calc(457 * var(--u)); width: calc(66 * var(--u)); height: calc(60 * var(--u)); min-width: 0; min-height: 0; }
 .mskills .potion.hp { right: calc(269 * var(--u)); }
