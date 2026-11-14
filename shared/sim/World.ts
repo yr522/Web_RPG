@@ -89,8 +89,8 @@ export class World implements SkillWorld {
     for (const sp of this.map.spawns) {
       const e = this.spawnEnemy(sp.mob, sp.x, sp.elem ?? null, sp.y);
       e.once = sp.once;
+      // 맵에 들어올 때는 정예 없음 (정해 둔 자리만). 정예 뽑기는 죽고 다시 나올 때부터
       if (sp.elite) this.makeElite(e, sp.elite);
-      else if (!sp.once) this.rollElite(e);
     }
     if (this.map.waves) { this.cleared = false; this.spawnWave(0); }
     if (this.map.orb) this.orb = { x: this.map.orb.x, y: this.map.orb.y, t: 0, aimT: 0, track: 0, locked: false, dir: null };
@@ -698,7 +698,7 @@ export class World implements SkillWorld {
   }
 
   // ===================== 정예몹 · 던전 =====================
-  /** 사냥터 몬스터: 일정 확률로 정예 (특성 하나). 보스·안전 지대·던전은 제외 */
+  /** 사냥터 몬스터가 다시 나올 때: 일정 확률로 정예 (특성 하나). 보스·안전 지대·던전은 제외. 맵에 처음 들어올 때는 안 뽑음 (포탈 왕복으로 정예 고르기 방지) */
   private rollElite(e: Enemy) {
     if (MONSTERS[e.mob].boss || e.once || this.map.safe || this.map.waves) return;
     if (this.rng() < ELITE.chance) this.makeElite(e, [ELITE_AFFIXES[Math.floor(this.rng() * ELITE_AFFIXES.length)]]);
