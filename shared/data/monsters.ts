@@ -157,6 +157,9 @@ export const GOLEM_NORMAL = {
   rubbleDmg: 30,
 };
 
+/** 하드에서만 바뀌는 골렘 패턴: 잔해에 맞으면 rubbleStun 초 기절, 대지 붕괴는 즉사 (점프로 피하는 건 같음) */
+export const GOLEM_HARD = { rubbleStun: 1, quakeKill: true };
+
 export const COIN = { life: 30, blinkLast: 5, size: 14 };
 /** 떨어진 골드 동전 그림: 동전 하나의 금액이 min 이상이면 그 동전 (위에서부터 검사) */
 export const COIN_KINDS = [

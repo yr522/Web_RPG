@@ -10,7 +10,7 @@ import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKil
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
-import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, BOSS_ORB, ELITE, ELITE_AFFIXES, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -994,6 +994,12 @@ export class World implements SkillWorld {
     for (const p of this.players.values()) {
       const grounded = p.onGround && p.y + p.h >= GROUND_Y - 2;
       if (!grounded || p.downT > 0 || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
+      // 하드: 즉사 (받아내기·슈퍼아머로도 못 버팀)
+      if (this.difficulty === 'hard' && GOLEM_HARD.quakeKill) {
+        this.float(cx(p), p.y - 10, `-${Math.ceil(p.hp)}`, '#ff3030', 26, 1.2);
+        p.hp = 0; p.action = null;
+        continue;
+      }
       this.hurtPlayer(p, Math.round(p.stats.maxHp * GOLEM_NORMAL.quakeHpPct), Math.sign(cx(p) - cx(e)) || 1);
     }
   }
@@ -1022,6 +1028,11 @@ export class World implements SkillWorld {
       for (const p of this.players.values()) {
         if (!overlaps(p, area) || p.downT > 0 || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
         this.hurtPlayer(p, this.mobDmg(R.rubbleDmg), Math.sign(cx(p) - r.x) || 1);
+        // 하드: 잔해에 맞으면 잠깐 기절
+        if (this.difficulty === 'hard' && p.hp > 0) {
+          p.stunT = Math.max(p.stunT, GOLEM_HARD.rubbleStun);
+          this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, GOLEM_HARD.rubbleStun);
+        }
       }
       return false;
     });
