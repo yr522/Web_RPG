@@ -13,7 +13,8 @@ const PHASE_IDS = ['morning', 'day', 'night'] as const;
 /** 지금 이 맵에 보이는 NPC (조건이 맞는 것만) */
 export const mapNpcs = (s: SaveData, map: MapId) => MAPS[map].npcs.filter(n => !n.when || checkCond(s, n.when));
 /** 지금 이 맵에서 탈 수 있는 포탈 (조건이 맞는 것만) */
-export const mapPortals = (s: SaveData, map: MapId) => MAPS[map].portals.filter(p => !p.when || checkCond(s, p.when));
+/** 이 맵에서 보이는 포탈. cleared = 던전 방을 다 잡았는지 (false 면 afterClear 포탈은 숨김) */
+export const mapPortals = (s: SaveData, map: MapId, cleared = true) => MAPS[map].portals.filter(p => (!p.when || checkCond(s, p.when)) && (cleared || !p.afterClear));
 import type { ActionResult } from './progress';
 
 /** 조건 검사. 시간대 조건은 nowMs 가 있어야 맞을 수 있음 */

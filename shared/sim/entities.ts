@@ -60,6 +60,9 @@ export interface PlayerState extends Body {
   lockT: number;
   buffer: { name: string; t: number } | null;
   lastHit: { order: number; t: number } | null;
+  /** 콤보 (적을 맞힌 수, 최대 HIT_COMBO.max). hitsT = 끊기기까지 남은 시간 */
+  hits: number;
+  hitsT: number;
   /** 검사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
   combo: number;
   /** 질풍참 직후 천붕을 쓸 수 있는 시간 */
@@ -108,7 +111,9 @@ export interface Enemy extends Body {
   /** 이번 틱에 소용돌이에 끌려감 (스스로 움직이지 않음) */
   pulled: boolean;
   /** 보스 패턴 (골렘: 내려치기 / 돌진) */
-  pat?: 'slam' | 'charge';
+  pat?: 'slam' | 'charge' | 'quake';
+  /** 대지 붕괴를 쓴 횟수 (GOLEM_NORMAL.quakeAt 순서) */
+  quakes?: number;
   /** 돌진 방향 (예고할 때 고정) */
   chargeDir?: 1 | -1;
   /** 연달아 쓴 내려치기 수 (다 차면 돌진) */
@@ -131,6 +136,10 @@ export interface Enemy extends Body {
   seed?: { owner: PlayerState; dmg: number; elem: Element | null } | null;
   /** 묶임 (땅 덫): 남은 시간 동안 못 움직임 */
   root?: number;
+  /** 정예몹 특성 (없으면 보통) */
+  elite?: import('../data/monsters').EliteAffix[];
+  /** 분노 특성이 발동함 */
+  raged?: boolean;
 }
 
 /** 궁수 덫: 바닥에 설치, 밟으면 작동. (x, y) = 아래 가운데 */

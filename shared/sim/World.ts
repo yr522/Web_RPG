@@ -9,7 +9,8 @@ import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
-import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, BOSS_ORB, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { type EliteAffix } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, BOSS_ORB, ELITE, ELITE_AFFIXES, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -19,6 +20,7 @@ import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
+import { HIT_COMBO, comboExpMult } from '../data/combo';
 
 export type { PlayerState, Enemy, Coin, Projectile, Vortex, Trap } from './entities';
 export const TICK = 1 / 60;
@@ -35,6 +37,9 @@ export function elemMult(atk: Element | null, target: Enemy) {
   return 1;
 }
 
+/** 난이도를 안 고른 맵: 배수 없음 */
+const NO_DIFFICULTY: (typeof DIFFICULTIES)[Difficulty] = { name: '', hp: 1, dmg: 1, exp: 1, gold: 1 };
+
 export class World implements SkillWorld {
   readonly map: MapDef;
   readonly solids: Solid[];
@@ -50,7 +55,17 @@ export class World implements SkillWorld {
   readonly rng: Rng;
   private events: GameEvent[] = [];
   /** 보스 방 천장 보안장치: 조준 중이면 dir (고정된 방향), aimT = 발사까지 */
-  orb: { x: number; y: number; t: number; aimT: number; dir: { x: number; y: number } | null } | null = null;
+  /** dir 이 있으면 조준 중: locked 전에는 플레이어를 따라가고(track 초), locked 뒤에는 고정 → aimT 초 뒤 발사 */
+  orb: { x: number; y: number; t: number; aimT: number; track: number; locked: boolean; dir: { x: number; y: number } | null } | null = null;
+  /** 보스 패턴 예고 (반투명 상자). 화면 그리기용 */
+  warns: { x: number; y: number; w: number; h: number; t: number; life: number; color: string; boss?: boolean }[] = [];
+  /** 천장 잔해 (노멀부터): t 가 warn 이 되면 떨어짐 */
+  rubble: { x: number; t: number }[] = [];
+  private rubbleT = 0;
+  /** 던전 방: 지금 웨이브 번호, 다음 웨이브까지 남은 시간, 다 잡았는지 (던전이 아니면 처음부터 true) */
+  wave = 0;
+  private waveT = -1;
+  cleared = true;
   /** 보안장치가 쏜 탄 */
   orbShots: { id: string; x: number; y: number; vx: number; vy: number }[] = [];
   private nextId = 1;
@@ -60,9 +75,10 @@ export class World implements SkillWorld {
   /** 난이도 배수 (보스 방에서 고른 난이도, 그 밖은 보통) */
   readonly diff: (typeof DIFFICULTIES)[Difficulty];
 
-  constructor(readonly mapId: MapId, seed = Date.now(), difficulty: Difficulty = 'normal') {
+  /** difficulty: 보스 방에서 고른 난이도. 없으면(사냥터·던전) 몬스터 표 수치 그대로 */
+  constructor(readonly mapId: MapId, seed = Date.now(), readonly difficulty?: Difficulty) {
     this.rng = mulberry32(seed);
-    this.diff = DIFFICULTIES[difficulty];
+    this.diff = difficulty ? DIFFICULTIES[difficulty] : NO_DIFFICULTY;
     this.map = MAPS[mapId];
     const [l, r] = this.map.walk ?? [0, this.map.width];
     this.bounds = { l, r, top: (this.map.top ?? 0) - 200 };
@@ -70,8 +86,15 @@ export class World implements SkillWorld {
       { x: 0, y: GROUND_Y, w: this.map.width, h: 200, ground: true },
       ...this.map.platforms.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h ?? 14 })),
     ];
-    for (const sp of this.map.spawns) this.spawnEnemy(sp.mob, sp.x, sp.elem ?? null, sp.y).once = sp.once;
-    if (this.map.orb) this.orb = { x: this.map.orb.x, y: this.map.orb.y, t: 0, aimT: 0, dir: null };
+    for (const sp of this.map.spawns) {
+      const e = this.spawnEnemy(sp.mob, sp.x, sp.elem ?? null, sp.y);
+      e.once = sp.once;
+      // 맵에 들어올 때는 정예 없음 (정해 둔 자리만). 정예 뽑기는 죽고 다시 나올 때부터
+      if (sp.elite) this.makeElite(e, sp.elite);
+    }
+    if (this.map.waves) { this.cleared = false; this.spawnWave(0); }
+    if (this.map.orb) this.orb = { x: this.map.orb.x, y: this.map.orb.y, t: 0, aimT: 0, track: 0, locked: false, dir: null };
+    this.rubbleT = this.range(GOLEM_NORMAL.rubbleEvery);
   }
 
   // ===================== 입장 · 퇴장 =====================
@@ -81,7 +104,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, push: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
+      lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
     // 가기 퀘스트: 이 맵에 들어오면 완료
@@ -178,6 +201,7 @@ export class World implements SkillWorld {
     this.stepProjectiles(dt);
     this.stepVortices(dt);
     this.stepTraps(dt);
+    this.stepWaves(dt);
     this.stepOrb(dt);
     this.stepTimers(dt);
     this.stepCoins(dt);
@@ -205,6 +229,8 @@ export class World implements SkillWorld {
     p.invT = Math.max(0, p.invT - dt);
     p.hurt = Math.max(0, p.hurt - dt);
     p.cbWindow = Math.max(0, p.cbWindow - dt);
+    // 콤보: 정해진 시간 동안 못 맞히면 끊김
+    if (p.hits > 0) { p.hitsT -= dt; if (p.hitsT <= 0) p.hits = 0; }
     p.lockT = Math.max(0, p.lockT - dt);
     // 마력 해방: 쿨타임 2배속, 끝나면 그때부터 해방 쿨타임
     if (p.buffT > 0) {
@@ -312,7 +338,7 @@ export class World implements SkillWorld {
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
-        const dmg = this.guardDmg(p, this.mobDmg(charging ? GOLEM_AI.chargeDmg : MONSTERS[e.mob].touch));
+        const dmg = this.guardDmg(p, this.mobDmg(charging ? GOLEM_AI.chargeDmg : this.touchDmg(e)));
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
         if (charging) { p.stunT = GOLEM_AI.stunTime; this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, 1.2); }
@@ -330,7 +356,7 @@ export class World implements SkillWorld {
       // 쓰러짐: 쓰러져 있는 동안 무적 (몸통 접촉 무적이 아니라서 골렘 돌진도 막음)
       p.hp = 0;
       this.resetCombat(p);
-      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0;
+      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0; p.hits = 0;
     }
   }
 
@@ -553,6 +579,8 @@ export class World implements SkillWorld {
     let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1);
     // 그림자 화살: 잃은 HP 비례 추가 피해
     if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
+    // 정예 강철: 받는 피해 감소
+    if (e.elite?.includes('iron')) base *= ELITE.affixes.iron.taken;
     const m = elemMult(h.elem, e);
     const d = Math.max(1, Math.round(base * m));
     e.hp -= d;
@@ -576,8 +604,13 @@ export class World implements SkillWorld {
       }
     }
     if (h.elem) e.record = h.elem;
-    // 보스는 밀리지 않고 경직 없음
-    if (!MONSTERS[e.mob].boss) {
+    // 정예 분노: HP 가 절반 아래로 내려가면 빨라지고 세짐
+    if (e.elite?.includes('rage') && !e.raged && e.hp > 0 && e.hp < e.maxHp * ELITE.affixes.rage.below) {
+      e.raged = true; e.speed *= ELITE.affixes.rage.speed;
+      this.float(cx(e), e.y - 30, '분노!', '#ff5040', 20, 1.0);
+    }
+    // 보스·강철 정예는 밀리지 않고 경직 없음
+    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron')) {
       if (h.kbAng !== undefined) { e.vx = Math.cos(h.kbAng) * h.face * h.kb; e.vy = Math.min(-150, Math.sin(h.kbAng) * h.kb); }
       else { e.vx = h.face * h.kb; e.vy = h.launch ?? -140; }
       e.stun = h.launch && h.launch < -300 ? 0.7 : 0.3;
@@ -598,6 +631,7 @@ export class World implements SkillWorld {
       e.seed = { owner: p, dmg: 0, elem: h.elem };
     }
     p.lastHit = { order: h.order, t: this.time };
+    p.hits = Math.min(HIT_COMBO.max, p.hits + 1); p.hitsT = HIT_COMBO.timeout;
     this.events.push({ type: 'hit', enemyId: e.id, heavy: !h.light, reaction });
     if (e.hp <= 0 && !e.dead) this.kill(e, p);
   }
@@ -643,7 +677,8 @@ export class World implements SkillWorld {
     s.kills++;
     this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const def = MONSTERS[e.mob];
-    const r = gainExp(s, Math.round(def.exp * this.diff.exp));
+    const em = e.elite ? ELITE.exp : 1;
+    const r = gainExp(s, Math.round(def.exp * this.diff.exp * em * comboExpMult(p.hits)));
     this.float(cx(e), e.y - 46, r.msg!, '#9ef0a0', 14, 1.0);
     if (r.banner) {
       this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#ffe066' });
@@ -651,7 +686,7 @@ export class World implements SkillWorld {
     }
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
     const [g0, g1] = def.gold;
-    this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold));
+    this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold * (e.elite ? ELITE.gold : 1)));
     for (const d of def.drops ?? []) {
       if (d.quest && questState(s, d.quest) !== 'active') continue;
       // 최대 개수: 가방 + 바닥에 떨어져 있는 것
@@ -660,6 +695,81 @@ export class World implements SkillWorld {
     }
     questsOnKill(s, e.mob, e.tag);
     for (const id of readyQuestIds(s)) if (!before.includes(id)) this.questReady(p, questDef(id)!);
+  }
+
+  // ===================== 정예몹 · 던전 =====================
+  /** 사냥터 몬스터가 다시 나올 때: 일정 확률로 정예 (특성 하나). 보스·안전 지대·던전은 제외. 맵에 처음 들어올 때는 안 뽑음 (포탈 왕복으로 정예 고르기 방지) */
+  private rollElite(e: Enemy) {
+    if (MONSTERS[e.mob].boss || e.once || this.map.safe || this.map.waves) return;
+    if (this.rng() < ELITE.chance) this.makeElite(e, [ELITE_AFFIXES[Math.floor(this.rng() * ELITE_AFFIXES.length)]]);
+  }
+
+  /** 정예로 만들기: 체력·크기 배수 + 특성 */
+  private makeElite(e: Enemy, affixes: EliteAffix[]) {
+    e.elite = affixes;
+    // 보스는 특성만 (체력·크기는 그대로)
+    if (MONSTERS[e.mob].boss) return;
+    e.maxHp = e.hp = Math.round(e.maxHp * ELITE.hp);
+    const w = Math.round(e.w * ELITE.size), h = Math.round(e.h * ELITE.size);
+    e.x -= (w - e.w) / 2; e.y -= h - e.h; e.w = w; e.h = h;
+    if (affixes.includes('swift')) e.speed *= ELITE.affixes.swift.speed;
+  }
+
+  /** 다시 나올 때 보통 몬스터로 되돌림 (다시 정예를 뽑음) */
+  private resetElite(e: Enemy) {
+    const def = MONSTERS[e.mob];
+    e.elite = undefined; e.raged = false;
+    e.x += (e.w - def.w) / 2; e.w = def.w; e.h = def.h;
+    e.maxHp = Math.round(def.hp * this.diff.hp);
+    e.speed = this.range(def.speed);
+  }
+
+  /** 몸통 피해 (정예·분노 배수) */
+  private touchDmg(e: Enemy) {
+    let d = MONSTERS[e.mob].touch;
+    if (e.elite) d *= ELITE.touch;
+    if (e.raged) d *= ELITE.affixes.rage.touch;
+    return Math.round(d);
+  }
+
+  /** 던전 웨이브 i 를 내보냄 (한 번만 나오는 몬스터) */
+  private spawnWave(i: number) {
+    this.wave = i;
+    for (const sp of this.map.waves![i]) {
+      const e = this.spawnEnemy(sp.mob, sp.x - MONSTERS[sp.mob].w / 2, sp.elem ?? null, sp.y);
+      e.once = true;
+      if (sp.elite) this.makeElite(e, sp.elite);
+      this.fx({ kind: 'ring', x: cx(e), y: cy(e), color: e.elite ? ELITE.color : '#c8b8ff', r0: 50, r1: 8, life: 0.4 });
+    }
+  }
+
+  /** 던전: 웨이브를 다 잡으면 잠깐 뒤 다음 웨이브, 마지막까지 잡으면 클리어 (다음 방 포탈 + 마지막 방 보상) */
+  private stepWaves(dt: number) {
+    const waves = this.map.waves;
+    if (!waves || this.cleared) return;
+    if (this.waveT < 0) {
+      if (this.enemies.some(e => !e.dead)) return;
+      this.waveT = 1.2;
+      return;
+    }
+    this.waveT -= dt;
+    if (this.waveT > 0) return;
+    this.waveT = -1;
+    if (this.wave + 1 < waves.length) {
+      this.spawnWave(this.wave + 1);
+      for (const p of this.players.values()) this.events.push({ type: 'banner', playerId: p.id, text: `WAVE ${this.wave + 1} / ${waves.length}`, color: '#c8b8ff' });
+      return;
+    }
+    this.cleared = true;
+    const rw = this.map.clearReward;
+    for (const p of this.players.values()) {
+      if (!rw) { this.events.push({ type: 'banner', playerId: p.id, text: '클리어! 다음 방이 열렸다', color: '#9ef0a0' }); continue; }
+      p.data.gold += rw.gold;
+      const r = gainExp(p.data, rw.exp);
+      if (r.statsChanged) this.refreshStats(p, r.fullHeal);
+      this.events.push({ type: 'banner', playerId: p.id, text: `던전 클리어! +${rw.gold} G · +${rw.exp} EXP`, color: '#ffe066' });
+      if (r.banner) this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#ffe066' });
+    }
   }
 
   // ===================== 몬스터 =====================
@@ -671,6 +781,7 @@ export class World implements SkillWorld {
         if (e.once) continue;
         // 5초 뒤, 근처에 플레이어가 없으면 다시 나타남
         if (e.deadT > 5 && players.every(p => Math.abs(cx(p) - e.spawnX) > 320)) {
+          this.resetElite(e); this.rollElite(e);
           e.dead = false; e.hp = e.maxHp; e.bleed = null; e.seed = null; e.root = 0; e.x = e.spawnX; e.y = e.spawnY - 40; e.vx = e.vy = 0; e.record = null; e.stun = 0; e.leap = 'none'; e.leapCd = this.patternCd(e.mob);
         }
         continue;
@@ -827,10 +938,11 @@ export class World implements SkillWorld {
       if (e.leapT > 0) return;
       e.leap = 'leap';
       if (e.pat === 'slam') { this.golemSlam(e); e.leapT = GOLEM_AI.slamRecover; }
+      if (e.pat === 'quake') { this.golemQuake(e); e.leapT = GOLEM_NORMAL.quakeRecover; }
       return;
     }
     if (e.leap === 'leap') {
-      if (e.pat === 'slam') {
+      if (e.pat === 'slam' || e.pat === 'quake') {
         e.vx = 0;
         e.leapT -= dt;
         if (e.leapT <= 0) { e.leap = 'none'; e.pat = undefined; e.leapCd = this.range(GOLEM_AI.every); }
@@ -848,16 +960,79 @@ export class World implements SkillWorld {
     if (target && Math.abs(dx) > MONSTER_AI.chaseDeadZone) e.dir = dx > 0 ? 1 : -1;
     e.vx = target && Math.abs(dx) > 40 ? e.dir * e.speed : 0;
     if (!target || e.leapCd > 0 || !e.onGround) return;
+    // 노멀부터: HP 가 정해진 비율 아래로 처음 내려가면 대지 붕괴 (치명적)
+    const qi = e.quakes ?? 0;
+    if (this.diff.extra && qi < GOLEM_NORMAL.quakeAt.length && e.hp / e.maxHp < GOLEM_NORMAL.quakeAt[qi]) {
+      e.quakes = qi + 1; e.pat = 'quake'; e.leap = 'crouch'; e.leapT = GOLEM_NORMAL.quakeWindup; e.vx = 0;
+      this.warn2({ x: this.bounds.l, y: GROUND_Y - 40, w: this.bounds.r - this.bounds.l, h: 40 }, GOLEM_NORMAL.quakeWindup, '#ff3030');
+      this.float(cx(e), e.y - 30, '!!', '#ff5050', 30, GOLEM_NORMAL.quakeWindup);
+      return;
+    }
     const near = Math.abs(dx) < GOLEM_AI.slamRange + e.w / 2;
-    if (near && (e.slams ?? 0) < GOLEM_AI.slamsBeforeCharge) { e.pat = 'slam'; e.slams = (e.slams ?? 0) + 1; e.leap = 'crouch'; e.leapT = GOLEM_AI.slamWindup; e.vx = 0; }
+    if (near && (e.slams ?? 0) < GOLEM_AI.slamsBeforeCharge) {
+      e.pat = 'slam'; e.slams = (e.slams ?? 0) + 1; e.leap = 'crouch'; e.leapT = GOLEM_AI.slamWindup; e.vx = 0;
+      this.warn2(this.slamArea(e), GOLEM_AI.slamWindup, '#ff7040');
+    }
     else if (near || this.rng() < GOLEM_AI.chargeChance) { e.slams = 0; e.pat = 'charge'; e.chargeDir = e.dir; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
     else e.leapCd = this.range(GOLEM_AI.every) * 0.5;
   }
 
   /** 골렘 전방 내려치기: 앞쪽 범위 안 플레이어에게 피해 */
+  /** 내려치기 범위: 골렘 가운데부터 앞쪽, 바닥에 붙은 낮은 띠 (점프로 피함) */
+  private slamArea(e: Enemy) {
+    return { x: e.dir > 0 ? cx(e) : cx(e) - GOLEM_AI.slamW, y: e.y + e.h - GOLEM_AI.slamH, w: GOLEM_AI.slamW, h: GOLEM_AI.slamH };
+  }
+
+  /** 패턴 예고 상자 (화면에 반투명으로) */
+  private warn2(r: Rect, life: number, color: string, boss = true) { this.warns.push({ ...r, t: 0, life, color, boss }); }
+
+  /** 대지 붕괴 (노멀부터): 땅에 서 있는 플레이어에게 최대 HP 비율 피해 */
+  private golemQuake(e: Enemy) {
+    this.events.push({ type: 'shake', amount: 18 });
+    this.fx({ kind: 'ring', x: cx(e), y: GROUND_Y - 10, color: '#ff6040', r0: 30, r1: 600, life: 0.6 });
+    for (let x = this.bounds.l; x < this.bounds.r; x += 70) this.fx({ kind: 'flame', x, y: GROUND_Y, w: 70, h: 46, color: '#c87050', life: 0.5 });
+    for (const p of this.players.values()) {
+      const grounded = p.onGround && p.y + p.h >= GROUND_Y - 2;
+      if (!grounded || p.downT > 0 || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
+      this.hurtPlayer(p, Math.round(p.stats.maxHp * GOLEM_NORMAL.quakeHpPct), Math.sign(cx(p) - cx(e)) || 1);
+    }
+  }
+
+  /** 천장 잔해 (노멀부터): 주기적으로 몇 개, 하나는 플레이어 머리 위. 예고 띠 뒤에 떨어짐 */
+  private stepRubble(dt: number, boss: Enemy | undefined) {
+    const R = GOLEM_NORMAL;
+    if (this.diff.extra && boss && !boss.held) {
+      this.rubbleT -= dt;
+      if (this.rubbleT <= 0) {
+        this.rubbleT = this.range(R.rubbleEvery);
+        const target = [...this.players.values()][0];
+        for (let i = 0; i < R.rubbleN; i++) {
+          const x = i === 0 && target ? cx(target) : this.bounds.l + R.rubbleW / 2 + this.rng() * (this.bounds.r - this.bounds.l - R.rubbleW);
+          this.rubble.push({ x, t: 0 });
+          this.warn2({ x: x - R.rubbleW / 2, y: this.map.top ?? 0, w: R.rubbleW, h: GROUND_Y - (this.map.top ?? 0) }, R.rubbleWarn, '#ffb060', false);
+        }
+      }
+    }
+    this.rubble = this.rubble.filter(r => {
+      r.t += dt;
+      if (r.t < R.rubbleWarn) return true;
+      const area = { x: r.x - R.rubbleW / 2, y: 0, w: R.rubbleW, h: GROUND_Y };
+      this.fx({ kind: 'ring', x: r.x, y: GROUND_Y - 10, color: '#b09070', r0: 8, r1: 46, life: 0.3 });
+      this.events.push({ type: 'shake', amount: 4 });
+      for (const p of this.players.values()) {
+        if (!overlaps(p, area) || p.downT > 0 || (p.invT > 0 && !p.touchInv) || (p.action && p.action.inv)) continue;
+        this.hurtPlayer(p, this.mobDmg(R.rubbleDmg), Math.sign(cx(p) - r.x) || 1);
+      }
+      return false;
+    });
+    for (const w of this.warns) w.t += dt;
+    this.warns = this.warns.filter(w => w.t < w.life);
+  }
+
   private golemSlam(e: Enemy) {
-    const area = { x: e.dir > 0 ? cx(e) : cx(e) - GOLEM_AI.slamW, y: e.y + e.h - GOLEM_AI.slamH, w: GOLEM_AI.slamW, h: GOLEM_AI.slamH };
+    const area = this.slamArea(e);
     this.fx({ kind: 'ring', x: area.x + area.w / 2, y: e.y + e.h - 10, color: '#c8a070', r0: 20, r1: GOLEM_AI.slamW * 0.6, life: 0.35 });
+    this.fx({ kind: 'flame', x: area.x, y: e.y + e.h, w: area.w, h: GOLEM_AI.slamH, color: '#c8a070', life: 0.35 });
     this.events.push({ type: 'shake', amount: 10 });
     for (const p of this.players.values()) {
       // 몸통 접촉으로 생긴 무적은 무시 (붙어 있으면 늘 접촉 무적이라 내려치기가 안 맞음)
@@ -897,21 +1072,29 @@ export class World implements SkillWorld {
     const o = this.orb;
     if (o) {
       const boss = this.enemies.find(e => MONSTERS[e.mob].ai === 'golem' && !e.dead && !e.held);
-      if (!boss) { o.dir = null; o.t = 0; }
-      else if (o.dir) {
+      const target = [...this.players.values()][0];
+      const aim = () => {
+        if (!target) return;
+        const dx = cx(target) - o.x, dy = cy(target) - o.y, d = Math.hypot(dx, dy) || 1;
+        o.dir = { x: dx / d, y: dy / d };
+      };
+      if (!boss || boss.held) { o.dir = null; o.t = 0; o.locked = false; }
+      else if (o.dir && !o.locked) {
+        // 조준선이 플레이어를 따라감 → 시간이 다 되면 방향 고정
+        aim();
+        o.track -= dt;
+        if (o.track <= 0) { o.locked = true; o.aimT = BOSS_ORB.aimTime; }
+      } else if (o.dir) {
         o.aimT -= dt;
         if (o.aimT <= 0) {
           this.orbShots.push({ id: `o${this.nextId++}`, x: o.x, y: o.y, vx: o.dir.x * BOSS_ORB.speed, vy: o.dir.y * BOSS_ORB.speed });
-          o.dir = null; o.t = 0;
+          o.dir = null; o.t = 0; o.locked = false;
         }
       } else {
         o.t += dt;
-        const target = [...this.players.values()][0];
-        if (o.t >= BOSS_ORB.every && target) {
-          const dx = cx(target) - o.x, dy = cy(target) - o.y, d = Math.hypot(dx, dy) || 1;
-          o.dir = { x: dx / d, y: dy / d }; o.aimT = BOSS_ORB.aimTime;
-        }
+        if (o.t >= BOSS_ORB.every && target) { aim(); o.track = BOSS_ORB.track; o.locked = false; }
       }
+      this.stepRubble(dt, boss);
     }
     const r = BOSS_ORB.r;
     for (const s of this.orbShots) {
@@ -927,6 +1110,8 @@ export class World implements SkillWorld {
         this.float(cx(e), e.y - 20, `${e.orbHits} / ${GOLEM_AI.groggyHits}`, '#6ec8ff', 20, 1.0);
         if (e.orbHits >= GOLEM_AI.groggyHits) {
           e.groggy = GOLEM_AI.groggyTime; e.leap = 'none'; e.pat = undefined; e.vx = 0;
+          // 예고 중이던 골렘 패턴은 취소
+          this.warns = this.warns.filter(w => !w.boss);
           this.float(cx(e), e.y - 44, '기절!', '#ffd84a', 24, 1.4);
           this.events.push({ type: 'shake', amount: 8 });
         }
@@ -1010,7 +1195,7 @@ export class World implements SkillWorld {
 
   /** 근처 포탈 (화면에서 "↑ 이동" 말풍선용) */
   portalNear(p: PlayerState) {
-    return mapPortals(p.data, this.mapId).find(o => Math.abs(o.x - cx(p)) < 40 && Math.abs((o.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
+    return mapPortals(p.data, this.mapId, this.cleared).find(o => Math.abs(o.x - cx(p)) < 40 && Math.abs((o.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
   }
 
   usePotion(p: PlayerState, kind: 'hp' | 'mp') {

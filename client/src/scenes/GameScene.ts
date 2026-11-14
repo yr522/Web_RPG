@@ -24,7 +24,7 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { BOSS_ORB, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
+import { BOSS_ORB, ELITE, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
 import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
 import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
 import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
@@ -81,7 +81,7 @@ const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true,
 /** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
 function mobTexture(mob: MonsterId, elem: unknown) {
   if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
-  return mob;
+  return MONSTERS[mob].look ?? mob;
 }
 
 export class GameScene extends Phaser.Scene implements Stage {
@@ -118,6 +118,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private fxList: { f: Fx; t: number }[] = [];
   /** 재생 중인 그림 이펙트 */
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
+  /** 정예몹 특성 오버레이 (몬스터 id + 특성 → 계속 도는 그림) */
+  private eliteFx = new Map<string, Phaser.GameObjects.Sprite>();
   private combat!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
   /** 캐릭터 뒤에 그리는 것 (마법진) */
@@ -213,6 +215,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.enemyLabels.clear();
     for (const sp of this.enemySprites.values()) sp.destroy();
     this.enemySprites.clear();
+    for (const sp of this.eliteFx.values()) sp.destroy();
+    this.eliteFx.clear();
     this.flash.clear();
     this.fxList = [];
     for (const o of this.vfxSprites) o.sp.destroy();
@@ -275,7 +279,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       this.mapLayer.add(this.text(s.text, 14, '#fff3d0').setStroke('#000', 0).setOrigin(0.5).setPosition(s.x, GROUND_Y - 60));
     }
     this.mapSig = this.visibleSig();
-    for (const pt of mapPortals(save, world.mapId)) {
+    for (const pt of mapPortals(save, world.mapId, world.cleared)) {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, (pt.y ?? GROUND_Y) - 98));
     }
     this.profMark = null;
@@ -354,7 +358,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 지금 보이는 NPC·포탈 목록 (퀘스트 진행으로 바뀌면 맵을 다시 그림) */
   private visibleSig() {
     const { save, world } = this.deps.session;
-    return mapNpcs(save, world.mapId).map(n => n.id + n.x).join() + '|' + mapPortals(save, world.mapId).map(p => p.to + p.x).join();
+    return mapNpcs(save, world.mapId).map(n => n.id + n.x).join() + '|' + mapPortals(save, world.mapId, world.cleared).map(p => p.to + p.x).join();
   }
 
   /** 따라다니는 NPC (연출, 무적): 맵에 들어오면 플레이어 옆에 나타남 */
@@ -703,7 +707,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawEnemies(dt: number) {
     const g = this.combat, world = this.deps.session.world;
     g.clear();
-    const alive = new Set<string>();
+    const alive = new Set<string>(), liveFx = new Set<string>();
     for (const e of world.enemies) {
       const fl = Math.max(0, (this.flash.get(e.id) ?? 0) - dt);
       this.flash.set(e.id, fl);
@@ -715,8 +719,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (!sp) {
         // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
         sp = this.add.sprite(0, 0, mobTexture(e.mob, e.elem), 0).setOrigin(0.5, 1).setDepth(4);
-        // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤
-        sp.setScale(e.mob === 'slime' || e.mob === 'slime_elem' ? 1.45 : MONSTERS[e.mob].h / sp.frame.height);
+
         if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
         this.enemySprites.set(e.id, sp);
       }
@@ -726,6 +729,9 @@ export class GameScene extends Phaser.Scene implements Stage {
       else if (e.onGround && e.stun <= 0 && Math.abs(e.vx) > 1) frame = Math.floor(this.time.now / 1000 * 6 + e.spawnX) % 2;
       // 웅크릴 때 부들부들 떨림 (점프 예고)
       const shiver = e.leap === 'crouch' ? Math.sin(this.time.now / 25) * 1.5 : 0;
+      // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤 (정예는 몸이 커진 만큼)
+      const slime = e.mob === 'slime' || e.mob === 'slime_elem';
+      sp.setScale(slime ? 1.45 * e.h / MONSTERS[e.mob].h : e.h / sp.frame.height);
       sp.setFrame(frame).setVisible(true).setAlpha(alpha)
         .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
         .setFlipX(e.dir > 0);
@@ -733,9 +739,30 @@ export class GameScene extends Phaser.Scene implements Stage {
       else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
       else if (e.groggy && e.groggy > 0) sp.setTint(0x8090b0);
       else sp.clearTint();
+      // 정예: 이름 앞에 [정예 특성] + 금색, 발밑에 금색 빛
+      const base = e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : MONSTERS[e.mob].name;
+      const name = e.elite ? `정예 ${e.elite.map(a => ELITE.affixes[a].name).join('·')} ${base}` : base;
       if (!label) {
-        label = this.text(e.elem ? `${ELEMENTS[e.elem].name} 슬라임` : MONSTERS[e.mob].name, 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+        label = this.text(name, 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
         this.enemyLabels.set(e.id, label);
+      }
+      if (label.text !== name) label.setText(name);
+      label.setColor(e.elite ? ELITE.color : '#ffffff');
+      // 특성 오버레이: 몸 위에 계속 도는 그림 (몸 높이에 맞춤, 특성이 여러 개면 겹쳐서)
+      for (const a of e.elite ?? []) {
+        const key = `${e.id}:${a}`, name = ELITE.affixes[a].overlay, d = VFX[name];
+        if (!d) continue;
+        let fx = this.eliteFx.get(key);
+        if (!fx) { fx = this.add.sprite(0, 0, vfxKey(name), 0).setOrigin(0.5, 1).setDepth(4.2).play(vfxKey(name)); this.eliteFx.set(key, fx); }
+        const sc = (e.h * 1.35) / (d.frameH ?? d.frame);
+        fx.setScale(sc).setPosition(e.x + e.w / 2, e.y + e.h + 2).setAlpha(alpha).setVisible(!e.dead || e.deadT < 0.35);
+        liveFx.add(key);
+      }
+      if (e.elite && !e.dead) {
+        const pulse = 0.35 + 0.2 * Math.sin(this.time.now / 160);
+        g.fillStyle(hex(ELITE.color), pulse).fillEllipse(e.x + e.w / 2, e.y + e.h, e.w + 22, 14);
+        g.lineStyle(2, hex(ELITE.color), 0.5 + pulse).strokeEllipse(e.x + e.w / 2, e.y + e.h, e.w + 22, 14);
+        if (e.raged) g.fillStyle(0xff3020, 0.15 + 0.1 * Math.sin(this.time.now / 60)).fillEllipse(e.x + e.w / 2, e.y + e.h / 2, e.w + 26, e.h + 20);
       }
       label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
       if (e.hp < e.maxHp && !e.dead) {
@@ -764,11 +791,29 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
     }
     // 보스 방 보안장치 (푸른 오브): 조준 중이면 고정된 방향으로 조준선, 탄
+    // 보스 패턴 예고: 반투명 상자 (끝날수록 진해짐, 테두리 깜빡임)
+    for (const w of world.warns) {
+      const p = Math.min(1, w.t / w.life), c = hex(w.color);
+      g.fillStyle(c, 0.12 + 0.22 * p).fillRect(w.x, w.y, w.w, w.h);
+      g.lineStyle(2, c, 0.5 + 0.5 * Math.abs(Math.sin(this.time.now / (p > 0.7 ? 40 : 90)))).strokeRect(w.x, w.y, w.w, w.h);
+    }
+    // 천장 잔해: 떨어지기 직전에 위에서 내려옴
+    for (const r of world.rubble) {
+      const fall = 0.25, left = GOLEM_NORMAL.rubbleWarn - r.t;
+      if (left > fall) continue;
+      const top = world.map.top ?? 0, y = top + (GROUND_Y - top) * (1 - left / fall), s2 = GOLEM_NORMAL.rubbleW * 0.6;
+      g.fillStyle(0x4a4450).fillRect(r.x - s2 / 2, y - s2, s2, s2);
+      g.fillStyle(0x6b6470).fillRect(r.x - s2 / 2 + 3, y - s2 + 3, s2 - 6, s2 / 3);
+    }
     if (world.orb) {
       const o = world.orb;
-      if (o.dir) {
-        const a = 0.35 + 0.35 * Math.abs(Math.sin(this.time.now / 60));
-        g.lineStyle(3, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      if (o.dir && !o.locked) {
+        // 따라가는 중: 흐린 조준선
+        g.lineStyle(2, 0x6ec8ff, 0.35).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
+      } else if (o.dir) {
+        // 방향 고정: 굵고 빠르게 깜빡임
+        const a = 0.45 + 0.45 * Math.abs(Math.sin(this.time.now / 40));
+        g.lineStyle(4, 0x6ec8ff, a).lineBetween(o.x, o.y, o.x + o.dir.x * 1600, o.y + o.dir.y * 1600);
       }
       g.fillStyle(0x2a3a5a).fillRect(o.x - 26, o.y - 40, 52, 14);
       g.fillStyle(0x6ec8ff, o.dir ? 1 : 0.75).fillCircle(o.x, o.y, 16);
@@ -780,6 +825,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
+    for (const [k, sp] of this.eliteFx) if (!liveFx.has(k)) { sp.destroy(); this.eliteFx.delete(k); }
 
     // 골드: 금액에 따라 동전·철전·은전·금전 그림이 계속 돎, 사라지기 5초 전부터 깜빡임
     const drops = new Set<string>(), coins = new Set<string>();
@@ -1128,7 +1174,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private drawPortals() {
     const g = this.fx, t = this.time.now / 1000;
     g.clear();
-    for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId)) {
+    for (const p of mapPortals(this.deps.session.save, this.deps.session.world.mapId, this.deps.session.world.cleared)) {
       const py = (p.y ?? GROUND_Y) - 48;
       // 닫힌 포탈은 흐린 회색
       const [fill, line, a] = p.closed ? [0x9a9aa8, 0xb8b8c4, 0.45] : [0xa078ff, 0xbea0ff, 1];
