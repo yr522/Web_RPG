@@ -3,7 +3,7 @@
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
 // 가방 칸은 끌어다 놓아 옮길 수 있다 (빈 칸이면 옮기고, 물건이 있으면 자리 바꿈). 아래 정렬 버튼으로 자동 정렬.
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
-import { BAG_SIZE, EQUIP_SLOTS, ITEM_TABS, itemDef, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
 import { equippedEntry, equippedSlot } from '@shared/rules/inventory';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -219,6 +219,7 @@ export class InventoryWindow {
       const e = it?.e;
       if (e && it) {
         cell.classList.add('has');
+        gradeBorder(cell, e.id);
         cell.appendChild(itemIcon(e.id));
         if (e.n > 1) cell.appendChild(el('span', 'inv-n', String(e.n)));
         if (equippedSlot(s, e.uid)) { cell.classList.add('on'); cell.appendChild(el('span', 'inv-on', 'on')); }
@@ -237,6 +238,7 @@ export class InventoryWindow {
         const e = equippedEntry(s, slot);
         const cell = el('div', 'inv-cell eq' + (e ? '' : ' empty'));
         if (e) {
+          gradeBorder(cell, e.id);
           cell.appendChild(itemIcon(e.id));
           this.bindCell(cell, `eq:${slot}:${e.uid}`, e.id, () => this.result(this.session.act({ type: 'unequip', slot })));
         } else {
@@ -399,4 +401,12 @@ export class InventoryWindow {
     else if (!r.ok && r.msg) this.hud.toast(r.msg);
     this.update();
   }
+}
+
+/** 장비 등급 색 테두리 (장비가 아니면 그대로) */
+function gradeBorder(cell: HTMLElement, id: string) {
+  const g = itemGrade(itemDef(id));
+  if (!g) return;
+  cell.classList.add('graded', `g-${g}`);
+  cell.style.setProperty('--gc', GRADES[g].color);
 }

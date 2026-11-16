@@ -2,7 +2,7 @@
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
-import { ITEMS, SHOP_ITEMS } from '@shared/data/items';
+import { GRADES, ITEMS, SHOP_ITEMS, itemGrade } from '@shared/data/items';
 import { countItem } from '@shared/rules/inventory';
 import { QUESTS, questTitle } from '@shared/data/quests';
 import { questProgressText, questState } from '@shared/rules/quests';
@@ -355,7 +355,8 @@ export class NpcDialog {
     for (const id of SHOP_ITEMS) {
       const it = ITEMS[id], card = el('div', 'card shop'), price = it.price ?? 0;
       card.appendChild(itemIcon(id));
-      card.appendChild(el('div', 'grow', `<b>${it.name}</b> <span class="gold">${price} G</span><br><span class="note">${it.desc} · 가진 개수 ${countItem(s, id)}</span>`));
+      const g = itemGrade(it);
+      card.appendChild(el('div', 'grow', `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${it.name}</b> <span class="gold">${price} G</span><br><span class="note">${it.desc} · 가진 개수 ${countItem(s, id)}</span>`));
       for (const n of it.bulk ?? [1]) {
         const btn = el('button', 'sm go', `${n}개`, () => this.act({ type: 'buy', item: id, n })) as HTMLButtonElement;
         btn.disabled = s.gold < price * n;

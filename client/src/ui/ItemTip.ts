@@ -1,5 +1,5 @@
 // 아이템 설명 플로팅: 마우스(손가락) 위치에 반투명 검정 상자, 이름(큰 글씨) + 설명.
-import { itemDef } from '@shared/data/items';
+import { GRADES, itemDef, itemGrade } from '@shared/data/items';
 import { esc } from './Dialog';
 
 const OFFSET = 14;
@@ -19,7 +19,9 @@ export class ItemTip {
     if (!d) return this.hide();
     if (this.key !== key) {
       this.key = key;
-      this.el.innerHTML = `<b>${esc(d.name)}</b><span>${esc(d.desc)}</span>`;
+      // 장비는 이름을 등급 색으로
+      const g = itemGrade(d);
+      this.el.innerHTML = `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${esc(d.name)}</b><span>${esc(d.desc)}</span>`;
       this.el.style.display = 'block';
     }
     // 화면 밖으로 나가지 않게
