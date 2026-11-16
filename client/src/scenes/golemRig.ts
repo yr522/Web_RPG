@@ -194,16 +194,27 @@ export function golemPose(s: GolemState): PartDraw[] {
   return GOLEM_PARTS.map(part => {
     const id = PART_BONE[part], m = world[id], bb = BBOX[part];
     if (s.mode === 'dead') {
-      // 와르르: 파츠 가운데를 중심으로 돌며 튀어 오르고, 떨어져 바닥에서 멈춤, 끝에 흐려짐
+      // 죽음: 관절이 천천히 어긋남 → 부들부들 → 폭발해서 파츠가 튀어 오르고, 떨어져 바닥에서 멈춤, 끝에 흐려짐
       const cx0 = (bb[0] + bb[2]) / 2, cy0 = (bb[1] + bb[3]) / 2;
-      const [vx, vy, vr] = BREAK[part], t = s.p, g = 900;
-      const floor = Math.max(cy0, GOLEM_CANVAS - Math.min(bb[2] - bb[0], bb[3] - bb[1]) / 2);
-      const fall = (tt: number) => cy0 + vy * tt + 0.5 * g * tt * tt;
-      const tLand = (-vy + Math.sqrt(vy * vy + 2 * g * (floor - cy0))) / g;
-      const tt = Math.min(t, tLand);
+      const [vx0, vy0, vr] = BREAK[part], g = 900, t = s.p;
+      const len = Math.hypot(vx0, vy0) || 1;
+      const k = ease(clamp01(t / GOLEM_DEATH_CRACK));
+      const ox = vx0 / len * 18 * k, oy = vy0 / len * 12 * k + 10 * k, or = vr * 0.09 * k;
+      if (t < GOLEM_DEATH_BOOM) {
+        const sh = t > GOLEM_DEATH_CRACK ? 1 + 2.5 * (t - GOLEM_DEATH_CRACK) / (GOLEM_DEATH_BOOM - GOLEM_DEATH_CRACK) : 0;
+        const ph = cx0 * 0.37 + cy0 * 0.11;
+        return {
+          part, x: cx0 + ox + Math.sin(s.t * 60 + ph) * sh - GOLEM_FOOT.x, y: cy0 + oy + Math.cos(s.t * 55 + ph) * sh - GOLEM_FOOT.y,
+          rot: or, ox: cx0 / GOLEM_CANVAS, oy: cy0 / GOLEM_CANVAS, alpha: 1,
+        };
+      }
+      const te = t - GOLEM_DEATH_BOOM, vx = vx0 * 1.4, vy = vy0 * 1.4, y0 = cy0 + oy;
+      const floor = Math.max(y0, GOLEM_CANVAS - Math.min(bb[2] - bb[0], bb[3] - bb[1]) / 2);
+      const tLand = (-vy + Math.sqrt(vy * vy + 2 * g * (floor - y0))) / g;
+      const tt = Math.min(te, tLand);
       return {
-        part, x: cx0 + vx * tt * 0.6 - GOLEM_FOOT.x, y: (t >= tLand ? floor : fall(t)) - GOLEM_FOOT.y,
-        rot: vr * tt, ox: cx0 / GOLEM_CANVAS, oy: cy0 / GOLEM_CANVAS, alpha: clamp01(1 - (t - 1.6) / 0.6),
+        part, x: cx0 + ox + vx * tt * 0.6 - GOLEM_FOOT.x, y: (te >= tLand ? floor : y0 + vy * te + 0.5 * g * te * te) - GOLEM_FOOT.y,
+        rot: or + vr * tt, ox: cx0 / GOLEM_CANVAS, oy: cy0 / GOLEM_CANVAS, alpha: clamp01(1 - (te - 1.6) / 0.6),
       };
     }
     const pv = BONES[id].pivot;
@@ -214,5 +225,7 @@ export function golemPose(s: GolemState): PartDraw[] {
   });
 }
 
-/** 죽고 나서 파츠가 보이는 시간 (초) */
-export const GOLEM_DEATH_TIME = 2.2;
+/** 죽음 연출: 관절이 어긋나는 시간, 폭발하는 때, 파츠가 보이는 전체 시간 (초) */
+export const GOLEM_DEATH_CRACK = 1.2;
+export const GOLEM_DEATH_BOOM = 1.8;
+export const GOLEM_DEATH_TIME = GOLEM_DEATH_BOOM + 2.2;

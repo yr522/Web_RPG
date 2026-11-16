@@ -1,5 +1,5 @@
 // 저장 데이터 형태 + 능력치 계산 (기획서 5장 공식)
-import { CLASSES, PASSIVE, classActiveIds, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
+import { CLASSES, INT_REGEN, PASSIVE, classActiveIds, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
@@ -146,7 +146,7 @@ export function deriveStats(s: SaveData): DerivedStats {
   return {
     maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6),
     maxMp: Math.round((c.mp + (s.level - 1) * 5) * (1 + PASSIVE.maxmp.pct * plv(s, 'maxmp'))),
-    regen: c.regen * (1 + (st.int - 5) * 0.08),
+    regen: c.regen * (1 + (st.int - 5) * INT_REGEN),
     speed: Math.min(420, 260 + (st.dex - 5) * 6),
     atk: 20 + (st[c.main] - 5) * 1.6,
   };

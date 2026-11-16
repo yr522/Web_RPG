@@ -974,7 +974,7 @@ export class World implements SkillWorld {
       this.warn2(this.slamArea(e), GOLEM_AI.slamWindup, '#ff7040');
     }
     else if (near || this.rng() < GOLEM_AI.chargeChance) { e.slams = 0; e.pat = 'charge'; e.chargeDir = e.dir; e.leap = 'crouch'; e.leapT = GOLEM_AI.chargeWindup; e.vx = 0; }
-    else e.leapCd = this.range(GOLEM_AI.every) * 0.5;
+    else e.leapCd = this.range(GOLEM_AI.chargeSkipCd);
   }
 
   /** 골렘 전방 내려치기: 앞쪽 범위 안 플레이어에게 피해 */

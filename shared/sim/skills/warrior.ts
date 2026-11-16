@@ -1,6 +1,6 @@
 // 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT } from '../../data/classes';
+import { HINT, MOVE_SKILL } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
 
@@ -76,7 +76,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
         p.combo = 0;
       },
     };
-    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: 2.4, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: 0.22, skill: 'jilpung' });
+    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: MOVE_SKILL.jilpung.coef, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: 0.22, skill: 'jilpung' });
   },
 
   cheonbung(w, p, chain) {
