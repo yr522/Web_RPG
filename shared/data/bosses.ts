@@ -17,6 +17,11 @@ export const DIFFICULTIES: Record<Difficulty, { name: string; hp: number; dmg: n
   hard: { name: '하드', hp: 2, dmg: 1.5, exp: 2, gold: 2, extra: true },
 };
 
+/** 보스 방에 보스 메뉴가 아닌 길(이야기 포탈 등)로 들어가면 스토리 난이도 */
+export function roomDifficulty(map: string, d?: Difficulty): Difficulty | undefined {
+  return d ?? (BOSSES.some(b => b.room === map) ? 'story' : undefined);
+}
+
 export interface BossEntry {
   id: string;
   name: string;
