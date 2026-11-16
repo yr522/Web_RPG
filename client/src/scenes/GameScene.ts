@@ -9,6 +9,7 @@ import { palette, type Palette } from './palette';
 import { professorHasNews } from '@shared/rules/progress';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
+import type { Enemy } from '@shared/sim/entities';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 import { ICON_URLS } from '../ui/icons';
@@ -23,12 +24,18 @@ import { mapNpcs, mapPortals, offersQuest } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
-import slimeUrl from '../../../assets/img/sprites/새 폴더/01_slime/slime.png';
-import { BOSS_ORB, ELITE, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
+import slimeUrl from '../../../assets/img/sprites/enemies/01_slime/slime.png';
+import { BOSS_ORB, ELITE, GOLEM_AI, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
+import { GOLEM_ART_H, GOLEM_DEATH_TIME, GOLEM_PARTS, golemPose, type GolemState } from './golemRig';
 import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
 import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
 import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
 import coinGold from '../../../assets/img/icon/coin/gold_coin.png';
+
+/** 마법 골렘 파츠 그림 (192×192 레이어별) */
+const GOLEM_FILES = import.meta.glob('../../../assets/img/sprites/enemies/02_boss_Golem/golem_*.png', { eager: true, import: 'default' }) as Record<string, string>;
+/** true 면 예전 임시 골렘 그림(네모 블록)을 씀 */
+const GOLEM_OLD_LOOK = false;
 
 /** 골드 동전 그림 (16×16 칸, 가로로 프레임) */
 const COIN_URLS = { bronze: coinBronze, iron: coinIron, silver: coinSilver, gold: coinGold };
@@ -128,6 +135,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private projG!: Phaser.GameObjects.Graphics;
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
+  /** 파츠로 움직이는 골렘 */
+  private golemRigs = new Map<string, { c: Phaser.GameObjects.Container; parts: Phaser.GameObjects.Image[] }>();
   /** 떨어진 골드 동전 그림 (id → 그림) */
   private coinSprites = new Map<string, Phaser.GameObjects.Sprite>();
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
@@ -151,6 +160,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
     for (const k of COIN_KINDS) this.load.spritesheet(`coin:${k.img}`, COIN_URLS[k.img], { frameWidth: 16, frameHeight: 16 });
+    for (const [path, url] of Object.entries(GOLEM_FILES)) this.load.image(path.split('/').pop()!.replace(/\.png$/, ''), url);
     for (const [path, url] of Object.entries(BG_FILES)) this.load.image(`bg:${path.split('/').pop()!.replace(/\.png$/, '')}`, url);
   }
 
@@ -215,6 +225,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.enemyLabels.clear();
     for (const sp of this.enemySprites.values()) sp.destroy();
     this.enemySprites.clear();
+    for (const r of this.golemRigs.values()) r.c.destroy();
+    this.golemRigs.clear();
     for (const sp of this.eliteFx.values()) sp.destroy();
     this.eliteFx.clear();
     this.flash.clear();
@@ -712,9 +724,12 @@ export class GameScene extends Phaser.Scene implements Stage {
       const fl = Math.max(0, (this.flash.get(e.id) ?? 0) - dt);
       this.flash.set(e.id, fl);
       let label = this.enemyLabels.get(e.id);
+      const rigged = MONSTERS[e.mob].ai === 'golem' && !GOLEM_OLD_LOOK;
+      if (rigged && e.dead && e.deadT <= GOLEM_DEATH_TIME) { alive.add(e.id); this.drawGolem(e, fl); }
       if (e.dead && e.deadT > 0.35) { label?.setVisible(false); continue; }
       alive.add(e.id);
       const alpha = e.dead ? 1 - e.deadT / 0.35 : 1;
+      if (rigged && !e.dead) this.drawGolem(e, fl);
       let sp = this.enemySprites.get(e.id);
       if (!sp) {
         // 원소 슬라임은 회색 슬라임에 원소 색을 입힌다
@@ -732,7 +747,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤 (정예는 몸이 커진 만큼)
       const slime = e.mob === 'slime' || e.mob === 'slime_elem';
       sp.setScale(slime ? 1.45 * e.h / MONSTERS[e.mob].h : e.h / sp.frame.height);
-      sp.setFrame(frame).setVisible(true).setAlpha(alpha)
+      sp.setFrame(frame).setVisible(!rigged).setAlpha(alpha)
         .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
         .setFlipX(e.dir > 0);
       if (fl > 0) sp.setTintFill(0xffffff);
@@ -825,6 +840,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
+    for (const [id, r] of this.golemRigs) if (!alive.has(id) || !world.enemies.some(e => e.id === id)) r.c.setVisible(false);
     for (const [k, sp] of this.eliteFx) if (!liveFx.has(k)) { sp.destroy(); this.eliteFx.delete(k); }
 
     // 골드: 금액에 따라 동전·철전·은전·금전 그림이 계속 돎, 사라지기 5초 전부터 깜빡임
@@ -965,6 +981,37 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.lineBetween(ox + Math.cos(ang) * d, oy + Math.sin(ang) * d, ox + Math.cos(ang) * e, oy + Math.sin(ang) * e);
       }
     }
+  }
+
+  /** 마법 골렘: 파츠 그림을 상태에 맞춰 움직임 (golemRig.ts) */
+  private drawGolem(e: Enemy, flash: number) {
+    let rig = this.golemRigs.get(e.id);
+    if (!rig) {
+      const parts = GOLEM_PARTS.map(p => {
+        const key = `golem_${p}`;
+        this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+        return this.add.image(0, 0, key);
+      });
+      rig = { c: this.add.container(0, 0, parts).setDepth(4), parts };
+      this.golemRigs.set(e.id, rig);
+    }
+    const st: GolemState = { mode: 'idle', p: 0, t: this.time.now / 1000 + e.spawnX * 0.01 };
+    const left = (total: number) => Math.max(0, Math.min(1, 1 - e.leapT / total));
+    if (e.dead) { st.mode = 'dead'; st.p = e.deadT; }
+    else if (e.groggy && e.groggy > 0) st.mode = 'groggy';
+    else if (e.pat === 'slam') { st.mode = e.leap === 'crouch' ? 'slamWind' : 'slamHit'; st.p = left(e.leap === 'crouch' ? GOLEM_AI.slamWindup : GOLEM_AI.slamRecover); }
+    else if (e.pat === 'quake') { st.mode = e.leap === 'crouch' ? 'quakeWind' : 'quakeHit'; st.p = left(e.leap === 'crouch' ? GOLEM_NORMAL.quakeWindup : GOLEM_NORMAL.quakeRecover); }
+    else if (e.pat === 'charge') { st.mode = e.leap === 'crouch' ? 'chargeWind' : 'charge'; st.p = e.leap === 'crouch' ? left(GOLEM_AI.chargeWindup) : 0; }
+    else if (e.onGround && Math.abs(e.vx) > 1) st.mode = 'walk';
+    const sc = e.h / GOLEM_ART_H;
+    rig.c.setVisible(true).setPosition(e.x + e.w / 2, e.y + e.h + 1).setScale(sc * (e.dir > 0 ? -1 : 1), sc);
+    golemPose(st).forEach((d, i) => {
+      const im = rig!.parts[i];
+      im.setOrigin(d.ox, d.oy).setPosition(d.x, d.y).setRotation(d.rot).setAlpha(d.alpha);
+      if (flash > 0 && !e.dead) im.setTintFill(0xffffff);
+      else if (st.mode === 'groggy') im.setTint(0x8090b0);
+      else im.clearTint();
+    });
   }
 
   /** 그림이 아직 없는 몬스터의 임시 그림 (왼쪽을 봄, 프레임 0 기본 · 1 이동 · 2 패턴 예고) */
