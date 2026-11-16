@@ -26,7 +26,7 @@ import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/enemies/01_slime/slime.png';
 import { BOSS_ORB, ELITE, GOLEM_AI, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
-import { GOLEM_ART_H, GOLEM_DEATH_TIME, GOLEM_PARTS, golemPose, type GolemState } from './golemRig';
+import { GOLEM_ART_H, GOLEM_DEATH_BOOM, GOLEM_DEATH_CRACK, GOLEM_DEATH_TIME, GOLEM_PARTS, golemPose, type GolemState } from './golemRig';
 import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
 import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
 import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
@@ -136,7 +136,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   /** 파츠로 움직이는 골렘 */
-  private golemRigs = new Map<string, { c: Phaser.GameObjects.Container; parts: Phaser.GameObjects.Image[] }>();
+  private golemRigs = new Map<string, { c: Phaser.GameObjects.Container; parts: Phaser.GameObjects.Image[]; boomed: boolean }>();
   /** 떨어진 골드 동전 그림 (id → 그림) */
   private coinSprites = new Map<string, Phaser.GameObjects.Sprite>();
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
@@ -992,7 +992,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
         return this.add.image(0, 0, key);
       });
-      rig = { c: this.add.container(0, 0, parts).setDepth(4), parts };
+      rig = { c: this.add.container(0, 0, parts).setDepth(4), parts, boomed: false };
       this.golemRigs.set(e.id, rig);
     }
     const st: GolemState = { mode: 'idle', p: 0, t: this.time.now / 1000 + e.spawnX * 0.01 };
@@ -1003,6 +1003,32 @@ export class GameScene extends Phaser.Scene implements Stage {
     else if (e.pat === 'quake') { st.mode = e.leap === 'crouch' ? 'quakeWind' : 'quakeHit'; st.p = left(e.leap === 'crouch' ? GOLEM_NORMAL.quakeWindup : GOLEM_NORMAL.quakeRecover); }
     else if (e.pat === 'charge') { st.mode = e.leap === 'crouch' ? 'chargeWind' : 'charge'; st.p = e.leap === 'crouch' ? left(GOLEM_AI.chargeWindup) : 0; }
     else if (e.onGround && Math.abs(e.vx) > 1) st.mode = 'walk';
+    if (!e.dead) rig.boomed = false;
+    const mx = e.x + e.w / 2, my = e.y + e.h * 0.55;
+    // 죽음: 부들부들 떨 때 화면도 조금 흔들림 → 폭발 (화면 크게 흔들림, 빛, 고리)
+    if (e.dead && e.deadT > GOLEM_DEATH_CRACK && e.deadT < GOLEM_DEATH_BOOM) this.shake = Math.max(this.shake, 3);
+    if (e.dead && e.deadT >= GOLEM_DEATH_BOOM && !rig.boomed) {
+      rig.boomed = true;
+      this.shake = Math.max(this.shake, 22);
+      this.fxList.push({ f: { kind: 'ring', x: mx, y: my, color: '#ffffff', r0: 20, r1: 260, life: 0.45 }, t: 0 });
+      this.fxList.push({ f: { kind: 'ring', x: mx, y: my, color: '#6ec8ff', r0: 40, r1: 420, life: 0.7 }, t: 0 });
+    }
+    if (e.dead && e.deadT >= GOLEM_DEATH_BOOM && e.deadT < GOLEM_DEATH_BOOM + 0.35) {
+      const k = 1 - (e.deadT - GOLEM_DEATH_BOOM) / 0.35;
+      this.combat.fillStyle(0xe0f6ff, 0.8 * k).fillCircle(mx, my, 60 + 120 * (1 - k));
+      this.combat.fillStyle(0xffffff, k).fillCircle(mx, my, 40 + 40 * (1 - k));
+    }
+    // 돌진 예고: 돌진할 쪽 앞에 <<< (먼 쪽일수록 진하고 주황, 가까울수록 흐리고 노랑), 깜빡임
+    if (!e.dead && e.pat === 'charge' && e.leap === 'crouch') {
+      const d = e.chargeDir ?? e.dir, blink = 0.35 + 0.65 * Math.abs(Math.sin(this.time.now / 160));
+      const front = d > 0 ? e.x + e.w + 30 : e.x - 30, cy = e.y + e.h * 0.6, hh = 30, ww = 22;
+      const cols = [0xffd23a, 0xffaa2a, 0xff7a1a], alphas = [0.3, 0.6, 1];
+      for (let i = 0; i < 3; i++) {
+        const x = front + d * i * 36, tip = x + d * ww;
+        this.combat.lineStyle(9, cols[i], alphas[i] * blink);
+        this.combat.beginPath().moveTo(x, cy - hh).lineTo(tip, cy).lineTo(x, cy + hh).strokePath();
+      }
+    }
     const sc = e.h / GOLEM_ART_H;
     rig.c.setVisible(true).setPosition(e.x + e.w / 2, e.y + e.h + 1).setScale(sc * (e.dir > 0 ? -1 : 1), sc);
     golemPose(st).forEach((d, i) => {

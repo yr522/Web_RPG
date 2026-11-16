@@ -20,9 +20,9 @@ export interface ClassDef {
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
-  warrior: { name: '검사', hp: 150, mp: 100, regen: 7, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], hints: ['hyeolseom', 'heullyeo'], passives: ['geomgil', 'armor'], professor: '검술과 바르크 교수' },
-  mage: { name: '마법사', hp: 110, mp: 140, regen: 10, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], hints: ['ssiat', 'gwedo'], passives: ['gongmyeong', 'maxmp'], professor: '마법학과 엘린 교수' },
-  archer: { name: '궁수', hp: 125, mp: 110, regen: 8, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], hints: ['deot', 'geurimja'], passives: ['jeongryeong', 'crit'], professor: '궁술과 시엘 교수' },
+  warrior: { name: '검사', hp: 150, mp: 100, regen: 1.5, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], hints: ['hyeolseom', 'heullyeo'], passives: ['geomgil', 'armor'], professor: '검술과 바르크 교수' },
+  mage: { name: '마법사', hp: 110, mp: 140, regen: 2.5, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], hints: ['ssiat', 'gwedo'], passives: ['gongmyeong', 'maxmp'], professor: '마법학과 엘린 교수' },
+  archer: { name: '궁수', hp: 125, mp: 110, regen: 2, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], hints: ['deot', 'geurimja'], passives: ['jeongryeong', 'crit'], professor: '궁술과 시엘 교수' },
 };
 
 export interface SkillDef {
@@ -38,24 +38,24 @@ export interface SkillDef {
 export const SKILLS: Record<string, SkillDef> = {
   basic: { name: '기본 공격', cd: 0, mp: 0, elements: [] },
   ilseom: { name: '일섬', cd: 0, mp: 0, elements: ALL_ELEMENTS },
-  wolcham: { name: '월참', cd: 2.5, mp: 6, elements: ['fire', 'water', 'light'] },
-  jilpung: { name: '질풍참', cd: 6, mp: 12, elements: ['fire', 'light'] },
-  cheonbung: { name: '천붕', cd: 0, mp: 15, elements: ALL_ELEMENTS },
+  wolcham: { name: '월참', cd: 2.5, mp: 9, elements: ['fire', 'water', 'light'] },
+  jilpung: { name: '질풍참', cd: 3, mp: 3, elements: ['fire', 'light'] },
+  cheonbung: { name: '천붕', cd: 0, mp: 22, elements: ALL_ELEMENTS },
   madan: { name: '마력탄', cd: 0, mp: 0, elements: ALL_ELEMENTS },
-  gidung: { name: '원소 기둥', cd: 7, mp: 18, elements: ['fire', 'water', 'earth'] },
-  pado: { name: '원소 파도', cd: 9, mp: 22, elements: ['fire', 'earth'] },
-  haebang: { name: '마력 해방', cd: 60, mp: 20, elements: [] },
+  gidung: { name: '원소 기둥', cd: 7, mp: 27, elements: ['fire', 'water', 'earth'] },
+  pado: { name: '원소 파도', cd: 9, mp: 33, elements: ['fire', 'earth'] },
+  haebang: { name: '마력 해방', cd: 60, mp: 30, elements: [] },
   hwasal: { name: '마법 화살', cd: 0, mp: 0, elements: ALL_ELEMENTS },
-  sasl: { name: '사슬 화살', cd: 7, mp: 14, elements: ['earth', 'water', 'dark'] },
-  soyong: { name: '소용돌이 화살', short: '소용돌이', cd: 10, mp: 20, elements: ['earth', 'light', 'dark'] },
-  hwasalbi: { name: '화살비', cd: 12, mp: 22, elements: ['fire', 'light'] },
+  sasl: { name: '사슬 화살', cd: 3.5, mp: 3, elements: ['earth', 'water', 'dark'] },
+  soyong: { name: '소용돌이 화살', short: '소용돌이', cd: 10, mp: 30, elements: ['earth', 'light', 'dark'] },
+  hwasalbi: { name: '화살비', cd: 12, mp: 33, elements: ['fire', 'light'] },
   // 힌트 스킬 (2라인·3라인 맛보기)
-  hyeolseom: { name: '혈섬', cd: 8, mp: 14, elements: ['dark', 'water'] },
-  heullyeo: { name: '흘려베기', cd: 10, mp: 16, elements: ['water', 'light'] },
-  ssiat: { name: '마력 씨앗', short: '씨앗', cd: 6, mp: 8, elements: ['light', 'earth'] },
-  gwedo: { name: '궤도탄', cd: 7, mp: 16, elements: ['water', 'dark'] },
-  deot: { name: '덫', cd: 8, mp: 14, elements: ['fire', 'earth'] },
-  geurimja: { name: '그림자 화살', short: '그림자', cd: 9, mp: 16, elements: ['light', 'dark'] },
+  hyeolseom: { name: '혈섬', cd: 8, mp: 21, elements: ['dark', 'water'] },
+  heullyeo: { name: '흘려베기', cd: 10, mp: 24, elements: ['water', 'light'] },
+  ssiat: { name: '마력 씨앗', short: '씨앗', cd: 6, mp: 12, elements: ['light', 'earth'] },
+  gwedo: { name: '궤도탄', cd: 7, mp: 24, elements: ['water', 'dark'] },
+  deot: { name: '덫', cd: 8, mp: 21, elements: ['fire', 'earth'] },
+  geurimja: { name: '그림자 화살', short: '그림자', cd: 9, mp: 24, elements: ['light', 'dark'] },
   // 패시브
   geomgil: { name: '검의 길', cd: 0, mp: 0, elements: [], passive: true },
   armor: { name: '슈퍼아머 확률 증가', short: '슈퍼아머', cd: 0, mp: 0, elements: [], passive: true },
@@ -93,6 +93,15 @@ export function unlockLevel(cls: ClassId, id: string) {
 /**
  * 힌트 스킬·패시브 수치 (임시, 스킬트리 문서 "정할 것"). lv = 스킬 레벨 1~5
  */
+/** 이동기 (질풍참·사슬 화살): 쿨타임 짧고 MP 적게, 대신 피해 낮게 */
+export const MOVE_SKILL = { jilpung: { coef: 1.6 }, sasl: { coef: 1.4 } };
+/** 궁수 기본 공격·마법 화살 사거리: 바로 떼면 min, 최대 충전이면 max */
+export const ARROW_RANGE = { min: 200, max: 800 };
+/** 사슬 화살 조준 각도 바뀌는 속도 (라디안/초) */
+export const AIM_TURN = 4.0;
+/** MP 회복: 지능 1 마다 회복량 +이만큼 (5 기준) */
+export const INT_REGEN = 0.12;
+
 export const HINT = {
   /** 혈섬: 베기 + 출혈 (tick 초마다 공격력 × tickCoef × 레벨 배율, time 초 동안 + 이동 속도 slow 만큼 느려짐, 보스는 안 느려짐) */
   hyeolseom: { coef: 1.2, bleedTime: 5, tick: 1, tickCoef: 0.3, slow: 0.3 },

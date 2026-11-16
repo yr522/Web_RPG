@@ -116,18 +116,20 @@ export const GOLEM_AI = {
   /** 다음 패턴까지 */
   every: [2, 3] as const,
   /** 1. 전방 내려치기: 플레이어가 앞쪽 이 거리 안이면. 예고 후 앞쪽 범위(폭·높이)에 피해 */
-  slamRange: 170,
+  slamRange: 230,
   slamWindup: 0.8,
   /** 범위: 골렘 가운데부터 앞으로 slamW, 바닥에서 slamH (플레이어 키 46 의 절반 + 조금 → 점프로 피함). 예고 동안 반투명 상자 */
-  slamW: 320,
+  slamW: 400,
   slamH: 32,
   slamDmg: 45,
   slamRecover: 0.7,
   /** 가까이 붙어 있어도 내려치기를 이만큼 연달아 쓰면 다음은 돌진 */
-  slamsBeforeCharge: 2,
+  slamsBeforeCharge: 3,
   /** 2. 돌진: 플레이어가 멀면 이 확률로. 예고할 때 방향을 정하고, 그 뒤로는 플레이어와 상관없이 벽까지. 맞으면 기절 */
-  chargeChance: 0.45,
-  chargeWindup: 0.9,
+  chargeChance: 0.2,
+  /** 돌진 안 쓰고 넘어갔을 때 다음 판단까지 (초) */
+  chargeSkipCd: [2, 3] as const,
+  chargeWindup: 1.6,
   chargeSpeed: 210,
   chargeDmg: 30,
   stunTime: 3,
@@ -140,7 +142,7 @@ export const GOLEM_AI = {
 /**
  * 골렘 방 천장의 보안장치 (푸른 오브): 주기적으로 조준선을 띄움 → track 초 동안 플레이어를 따라감 → 방향을 정하고 aimTime 초 뒤 발사. 골렘도 맞음
  */
-export const BOSS_ORB = { every: 4.5, track: 1.6, aimTime: 0.6, speed: 520, r: 12, dmg: 25 };
+export const BOSS_ORB = { every: 4.5, track: 1.6, aimTime: 0.6, speed: 520, r: 30, dmg: 25 };
 
 /** 노멀부터 골렘 추가 패턴 */
 export const GOLEM_NORMAL = {

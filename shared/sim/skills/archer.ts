@@ -2,7 +2,7 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
-import { HINT, PASSIVE } from '../../data/classes';
+import { AIM_TURN, ARROW_RANGE, HINT, MOVE_SKILL, PASSIVE } from '../../data/classes';
 import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -38,7 +38,7 @@ function chargeShot(w: SkillWorld, p: PlayerState, name: string, el: Element | n
     end: () => {
       const g = act.g ?? 0;
       w.addProj(p, {
-        kind: 'arrow', x: cx(p) + p.face * 18, y: cy(p) - 6, vx: p.face * (520 + 900 * g), vy: 0, range: 110 + 690 * g, size: 14, len: 26 + 14 * g,
+        kind: 'arrow', x: cx(p) + p.face * 18, y: cy(p) - 6, vx: p.face * (520 + 900 * g), vy: 0, range: ARROW_RANGE.min + (ARROW_RANGE.max - ARROW_RANGE.min) * g, size: 14, len: 26 + 14 * g,
         coef: (0.8 + 2.4 * g) * power, elem: el, kb: 80 + 220 * g, skill: name,
       });
       if (g >= 1) w.float(cx(p), p.y - 26, '최대 충전!', color(el), 14, 0.6);
@@ -51,7 +51,8 @@ function chargeShot(w: SkillWorld, p: PlayerState, name: string, el: Element | n
           coef: 3.2 * power * f, elem: el, kb: 120, skill: name,
         }));
       }
-      p.action = { name: 'recover', t: 0, dur: 0.08 };
+      // 쏜 뒤 바로 방향 전환 가능
+      p.action = { name: 'recover', t: 0, dur: 0.08, update: () => { if (p.cmd.move) p.face = p.cmd.move; } };
       p.lockT = 0.22;
     },
   };
@@ -67,8 +68,8 @@ function aimAction(w: SkillWorld, p: PlayerState, name: string, maxAng: number, 
       p.vx = 0; p.vy = 0;
       if (p.cmd.move) p.face = p.cmd.move;
       if (a.t > 0.12) {
-        if (p.cmd.up) a.ang = Math.max(-maxAng, a.ang! - 2.2 * dt);
-        if (p.cmd.down) a.ang = Math.min(maxAng, a.ang! + 2.2 * dt);
+        if (p.cmd.up) a.ang = Math.max(-maxAng, a.ang! - AIM_TURN * dt);
+        if (p.cmd.down) a.ang = Math.min(maxAng, a.ang! + AIM_TURN * dt);
       }
       if (!w.held(p, name)) a.dur = a.t;
     },
@@ -112,7 +113,7 @@ export const ARCHER: ClassSkills = {
         const el = w.elemOf(p, 'sasl'), sp = 1150;
         p.chainArrow = w.addProj(p, {
           kind: 'chain', x: cx(p), y: cy(p) - 4, vx: Math.cos(ang) * sp * p.face, vy: Math.sin(ang) * sp, range: 540, size: 18, len: 34,
-          coef: 2.0, elem: el, kb: 160, pierce: true, skill: 'sasl',
+          coef: MOVE_SKILL.sasl.coef, elem: el, kb: 160, pierce: true, skill: 'sasl',
         });
         p.lockT = 540 / sp;
         p.action = { name: 'recover', t: 0, dur: 0.1, noGravity: true, update: () => { p.vx = 0; p.vy = 0; } };
