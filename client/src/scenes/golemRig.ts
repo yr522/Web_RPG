@@ -5,7 +5,7 @@
 
 /** 파츠 그림 (그리는 순서 = 아래 → 위) */
 export const GOLEM_PARTS = [
-  'hip', 'foot_l', 'foot_r', 'elbow_l', 'shoulder_l', 'body', 'hand_l', 'elbow_r', 'hand_r', 'shoulder_r', 'head',
+  'hip', 'foot_l', 'foot_r', 'elbow_l', 'shoulder_l', 'body', 'hand_l', 'elbow_r', 'shoulder_r', 'hand_r', 'head',
 ] as const;
 export type GolemPart = typeof GOLEM_PARTS[number];
 
