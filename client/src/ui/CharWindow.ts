@@ -9,7 +9,8 @@ import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { el, esc } from './Dialog';
-import { itemIcon } from './icons';
+import { decorateGear, itemIcon } from './icons';
+import type { BagEntry } from '@shared/rules/inventory';
 import { ItemTip } from './ItemTip';
 import { SLOT_ICONS } from './InventoryWindow';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
@@ -120,7 +121,7 @@ export class CharWindow {
 
   private signature() {
     const s = this.session.save, st = this.session.me()?.stats;
-    return JSON.stringify([s.name, s.level, s.exp, s.kills, s.stats, s.statPts, s.equip, s.bag.length, st, this.statusOpen]);
+    return JSON.stringify([s.name, s.level, s.exp, s.kills, s.stats, s.statPts, s.equip, s.bag.filter(e => e?.uid !== undefined && Object.values(s.equip).includes(e.uid)), st, this.statusOpen]);
   }
 
   private render() {
@@ -159,7 +160,8 @@ export class CharWindow {
       const g = itemGrade(itemDef(e.id));
       if (g) { cell.classList.add('graded', `g-${g}`); cell.style.setProperty('--gc', GRADES[g].color); }
       cell.appendChild(itemIcon(e.id));
-      this.bindCell(cell, `cw:${slot}:${e.uid}`, e.id, () => this.result(this.session.act({ type: 'unequip', slot })));
+      decorateGear(cell, e);
+      this.bindCell(cell, `cw:${slot}:${e.uid}:${e.enh ?? 0}:${JSON.stringify(e.opts ?? '')}`, e, () => this.result(this.session.act({ type: 'unequip', slot })));
     } else {
       const img = el('img', 'inv-slot-ico') as HTMLImageElement;
       img.src = SLOT_ICONS[slot];
@@ -194,12 +196,19 @@ export class CharWindow {
     line('최대 MP', String(st.maxMp));
     line('이동속도', String(Math.round(st.speed)));
     line('MP 회복', `${st.regen.toFixed(1)}/초`);
+    // 장비 옵션으로 생긴 것만
+    const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
+    if (st.hpRegen > 0) line('HP 회복', `${st.hpRegen.toFixed(1)}/초`);
+    if (st.crit > 0) line('치명타 확률', `+${pct(st.crit)}`);
+    if (st.mpCost > 0) line('MP 소모 감소', pct(st.mpCost));
+    if (st.boss > 0) line('보스 피해', `+${pct(st.boss)}`);
+    if (st.mob > 0) line('일반몹 피해', `+${pct(st.mob)}`);
     b.appendChild(list);
     b.appendChild(el('div', 'cw-desc', `★ = ${cls.name} 주 능력치`));
   }
 
   /** 장비 칸: 설명 띄우기 + 우클릭(두 번 터치)으로 해제 */
-  private bindCell(cell: HTMLElement, key: string, id: string, action: () => void) {
+  private bindCell(cell: HTMLElement, key: string, id: string | BagEntry, action: () => void) {
     cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY); });
     cell.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') this.tip.hide(); });
     cell.addEventListener('contextmenu', e => { e.preventDefault(); if (this.lastPointer === 'mouse') action(); });

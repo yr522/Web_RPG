@@ -20,7 +20,7 @@ export interface Portal {
   /** 던전 방: 몬스터 웨이브를 다 잡아야 나타남 */
   afterClear?: boolean;
 }
-/** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
+/** id: 'prof'(교수님), 'shop'(매점), 'smith'(대장장이) 는 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
@@ -28,7 +28,7 @@ export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; 
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
   | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow'
-  | 'dungeon1' | 'dungeon2' | 'dungeon3';
+  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training';
 
 export interface MapDef {
   name: string;
@@ -115,6 +115,8 @@ function dungeonRoom(name: string, img: string, groundY: number, width: number, 
 /** 골렘 방 배경 golem_room.png 1774×887, 땅 줄 714 → 폭 1168. 양옆 전경(그림 x 230 / 1545 밖)으로는 못 감 */
 const GOLEM_ROOM = { width: 1168, walk: [151, 1017] as [number, number], mid: 584 };
 
+/** 마법 학교 맵에서 훈련장 포탈 자리 (가운데 오른쪽, 매점과 대장장이 사이) */
+const SCHOOL_TRAINING_X = 1280;
 /** 마법 학교 맵에서 건물 정문 자리 */
 const SCHOOL_DOOR_X = 1018;
 /** 학교 홀 그림 속 복도로 가는 아치 통로 자리 */
@@ -144,9 +146,10 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
+      { x: SCHOOL_TRAINING_X, to: 'training', toX: 120, label: '훈련장' },
     ],
     npcs: [
-      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 },
+      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 }, { id: 'smith', x: 1400 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
       // 미니 챕터를 끝내고 학교로 돌아옴
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },
@@ -342,6 +345,14 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [{ x: 800, mob: 'golem', once: true }],
     // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
     respawn: { map: 'under_trial', x: UNDER.mid, y: UNDER.top },
+  },
+  // ===== 훈련장: 허수아비를 때려 초당 피해를 재는 곳 (학교 맵 가운데 오른쪽 포탈). 안전 지대 =====
+  training: {
+    name: '훈련장', width: 1300, safe: true,
+    platforms: [],
+    portals: [{ x: 70, to: 'school', toX: SCHOOL_TRAINING_X, label: '마법 학교' }],
+    npcs: [], signs: [],
+    spawns: [{ x: 800, mob: 'dummy' }],
   },
   // ===== 던전: 잊힌 공방 (공방 지하 바닥 왼쪽 포탈). 방 3개, 웨이브를 다 잡으면 다음 방 포탈이 열림. 왼쪽 포탈은 언제나 나가기 =====
   dungeon1: dungeonRoom('잊힌 공방 1', 'workshop', 716, 1164, undefined, 'dungeon2', [

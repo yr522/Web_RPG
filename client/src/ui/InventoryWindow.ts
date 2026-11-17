@@ -4,12 +4,13 @@
 // 가방 칸은 끌어다 놓아 옮길 수 있다 (빈 칸이면 옮기고, 물건이 있으면 자리 바꿈). 아래 정렬 버튼으로 자동 정렬.
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
 import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
-import { equippedEntry, equippedSlot } from '@shared/rules/inventory';
+import { equippedEntry, equippedSlot, type BagEntry } from '@shared/rules/inventory';
+import { compareGear } from '@shared/rules/gear';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { el } from './Dialog';
-import { itemIcon } from './icons';
+import { decorateGear, itemIcon } from './icons';
 import { ItemTip } from './ItemTip';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
@@ -221,9 +222,10 @@ export class InventoryWindow {
         cell.classList.add('has');
         gradeBorder(cell, e.id);
         cell.appendChild(itemIcon(e.id));
+        decorateGear(cell, e);
         if (e.n > 1) cell.appendChild(el('span', 'inv-n', String(e.n)));
         if (equippedSlot(s, e.uid)) { cell.classList.add('on'); cell.appendChild(el('span', 'inv-on', 'on')); }
-        this.bindCell(cell, `bag${it.i}:${e.id}:${e.uid ?? ''}`, e.id, () => this.useBag(it.i, e.id));
+        this.bindCell(cell, `bag${it.i}:${e.id}:${e.uid ?? ''}:${e.enh ?? 0}:${e.broken ? 1 : 0}:${JSON.stringify(e.opts ?? '')}`, e, () => this.useBag(it.i, e.id));
         this.bindItemDrag(cell, it.i);
       }
       this.grid.appendChild(cell);
@@ -240,7 +242,8 @@ export class InventoryWindow {
         if (e) {
           gradeBorder(cell, e.id);
           cell.appendChild(itemIcon(e.id));
-          this.bindCell(cell, `eq:${slot}:${e.uid}`, e.id, () => this.result(this.session.act({ type: 'unequip', slot })));
+          decorateGear(cell, e);
+          this.bindCell(cell, `eq:${slot}:${e.uid}:${e.enh ?? 0}:${JSON.stringify(e.opts ?? '')}`, e, () => this.result(this.session.act({ type: 'unequip', slot })));
         } else {
           // 빈 칸: 부위 아이콘 (흰 선 그림)
           const img = el('img', 'inv-slot-ico') as HTMLImageElement;
@@ -360,8 +363,9 @@ export class InventoryWindow {
   private syncScroll = () => {};
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 행동 */
-  private bindCell(cell: HTMLElement, key: string, id: string, action: () => void) {
-    cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY); });
+  private bindCell(cell: HTMLElement, key: string, id: string | BagEntry, action: () => void) {
+    const cmp = () => (typeof id === 'string' ? null : compareGear(this.session.save, id));
+    cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY, cmp()); });
     cell.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') this.tip.hide(); });
     cell.addEventListener('contextmenu', e => { e.preventDefault(); if (this.lastPointer === 'mouse') action(); });
     cell.addEventListener('pointerup', e => {
@@ -376,7 +380,7 @@ export class InventoryWindow {
       } else {
         this.lastTap = { key, t: now };
         this.tip.key = null;
-        this.tip.show(key, id, e.clientX, e.clientY);
+        this.tip.show(key, id, e.clientX, e.clientY, cmp());
       }
     });
   }

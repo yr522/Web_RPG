@@ -272,6 +272,18 @@ html, body {
 .opt i { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-style: normal; font-weight: 700; color: #1a1a1a; background: #ffd84a; box-shadow: 0 0 0 1px var(--c-brown); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
 .card { background: var(--c-paper-hi); border: 1px solid var(--c-latte); border-radius: 10px; padding: 10px 12px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .card.shop { flex-direction: row; align-items: center; gap: 8px; }
+/* 대장장이 */
+.smith-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; --s: 1px; }
+.smith-cell { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--c-paper-lo); border: 1px solid var(--c-latte); border-radius: 6px; }
+.smith-cell .item-ico { --ico: 30px; }
+.smith-cell.sel { outline: 3px solid var(--c-mint); outline-offset: 1px; }
+.card.smith { align-items: stretch; }
+.card.smith > b span { background: var(--c-brown); padding: 0 6px; border-radius: 4px; }
+.smith-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.smith-opt { display: flex; align-items: center; gap: 8px; }
+.smith-opt small { opacity: .65; font-size: 11px; }
+.sm .cost { opacity: .75; font-weight: 400; margin-left: 4px; }
 /* 등급 있는 장비 이름: 밝은 등급 색(커먼 흰색 등)이 양피지 위에서 보이게 진한 갈색 띠 */
 .card b[style] { background: var(--c-brown); padding: 0 6px; border-radius: 4px; }
 .card .grow { flex: 1; }
@@ -493,7 +505,23 @@ html, body {
   background: rgba(78, 70, 60, .95); color: var(--c-cream); border: 1px solid var(--c-latte); border-radius: 6px; padding: 8px 11px; line-height: 1.45;
 }
 .item-tip b { display: block; font-size: 16px; margin-bottom: 2px; }
-.item-tip span { font-size: 13px; font-weight: 300; }
+.item-tip span { font-size: 13px; font-weight: 300; display: block; }
+.item-tip .tip-opt { color: var(--c-mint); font-weight: 400; }
+.item-tip .tip-opt small { opacity: .7; font-size: 11px; }
+.item-tip .tip-broken { color: #ff8a7a; font-weight: 700; }
+.item-tip hr { border: 0; border-top: 1px solid rgba(255,255,255,.25); margin: 4px 0; }
+.item-tip .tip-up { color: #9ef0a0; font-weight: 400; }
+.item-tip .tip-down { color: #ff8a7a; font-weight: 400; }
+/* 장비 칸: 강화 수치(왼쪽 아래), 파괴된 장비(흑백) */
+.inv-enh {
+  position: absolute; left: calc(2 * var(--s)); bottom: 0; font-size: max(8px, 9 * var(--s)); font-weight: 700; color: #fff;
+  text-shadow: 0 0 2px var(--c-brown), 0 0 2px var(--c-brown); pointer-events: none; line-height: 1.2;
+}
+.inv-cell.broken .item-ico { filter: grayscale(1) brightness(.7); }
+.inv-cell.broken::after {
+  content: ''; position: absolute; inset: 20%; pointer-events: none;
+  background: linear-gradient(45deg, transparent 45%, #c0392b 45%, #c0392b 55%, transparent 55%);
+}
 .stat .eqb { width: 26px; color: #4f7f6e; font-size: 12px; font-weight: 700; }
 
 /* 인벤토리 아래 여백줄 (윗줄과 같은 갈색 줄) · 자동 정렬 버튼 (네모 안 가로줄 셋) */

@@ -1,12 +1,22 @@
 // 아이템 (기획서 7장). 상점 물건, 몬스터 드롭, 장비가 전부 여기 있다.
 import type { StatId } from './classes';
 
-/** 장비가 올려 주는 값: 근력·민첩·지능 + 공격력·방어력 (공격력·방어력은 장비로만) */
-export type BonusId = StatId | 'atk' | 'def';
-export const BONUS_NAMES: Record<BonusId, string> = { str: '근력', dex: '민첩', int: '지능', atk: '공격력', def: '방어력' };
+/**
+ * 장비가 올려 주는 값 (기본 능력치·부가효과 공통). 공격력·방어력은 장비로만.
+ * crit·mpCost·speed·boss·mob 은 %, hpRegen 은 초당
+ */
+export type BonusId = StatId | 'atk' | 'def' | 'hp' | 'mp' | 'crit' | 'mpCost' | 'speed' | 'hpRegen' | 'boss' | 'mob';
+export const BONUS_NAMES: Record<BonusId, string> = {
+  str: '근력', dex: '민첩', int: '지능', atk: '공격력', def: '방어력', hp: '최대 HP', mp: '최대 MP',
+  crit: '치명타 확률', mpCost: 'MP 소모 감소', speed: '이동속도', hpRegen: 'HP 회복', boss: '보스 피해', mob: '일반몹 피해',
+};
+const PCT: BonusId[] = ['crit', 'mpCost', 'speed', 'boss', 'mob'];
+const num = (v: number) => String(Math.round(v * 10) / 10);
+/** '방어력 +5' · '치명타 확률 +3%' · 'HP 회복 +0.4/초' */
+export const bonusLine = (k: BonusId, v: number) => `${BONUS_NAMES[k]} +${num(v)}${PCT.includes(k) ? '%' : k === 'hpRegen' ? '/초' : ''}`;
 /** '근력 +1 · 방어력 +5' */
 export const bonusText = (b: Partial<Record<BonusId, number>>) =>
-  (Object.keys(b) as BonusId[]).map(k => `${BONUS_NAMES[k]} +${b[k]}`).join(' · ');
+  (Object.keys(b) as BonusId[]).map(k => bonusLine(k, b[k] ?? 0)).join(' · ');
 
 /** 인벤토리 탭 종류 */
 export type ItemKind = 'equip' | 'use' | 'etc';
@@ -88,6 +98,9 @@ const ITEM_LIST = {
   grade_epic: gradeWeapon('epic', 3),
   grade_legendary: gradeWeapon('legendary', 4),
   grade_mythic: gradeWeapon('mythic', 5),
+  // 슬라임류(슬라임·원소 슬라임) 드롭 장비
+  slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 } },
+  slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 } },
   test_ring: { name: '테스트 반지', kind: 'equip', desc: '모든 능력치 +1', icon: '💍', img: ARMOR_IMG, price: 200, bulk: [1], part: 'ring', bonus: { str: 1, dex: 1, int: 1 } },
 } satisfies Record<string, ItemDef>;
 

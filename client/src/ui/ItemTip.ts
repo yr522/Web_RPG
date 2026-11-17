@@ -1,5 +1,7 @@
 // 아이템 설명 플로팅: 마우스(손가락) 위치에 반투명 검정 상자, 이름(큰 글씨) + 설명.
-import { GRADES, itemDef, itemGrade } from '@shared/data/items';
+import { GRADES, bonusLine, itemDef, itemGrade, type BonusId } from '@shared/data/items';
+import { baseBonus, optionValue } from '@shared/rules/gear';
+import type { BagEntry } from '@shared/rules/inventory';
 import { esc } from './Dialog';
 
 const OFFSET = 14;
@@ -14,14 +16,35 @@ export class ItemTip {
     document.body.appendChild(this.el);
   }
 
-  show(key: string, id: string, x: number, y: number) {
+  /**
+   * item: 아이템 id, 또는 가방 칸 (장비는 강화·옵션까지 보여 줌).
+   * cmp: 이 장비를 끼면 바뀌는 능력치 (끼고 있는 장비와 비교, 안 끼고 있는 장비만)
+   */
+  show(key: string, item: string | BagEntry, x: number, y: number, cmp?: { k: BonusId; v: number }[] | null) {
+    const e = typeof item === 'string' ? null : item, id = e ? e.id : (item as string);
     const d = itemDef(id);
     if (!d) return this.hide();
+    if (cmp) key += `|${JSON.stringify(cmp)}`;
     if (this.key !== key) {
       this.key = key;
       // 장비는 이름을 등급 색으로
       const g = itemGrade(d);
-      this.el.innerHTML = `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${esc(d.name)}</b><span>${esc(d.desc)}</span>`;
+      const name = `${e?.enh ? `+${e.enh} ` : ''}${d.name}`;
+      let body = `<span>${esc(d.desc)}</span>`;
+      if (e && d.kind === 'equip') {
+        const b = baseBonus(e);
+        body = (e.broken ? '<span class="tip-broken">파괴됨</span>' : '')
+          + (Object.keys(b) as BonusId[]).map(k => `<span>${esc(bonusLine(k, b[k] ?? 0))}</span>`).join('')
+          + (e.opts ?? []).map(o => `<span class="tip-opt">${esc(bonusLine(o.id, optionValue(o)))} <small>${o.tier}단계</small></span>`).join('');
+        // 끼면 바뀌는 능력치: 오르면 ▲ 초록, 내리면 ▼ 빨강
+        if (cmp?.length) {
+          body += '<hr>' + cmp.map(c => {
+            const line = bonusLine(c.k, Math.abs(c.v)).replace(' +', ' ');
+            return `<span class="${c.v > 0 ? 'tip-up' : 'tip-down'}">${c.v > 0 ? '▲' : '▼'} ${esc(line)}</span>`;
+          }).join('');
+        }
+      }
+      this.el.innerHTML = `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${esc(name)}</b>${body}`;
       this.el.style.display = 'block';
     }
     // 화면 밖으로 나가지 않게

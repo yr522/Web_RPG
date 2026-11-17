@@ -2,12 +2,20 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, EQUIP_SLOTS, ITEMS, itemDef, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
+import type { OptionId } from '../data/gear';
+import { itemBonus } from './gear';
 import type { SaveData } from '../sim/save';
 
 /** 가방 한 칸. 장비는 1개씩 따로(uid 로 구별), 나머지는 같은 것끼리 한 칸에 쌓인다 */
-export interface BagEntry { id: string; n: number; uid?: number }
+export interface BagEntry {
+  id: string; n: number; uid?: number;
+  /** 장비만: 강화 수치, 부가효과(옵션 종류·단계), 파괴됨 */
+  enh?: number;
+  opts?: { id: OptionId; tier: number }[];
+  broken?: true;
+}
 export type Bag = (BagEntry | null)[];
 
 export const BAG_FULL = '가방이 가득 찼어';
@@ -81,6 +89,7 @@ export function toggleEquip(s: SaveData, index: number): string | null {
   const e = s.bag[index], d = e && itemDef(e.id);
   if (!e || !d?.part || e.uid === undefined) return '장착할 수 없는 물건이야';
   if (equippedSlot(s, e.uid)) { unequipUid(s, e.uid); return null; }
+  if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
   let slot: EquipSlot;
   if (d.part === 'ring') slot = s.equip.ring1 === undefined ? 'ring1' : s.equip.ring2 === undefined ? 'ring2' : 'ring1';
   else slot = d.part;
@@ -119,10 +128,12 @@ export function sortBag(s: SaveData) {
 
 /** 장비로 오른 능력치 */
 export function equipBonus(s: SaveData): Record<BonusId, number> {
-  const b: Record<BonusId, number> = { str: 0, dex: 0, int: 0, atk: 0, def: 0 };
+  const b = Object.fromEntries(Object.keys(BONUS_NAMES).map(k => [k, 0])) as Record<BonusId, number>;
   for (const slot of Object.keys(EQUIP_SLOTS) as EquipSlot[]) {
-    const e = equippedEntry(s, slot), bonus = e ? itemDef(e.id)?.bonus : undefined;
-    if (bonus) for (const k of Object.keys(bonus) as BonusId[]) b[k] += bonus[k] ?? 0;
+    const e = equippedEntry(s, slot);
+    if (!e) continue;
+    const bonus = itemBonus(e);
+    for (const k of Object.keys(bonus) as BonusId[]) b[k] += bonus[k] ?? 0;
   }
   return b;
 }

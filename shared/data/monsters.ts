@@ -1,7 +1,7 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss';
+export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss' | 'dummy';
 
 /**
  * 움직임 종류
@@ -10,8 +10,9 @@ export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_
  * - charger: 걸어서 쫓아오다가 가끔 멈춰 부들부들 떨고 앞으로 돌진 (CHARGER_AI)
  * - flyer: 공중에 떠서 플레이어 쪽으로 날아옴, 부딪히기만 (FLYER_AI)
  * - golem: 보스. 천천히 쫓아오며 내려치기·돌진 (GOLEM_AI, 보안장치 오브 BOSS_ORB)
+ * - dummy: 훈련장 허수아비. 제자리에 서 있고, 안 밀리고, 안 죽고, 부딪혀도 피해 없음. 머리 위에 초당 피해 (DUMMY)
  */
-export type MonsterAi = 'slime' | 'walker' | 'charger' | 'flyer' | 'golem';
+export type MonsterAi = 'slime' | 'walker' | 'charger' | 'flyer' | 'golem' | 'dummy';
 
 export interface MonsterDef {
   name: string;
@@ -39,11 +40,11 @@ export interface MonsterDef {
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
   slime: {
     name: '슬라임', hp: 140, exp: 10, touch: 8, gold: [5, 9], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7,
-    drops: [{ item: 'slime_gel', chance: 0.4 }],
+    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   slime_elem: {
     name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
-    drops: [{ item: 'slime_gel', chance: 0.4 }],
+    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   // 마법공학의 유산 (임시 그림, 수치 임시)
   guard_a: { name: '경비기계A', hp: 420, exp: 30, touch: 16, gold: [20, 30], w: 44, h: 52, ai: 'walker', speed: [45, 60], chase: 1.6 },
@@ -56,7 +57,15 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   // 던전 잊힌 공방 마지막 방 (그림은 경비기계C 를 키워서 임시)
   guard_boss: { name: '고대 수호기계', hp: 5000, exp: 300, touch: 30, gold: [150, 220], w: 80, h: 96, ai: 'charger', speed: [40, 50], chase: 1.4, boss: true, look: 'guard_c' },
   golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true },
+  // 훈련장 허수아비 (그림 임시). HP 는 표시용이 아니라 맞은 피해를 세는 그릇 (매 틱 다시 채움)
+  dummy: { name: '허수아비', hp: 1e9, exp: 0, touch: 0, gold: [0, 0], w: 34, h: 64, ai: 'dummy', speed: [0, 0], chase: 0 },
 };
+
+/**
+ * 허수아비 딜 측정 (tools/skillDps.ts 와 같은 방식: 측정 시간 동안 준 피해 ÷ 시간, 쉬는 시간도 포함).
+ * 처음 때린 순간부터 재기 시작, idle 초 동안 안 때리면 측정 끝 (마지막 값이 남아 있음). 시간이 minTime 초보다 짧으면 minTime 으로 나눔
+ */
+export const DUMMY = { idle: 3, minTime: 1 };
 
 /**
  * 정예몹: 사냥터 몬스터가 나올 때(다시 나올 때도) chance 확률로 정예가 됨 (보스·한 번만 나오는 몬스터·안전 지대·던전은 제외, 던전은 정해 둔 자리만).

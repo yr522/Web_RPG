@@ -134,6 +134,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 투사체·소용돌이·충전 바·조준 */
   private projG!: Phaser.GameObjects.Graphics;
   private enemyLabels = new Map<string, Phaser.GameObjects.Text>();
+  /** 허수아비 머리 위 초당 피해 */
+  private dpsLabels = new Map<string, Phaser.GameObjects.Text>();
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   /** 파츠로 움직이는 골렘 */
   private golemRigs = new Map<string, { c: Phaser.GameObjects.Container; parts: Phaser.GameObjects.Image[]; boomed: boolean }>();
@@ -223,6 +225,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.npcNear.clear();
     for (const t of this.enemyLabels.values()) t.destroy();
     this.enemyLabels.clear();
+    for (const t of this.dpsLabels.values()) t.destroy();
+    this.dpsLabels.clear();
     for (const sp of this.enemySprites.values()) sp.destroy();
     this.enemySprites.clear();
     for (const r of this.golemRigs.values()) r.c.destroy();
@@ -327,6 +331,17 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
         if (talk.tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(talk.tint);
+        this.mapLayer.add(root);
+        this.mapLayer.add(label);
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+        continue;
+      }
+      if (n.id === 'smith') {
+        // 대장장이 (임시): 모루 + 뼈대 그림
+        g.fillStyle(0x3d3d44).fillRect(x - 70, y - 26, 44, 10).fillRect(x - 60, y - 16, 24, 16);
+        g.fillStyle(0x55555e).fillRect(x - 78, y - 30, 20, 6);
+        const root = makeStaticAvatar(this, x, y, -1), label = this.text('대 장장이', 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(0xc89a7a);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
         this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
@@ -500,7 +515,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
-    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
+    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : npc.id === 'smith' ? '대장간' : '대화'}`);
     else this.bubble.setVisible(false);
     if (this.bubble.visible && (input.blocked || this.cut.running)) this.bubble.setVisible(false);
 
@@ -780,7 +795,15 @@ export class GameScene extends Phaser.Scene implements Stage {
         if (e.raged) g.fillStyle(0xff3020, 0.15 + 0.1 * Math.sin(this.time.now / 60)).fillEllipse(e.x + e.w / 2, e.y + e.h / 2, e.w + 26, e.h + 20);
       }
       label.setVisible(true).setAlpha(alpha * 0.85).setPosition(e.x + e.w / 2, e.y + e.h + 3);
-      if (e.hp < e.maxHp && !e.dead) {
+      // 허수아비: HP 바 대신 머리 위에 초당 피해 (측정 중이면 노랑, 끝나면 흰색으로 남음)
+      if (e.meter) {
+        let t = this.dpsLabels.get(e.id);
+        if (!t) { t = this.text('', 22, '#ffe066').setOrigin(0.5, 1).setDepth(10); this.dpsLabels.set(e.id, t); }
+        const s = `DPS ${Math.round(e.meter.dps).toLocaleString('ko-KR')}`;
+        if (t.text !== s) t.setText(s);
+        t.setColor(e.meter.on ? '#ffe066' : '#ffffff').setPosition(e.x + e.w / 2, e.y - 64).setVisible(true);
+      }
+      if (e.hp < e.maxHp && !e.dead && MONSTERS[e.mob].ai !== 'dummy') {
         g.fillStyle(0x000000, 0.6).fillRect(e.x, e.y - 10, e.w, 5);
         g.fillStyle(0xff5050).fillRect(e.x, e.y - 10, e.w * Math.max(0, e.hp / e.maxHp), 5);
       }
@@ -839,6 +862,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       g.fillStyle(0xe0f6ff).fillCircle(s.x, s.y, BOSS_ORB.r * 0.5);
     }
     for (const [id, t] of this.enemyLabels) if (!alive.has(id)) t.setVisible(false);
+    for (const [id, t] of this.dpsLabels) if (!alive.has(id)) t.setVisible(false);
     for (const [id, sp] of this.enemySprites) if (!alive.has(id)) sp.setVisible(false);
     for (const [id, r] of this.golemRigs) if (!alive.has(id) || !world.enemies.some(e => e.id === id)) r.c.setVisible(false);
     for (const [k, sp] of this.eliteFx) if (!liveFx.has(k)) { sp.destroy(); this.eliteFx.delete(k); }
@@ -1101,6 +1125,15 @@ export class GameScene extends Phaser.Scene implements Stage {
       r(4, 5, 16, 10, '#15181d'); r(5, 6, 14, 8, '#7a6aa8'); r(5, 6, 14, 2, '#9a8ac8');
       r(6, 9, 5, 3, f === 2 ? '#ffd0ff' : '#ff6ad8');
       r(8, 15, 2, 3, '#15181d'); r(14, 15, 2, 3, '#15181d');
+    });
+    // 허수아비 (훈련장): 짚 머리 + 모자, 가로 막대 팔, 나무 기둥. 안 움직임 (세 프레임 같음)
+    make('dummy', 17, 32, r => {
+      r(4, 0, 9, 2, '#3a2a1a'); r(2, 2, 13, 2, '#3a2a1a'); r(5, 1, 7, 1, '#6a4a2a');
+      r(4, 4, 9, 7, '#2a1e10'); r(5, 4, 7, 6, '#e0c070'); r(6, 6, 1, 1, '#2a1e10'); r(10, 6, 1, 1, '#2a1e10'); r(7, 8, 3, 1, '#a07838');
+      r(0, 12, 17, 3, '#2a1e10'); r(1, 13, 15, 1, '#8a6038');
+      r(4, 11, 9, 9, '#2a1e10'); r(5, 12, 7, 7, '#b04838'); r(5, 15, 7, 1, '#e0c070');
+      r(0, 15, 2, 2, '#e0c070'); r(15, 15, 2, 2, '#e0c070');
+      r(7, 20, 3, 12, '#2a1e10'); r(8, 20, 1, 12, '#8a6038');
     });
     // 마법 골렘: 큰 돌 몸 + 가운데 마력 결정
     make('golem', 58, 88, (r, f) => {

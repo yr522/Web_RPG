@@ -128,6 +128,8 @@ export interface Enemy extends Body {
   tag?: string;
   /** 컷신 중 붙잡힘: 스스로 안 움직이고 부딪혀도 피해 없음 (컷신이 끝나면 풀림) */
   held?: boolean;
+  /** 허수아비 딜 측정: 준 피해 합, 처음·마지막으로 맞은 시간, 지금 초당 피해, 측정 중인지 */
+  meter?: { dmg: number; t0: number; last: number; dps: number; on: boolean };
   /** 한 번만 나오는 몬스터 (죽으면 다시 안 나타남) */
   once?: boolean;
   /** 출혈 (혈섬): 남은 시간, 다음 피해까지, 한 번 피해 */

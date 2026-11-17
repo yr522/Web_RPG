@@ -5,12 +5,13 @@ import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLAS
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
+import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
-import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -243,6 +244,7 @@ export class World implements SkillWorld {
     const cs = CLASS_SKILLS[p.data.cls];
     p.mp = Math.min(p.stats.maxMp, p.mp + p.stats.regen * dt);
     if (this.map.safe) p.hp = Math.min(p.stats.maxHp, p.hp + 6 * dt);
+    if (p.stats.hpRegen > 0 && p.hp > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.hpRegen * dt);
 
     for (const k of cmd.potionPressed) this.usePotion(p, k);
 
@@ -334,7 +336,7 @@ export class World implements SkillWorld {
     // 이동기 무적은 다 막음. 몸통 접촉 무적은 보스 돌진을 못 막음
     if (!invAtStart && !(p.action && p.action.inv)) {
       for (const e of this.enemies) {
-        if (e.dead || e.held || !overlaps(p, e)) continue;
+        if (e.dead || e.held || MONSTERS[e.mob].ai === 'dummy' || !overlaps(p, e)) continue;
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
@@ -370,10 +372,11 @@ export class World implements SkillWorld {
     const can = cs.can[name]?.(this, p);
     if (can !== undefined && can !== true) { if (!silent) this.warn(p, can); return false; }
     if ((p.cd[name] ?? 0) > 0) { if (!silent) this.warn(p, '쿨타임'); return false; }
-    if (p.mp < sk.mp) { if (!silent) this.warn(p, 'MP 부족'); return false; }
+    const mpCost = sk.mp * (1 - p.stats.mpCost);
+    if (p.mp < mpCost) { if (!silent) this.warn(p, 'MP 부족'); return false; }
     const start = cs.start[name];
     if (!start) { if (!silent) this.warn(p, '아직 못 쓰는 스킬이야'); return false; }
-    p.mp -= sk.mp;
+    p.mp -= mpCost;
     // 마력 해방의 쿨타임은 버프가 끝난 뒤부터
     if (sk.cd && name !== 'haebang') p.cd[name] = sk.cd;
     const order = this.slotOf(p, name);
@@ -550,7 +553,7 @@ export class World implements SkillWorld {
     for (const v of this.vortices) {
       v.t += dt;
       for (const e of this.enemies) {
-        if (e.dead || MONSTERS[e.mob].boss) continue;
+        if (e.dead || MONSTERS[e.mob].boss || MONSTERS[e.mob].ai === 'dummy') continue;
         const dx = v.x - cx(e), dy = v.y - cy(e);
         if (Math.hypot(dx, dy) > v.r) continue;
         const f = Math.min(1, dt * 7);
@@ -575,8 +578,8 @@ export class World implements SkillWorld {
     const res = h.elem && e.record && e.record !== h.elem ? PASSIVE.gongmyeong.bonus * passiveLv(p.data, 'gongmyeong') : 0;
     // 치명타 (궁수 패시브)
     const critLv = passiveLv(p.data, 'crit');
-    const crit = critLv > 0 && this.rng() < PASSIVE.crit.chance * critLv;
-    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1);
+    const crit = this.rng() < PASSIVE.crit.chance * critLv + p.stats.crit;
+    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
     // 그림자 화살: 잃은 HP 비례 추가 피해
     if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
     // 정예 강철: 받는 피해 감소
@@ -610,7 +613,7 @@ export class World implements SkillWorld {
       this.float(cx(e), e.y - 30, '분노!', '#ff5040', 20, 1.0);
     }
     // 보스·강철 정예는 밀리지 않고 경직 없음
-    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron')) {
+    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron') && MONSTERS[e.mob].ai !== 'dummy') {
       if (h.kbAng !== undefined) { e.vx = Math.cos(h.kbAng) * h.face * h.kb; e.vy = Math.min(-150, Math.sin(h.kbAng) * h.kb); }
       else { e.vx = h.face * h.kb; e.vy = h.launch ?? -140; }
       e.stun = h.launch && h.launch < -300 ? 0.7 : 0.3;
@@ -724,6 +727,30 @@ export class World implements SkillWorld {
     e.speed = this.range(def.speed);
   }
 
+  /**
+   * 허수아비: 제자리, 출혈만 흐름. 지난 틱에 깎인 HP = 받은 피해 → 측정에 더하고 HP 를 다시 채움 (DUMMY)
+   */
+  private stepDummy(e: Enemy) {
+    if (e.bleed) this.stepBleed(e, TICK);
+    e.x = e.spawnX; e.y = e.spawnY; e.vx = e.vy = 0; e.stun = 0; e.root = 0; e.leap = 'none'; e.dead = false;
+    const lost = e.maxHp - e.hp;
+    e.hp = e.maxHp;
+    const m = e.meter;
+    if (lost > 0) {
+      if (!m || !m.on) e.meter = { dmg: lost, t0: this.time - TICK, last: this.time, dps: 0, on: true };
+      else { m.dmg += lost; m.last = this.time; }
+    }
+    const cur = e.meter;
+    if (!cur?.on) return;
+    if (this.time - cur.last > DUMMY.idle) {
+      // 측정 끝: 마지막으로 때린 순간까지로 계산한 값을 남김
+      cur.on = false;
+      cur.dps = cur.dmg / Math.max(DUMMY.minTime, cur.last - cur.t0);
+      return;
+    }
+    cur.dps = cur.dmg / Math.max(DUMMY.minTime, this.time - cur.t0);
+  }
+
   /** 몸통 피해 (정예·분노 배수) */
   private touchDmg(e: Enemy) {
     let d = MONSTERS[e.mob].touch;
@@ -786,6 +813,7 @@ export class World implements SkillWorld {
         }
         continue;
       }
+      if (MONSTERS[e.mob].ai === 'dummy') { this.stepDummy(e); continue; }
       if (e.bleed) { this.stepBleed(e, dt); if (e.dead) continue; }
       // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
       if (e.pulled) { e.pulled = false; continue; }
@@ -1185,6 +1213,11 @@ export class World implements SkillWorld {
           let added = false;
           const ready = newlyReady(p.data, () => { added = addItem(p.data, c.item!, c.amt); });
           if (!added) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
+          // 장비는 주울 때 부가효과를 굴림
+          if (itemDef(c.item)?.kind === 'equip') {
+            const e = p.data.bag.find(x => x?.uid === p.data.nextUid - 1);
+            if (e) rollOptions(e, this.rng);
+          }
           for (const q of ready) this.questReady(p, q);
           this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
         } else {

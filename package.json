@@ -7,13 +7,16 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "dps": "vite-node tools/skillDps.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
-    "vite": "^7.0.6"
+    "vite": "^7.0.6",
+    "vitest": "^3.2.4"
   }
 }
