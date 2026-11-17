@@ -24,7 +24,7 @@ import icoBottom from '../../../assets/UI/equipment_icons/bottom.png';
 import icoShoes from '../../../assets/UI/equipment_icons/shoes.png';
 
 /** 장비창 빈 칸 아이콘 (반지1·반지2 같은 그림) */
-const SLOT_ICONS: Record<EquipSlot, string> = {
+export const SLOT_ICONS: Record<EquipSlot, string> = {
   hat: icoHat, ring1: icoRing, ring2: icoRing, necklace: icoNeck, weapon: icoWeapon,
   top: icoTop, gloves: icoGloves, bottom: icoBottom, shoes: icoShoes,
 };

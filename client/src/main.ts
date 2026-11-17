@@ -62,13 +62,14 @@ async function boot() {
   const dialogs = new DialogHost();
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
-  const charWindow = new CharWindow(dialogs, session, hud);
   const invWindow = new InventoryWindow(session, hud);
   hud.onUpdate.push(() => invWindow.update());
   const questWindow = new QuestWindow(session, hud);
   const skillWindow = new SkillWindow(session, hud);
   hud.onUpdate.push(() => skillWindow.update());
   hud.onUpdate.push(() => questWindow.update());
+  const charWindow = new CharWindow(session, hud);
+  hud.onUpdate.push(() => charWindow.update());
   hud.onRevive = () => session.revive();
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
@@ -95,7 +96,7 @@ async function boot() {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
     if (code === 'KeyK') hud.onMenu('skill');
-    if (code === 'Escape') { if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();
