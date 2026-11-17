@@ -20,7 +20,7 @@ import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
 import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
-import { mapNpcs, mapPortals, offersQuest } from '@shared/rules/story';
+import { mapNpcs, mapPortals, offersQuest, selfMark } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -114,6 +114,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
   private profMark: Phaser.GameObjects.Text | null = null;
+  /** 내 머리 위 [?]·[✔] 말풍선 (혼자 하는 퀘스트, 누르면 혼잣말 대화) */
+  private selfMark!: Phaser.GameObjects.Text;
   /** 머리 위 말풍선: 'player' 또는 'npc:<id>' */
   private bubbles = new Map<string, SpeechBubble>();
   /** 다가오면 말풍선을 띄우는 NPC: 범위 안에 들어와 있는지 (나갔다 다시 와야 또 뜸) */
@@ -187,6 +189,10 @@ export class GameScene extends Phaser.Scene implements Stage {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
     this.overlay = this.add.graphics().setScrollFactor(0).setDepth(10);
+    this.selfMark = this.add.text(0, 0, '', {
+      fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#675D50', backgroundColor: '#F3DEBA', padding: { x: 9, y: 3 },
+    }).setOrigin(0.5, 1).setDepth(7.5).setVisible(false).setResolution(this.zoom).setInteractive({ useHandCursor: true });
+    this.selfMark.on('pointerdown', () => { if (!this.deps.input.blocked && !this.cut.running) void this.deps.talk('self'); });
 
     this.scale.on('resize', () => this.applyView());
     this.applyView();
@@ -397,6 +403,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (!id) return;
     const me = this.deps.session.me(), x = me.x + me.w / 2 - me.face * COMPANION.gap;
     const root = makeStaticAvatar(this, x, GROUND_Y, me.face).setDepth(4.9);
+    const tint = TALK_NPCS[id]?.tint;
+    if (tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(tint);
     const label = this.text(TALK_NPCS[id]?.name ?? id, 12, '#fff').setOrigin(0.5, 0).setDepth(4.9);
     this.companion = { id, root, label, x, walkT: null };
   }
@@ -520,6 +528,12 @@ export class GameScene extends Phaser.Scene implements Stage {
     else this.bubble.setVisible(false);
     if (this.bubble.visible && (input.blocked || this.cut.running)) this.bubble.setVisible(false);
 
+    // 혼자 하는 퀘스트: 내 머리 위 [?] (받기) · [✔] (보고)
+    const mark = selfMark(session.save, session.nowMs());
+    if (mark && !input.blocked && !this.cut.running) {
+      if (this.selfMark.text !== mark) this.selfMark.setText(mark);
+      this.selfMark.setPosition(me.x + me.w / 2, me.y - 44 + Math.sin(this.time.now / 200) * 3).setVisible(true);
+    } else this.selfMark.setVisible(false);
     if (this.profMark) {
       const news = professorHasNews(session.save, session.nowMs());
       this.profMark.setVisible(news).setY(GROUND_Y - 106 + Math.sin(this.time.now / 200) * 3);

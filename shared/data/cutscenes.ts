@@ -53,24 +53,24 @@ export const CUTSCENE = {
 };
 
 /** 마법공학의 유산 12번: 골렘을 쓰러뜨리자마자 수상한 자가 들이닥쳐 결정체를 가져감 (장면 전용 맵 golem_scene) */
-const steal = (shout: Who): CutStep[] => [
+const steal = (friend: Who): CutStep[] => [
   { lock: true },
   { ui: false },
   { face: { who: 'player', dir: 1 } },
   { cam: { x: 650, zoom: 1.15, time: 0.8 } },
-  { say: { who: 'npc:mage_friend', text: '해냈다…!', life: 1.4 }, wait: 1.2 },
+  { say: { who: friend, text: '해냈다…!', life: 1.4 }, wait: 1.2 },
   { walk: { who: 'npc:villain', to: 820, speed: 320 } },
   { say: { who: 'npc:villain', text: '이건 우리가 가져간다.', life: 2.2 }, wait: 2 },
   { walk: { who: 'npc:villain', to: 1450, speed: 420 }, wait: false },
-  { say: { who: shout, text: '거기 서!', life: 1.6 }, wait: 1.6 },
+  { say: { who: friend, text: '거기 서!', life: 1.6 }, wait: 1.6 },
   { cam: 'follow', time: 0.6 },
   { do: { flag: 'mg_stolen', set: 1 } },
 ];
 
 export const CUTSCENES: Record<string, CutStep[]> = {
   mg_steal: steal('npc:mage_friend'),
-  // 마법사 직업: 동급생 없이 혼자
-  mg_steal_solo: steal('player'),
+  // 마법사 직업: 동급생 검사와 함께
+  mg_steal_w: steal('npc:warrior_friend'),
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움). 대사는 전부 임시 ----
   test: [
     { lock: true },

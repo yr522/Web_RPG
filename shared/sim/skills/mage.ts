@@ -1,7 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, MAGE_SHOT, TELEPORT } from '../../data/classes';
+import { HINT, MADAN_COEF, MAGE_SHOT, TELEPORT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -43,7 +43,7 @@ export const MAGE: ClassSkills = {
       const el = w.elemOf(p, 'madan'), cm = castMult(p), T = MAGE_SHOT.madan;
       p.action = {
         name: 'cast', skill: 'madan', t: 0, dur: T.dur * cm, superArmor: true, cast: true, castEnd: T.shot * cm,
-        events: [{ at: T.shot * cm, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 20, y: cy(p) - 4, vx: p.face * 640, vy: 0, range: 400, size: 18, coef: 1.3, elem: el, kb: 160, skill: 'madan' }); } }],
+        events: [{ at: T.shot * cm, fn: () => { w.addProj(p, { kind: 'orb', x: cx(p) + p.face * 20, y: cy(p) - 4, vx: p.face * 640, vy: 0, range: 400, size: 18, coef: MADAN_COEF, elem: el, kb: 160, skill: 'madan' }); } }],
         update: () => { p.vx = 0; },
         end: () => { p.lockT = T.lock * cm; },
       };

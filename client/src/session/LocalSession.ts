@@ -97,8 +97,8 @@ export class LocalSession implements Session {
     const ready = newlyReady(this.save, () => { r = applyAction(this.save, action, this.nowMs()); });
     for (const q of ready) {
       if (isAuto(this.save, q)) continue;
-      if (!r.banner) r.banner = questReadyText(q);
-      else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q), color: '#9ef0a0' });
+      if (!r.banner) r.banner = questReadyText(q, this.save);
+      else this.pending.push({ type: 'banner', playerId: this.playerId, text: questReadyText(q, this.save), color: '#9ef0a0' });
     }
     // 자동 보고 퀘스트 (다음 퀘스트를 받자마자 끝나는 경우 포함)
     for (const a of autoReport(this.save)) {
@@ -165,11 +165,10 @@ export class LocalSession implements Session {
         if (ev.type === 'questReady' && ev.playerId === this.playerId) {
           const sc = questDef(ev.quest)?.readyScene;
           if (sc) {
-            const solo = questDef(ev.quest)?.solo?.cls === this.save.cls;
             const { hp, mp } = this.me();
             this.enter(sc.map, sc.x, { hp, mp });
             out.push({ type: 'mapEnter', playerId: this.playerId, map: sc.map });
-            out.push({ type: 'cutscene', id: solo && sc.soloCutscene ? sc.soloCutscene : sc.cutscene });
+            out.push({ type: 'cutscene', id: sc.cutsceneFor?.[this.save.cls] ?? sc.cutscene });
             break;
           }
         }

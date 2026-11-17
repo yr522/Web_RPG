@@ -7,13 +7,13 @@ import { MAPS, type MapId } from '../shared/data/maps';
 import { expNeed, type ClassId } from '../shared/data/classes';
 import { questDef } from '../shared/data/quests';
 import { applyEffect, mapNpcs, pickTalk } from '../shared/rules/story';
-import { autoReport, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
+import { autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
 import { addItem } from '../shared/rules/inventory';
 import { gainExp } from '../shared/rules/progress';
 import { PHASE_MS } from '../shared/sim/clock';
 import { newSave, type SaveData } from '../shared/sim/save';
 
-const STORY = ['mg2', 'mg4', 'mg5', 'mg6', 'mg7', 'mg9', 'mg10', 'mg11', 'mg12', 'mg13'];
+const STORY = ['mg2', 'mg4', 'mgm2', 'mgm4', 'mgm5', 'mg5', 'mg6', 'mg7', 'mg9', 'mg10', 'mg11', 'mg12', 'mg13'];
 const PHASE_NOW = [PHASE_MS * 0.5, PHASE_MS * 1.5, PHASE_MS * 2.5];
 
 /** 대사를 위에서부터: 효과는 적용, 실패하면 거기서 멈춤 (게임과 같음), 컷신은 그 안의 효과까지 */
@@ -32,7 +32,7 @@ function readyScenes(s: SaveData, seen: Set<string>) {
     const q = questDef(id)!;
     if (!q.readyScene || seen.has(id) || questState(s, id) !== 'ready') continue;
     seen.add(id);
-    const cut = s.cls === 'mage' && q.readyScene.soloCutscene ? q.readyScene.soloCutscene : q.readyScene.cutscene;
+    const cut = q.readyScene.cutsceneFor?.[s.cls] ?? q.readyScene.cutscene;
     for (const c of CUTSCENES[cut]) if ('do' in c) applyEffect(s, c.do);
     s.map = q.readyScene.map;
   }
@@ -61,8 +61,9 @@ function playthrough(cls: ClassId) {
     if (s.level < 5) gainExp(s, expNeed(s.level));
     const phases = nightLocked(s) ? [PHASE_NOW[2]] : PHASE_NOW;
     for (const now of phases) {
-      for (const map of Object.keys(MAPS) as MapId[]) {
-        for (const n of mapNpcs(s, map)) {
+      // 'self' = 내 머리 위 [?]·[✔] (어느 맵에서나)
+      for (const map of ['self', ...Object.keys(MAPS)] as (MapId | 'self')[]) {
+        for (const n of map === 'self' ? [{ id: 'self' }] : mapNpcs(s, map)) {
           if (!TALK_NPCS[n.id] && n.id !== 'prof') continue;
           const pick = pickTalk(s, n.id, now);
           if (!pick || pick.talk < 0) continue;
@@ -80,13 +81,53 @@ function playthrough(cls: ClassId) {
   return { s, log };
 }
 
+describe('마법사 처음 부분', () => {
+  it('Lv3 이 되면 내 머리 위 [?], 갈림길에 가면 [✔], 밤에 자면 동급생 검사를 깨우러, 깨우면 동행', async () => {
+    const { selfMark } = await import('../shared/rules/story');
+    const s = newSave('t', 'mage', 'M');
+    expect(selfMark(s)).toBeNull();
+    while (s.level < 3) gainExp(s, expNeed(s.level));
+    expect(selfMark(s)).toBe('?');
+    play(s, pickTalk(s, 'self')!.steps);
+    expect(questState(s, 'mgm2')).toBe('active');
+    expect(selfMark(s)).toBeNull();
+    questsOnVisit(s, 'crossroad');
+    expect(selfMark(s)).toBe('✔');
+    play(s, pickTalk(s, 'self')!.steps);
+    expect(questState(s, 'mgm4')).toBe('ready');
+    expect(pickTalk(s, 'bed', PHASE_NOW[1])!.talk).toBe(-1);
+    play(s, pickTalk(s, 'bed', PHASE_NOW[2])!.steps);
+    expect(questState(s, 'mgm5')).toBe('ready');
+    expect(nightLocked(s)).toBe(true);
+    expect(mapNpcs(s, 'school_hall').some(n => n.id === 'warrior_friend')).toBe(true);
+    play(s, pickTalk(s, 'warrior_friend')!.steps);
+    expect(questState(s, 'mg5')).toBe('active');
+    expect(companionNpc(s)).toBe('warrior_friend');
+  });
+  it('검사·궁수에게는 [?] 가 안 뜨고 동급생 검사도 안 보임', async () => {
+    const { selfMark } = await import('../shared/rules/story');
+    const s = newSave('t', 'warrior', 'M');
+    while (s.level < 3) gainExp(s, expNeed(s.level));
+    expect(selfMark(s)).toBeNull();
+    expect(mapNpcs(s, 'school_hall').some(n => n.id === 'warrior_friend')).toBe(false);
+  });
+});
+
 describe('미니 챕터 끝까지', () => {
   for (const cls of ['warrior', 'mage', 'archer'] as ClassId[]) {
     it(`${cls}`, () => {
       const { s, log } = playthrough(cls);
-      const stuck = STORY.find(id => questState(s, id) !== 'done' && !(cls === 'mage' && (id === 'mg2' || id === 'mg4')));
+      // 마법사는 처음 부분이 다름 (mgm: 혼자 + 동급생 검사), 검사·궁수는 mg2·mg4 (동급생 마법사)
+      const skip = cls === 'mage' ? ['mg2', 'mg4'] : ['mgm2', 'mgm4', 'mgm5'];
+      const stuck = STORY.find(id => questState(s, id) !== 'done' && !skip.includes(id));
       expect(stuck, `막힌 곳: ${stuck} (${stuck && questState(s, stuck)}) · 지나온 대화 ${log.join(' → ')}`).toBeUndefined();
+      for (const id of skip) expect(questState(s, id), id).toBe('none');
       expect(s.flags.mg_stolen).toBe(1);
+      // 마법사는 동급생 마법사를 만나지 않고 동급생 검사와 감
+      const friend = cls === 'mage' ? 'warrior_friend' : 'mage_friend', other = cls === 'mage' ? 'mage_friend' : 'warrior_friend';
+      expect(log.some(l => l.endsWith(`:${friend}`))).toBe(true);
+      expect(log.some(l => l.endsWith(`:${other}`))).toBe(false);
+      if (cls === 'mage') expect(log.filter(l => l === 'self:self').length).toBe(2);
     });
   }
 });
