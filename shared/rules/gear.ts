@@ -1,10 +1,10 @@
 // 장비 한 개(가방 칸)의 능력치 · 부가효과 굴리기 · 대장장이(강화·수리·옵션). 화면은 모른다.
-import { itemDef, itemGrade, type BonusId } from '../data/items';
+import { itemDef, itemGrade, type BonusId, type EquipSlot } from '../data/items';
 import {
   ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPTIONS, OPTION_POOL, OPT_CHANCE, OPT_MAX, OPT_MAX_TIER, OPT_UP_COST, REROLL_COST,
   enhanceMult, repairCost, type OptionId,
 } from '../data/gear';
-import type { BagEntry } from './inventory';
+import { equippedEntry, equippedSlot, type BagEntry } from './inventory';
 import type { SaveData } from '../sim/save';
 
 export type Rng = () => number;
@@ -32,6 +32,20 @@ export function itemBonus(e: BagEntry): Bonus {
   const out = baseBonus(e);
   for (const o of e.opts ?? []) out[o.id] = (out[o.id] ?? 0) + optionValue(o);
   return out;
+}
+
+/**
+ * 안 끼고 있는 장비를 끼면 능력치가 얼마나 바뀌는지 (끼면 들어갈 칸의 장비와 비교, 0 인 것은 뺌).
+ * 끼고 있거나, 장비가 아니거나, 파괴됐으면 null
+ */
+export function compareGear(s: SaveData, e: BagEntry): { k: BonusId; v: number }[] | null {
+  const part = itemDef(e.id)?.part;
+  if (!part || e.broken || equippedSlot(s, e.uid)) return null;
+  // 반지는 비어 있는 칸부터 (toggleEquip 과 같은 순서)
+  const slot: EquipSlot = part === 'ring' ? (s.equip.ring1 === undefined ? 'ring1' : s.equip.ring2 === undefined ? 'ring2' : 'ring1') : part;
+  const cur = equippedEntry(s, slot), a = itemBonus(e), b = cur ? itemBonus(cur) : {};
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])] as BonusId[];
+  return keys.map(k => ({ k, v: Math.round(((a[k] ?? 0) - (b[k] ?? 0)) * 10) / 10 })).filter(x => x.v !== 0);
 }
 
 /** 이 장비에 아직 없는 옵션 중 하나 */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ENHANCE, ENHANCE_MAX, OPT_MAX_TIER, OPTION_POOL, enhanceMult, repairCost } from '../shared/data/gear';
 import { ITEMS, itemDef, type ItemId } from '../shared/data/items';
-import { baseBonus, enhance, itemBonus, optionUp, repair, reroll, rollOptions } from '../shared/rules/gear';
+import { baseBonus, compareGear, enhance, itemBonus, optionUp, repair, reroll, rollOptions } from '../shared/rules/gear';
 import { addItem, equipBonus, toggleEquip } from '../shared/rules/inventory';
 import { applyAction } from '../shared/rules/progress';
 import { mulberry32 } from '../shared/sim/rng';
@@ -183,5 +183,24 @@ describe('메뉴 행동 · 저장', () => {
     s.bag[idx]!.broken = true;
     const back = normalizeSave(JSON.parse(JSON.stringify(s)));
     expect(back.bag[idx]).toEqual(s.bag[idx]);
+  });
+});
+
+describe('장비 비교', () => {
+  it('빈 칸이면 장비 능력치 그대로, 끼고 있으면 차이', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'test_top'); addItem(s, 'slime_armor');
+    const top = s.bag.find(e => e?.id === 'test_top')!, slime = s.bag.find(e => e?.id === 'slime_armor')!;
+    expect(compareGear(s, slime)).toEqual([{ k: 'def', v: 4 }, { k: 'hp', v: 10 }]);
+    toggleEquip(s, s.bag.indexOf(top));
+    expect(compareGear(s, top)).toBeNull();
+    // 슬라임 갑옷 (방어 4, HP 10) vs 테스트 상의 (근력 1, 방어 5)
+    expect(compareGear(s, slime)).toEqual([{ k: 'def', v: -1 }, { k: 'hp', v: 10 }, { k: 'str', v: -1 }]);
+  });
+  it('반지는 빈 칸이 있으면 빈 칸과 비교', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'test_ring'); addItem(s, 'slime_ring');
+    toggleEquip(s, s.bag.findIndex(e => e?.id === 'test_ring'));
+    expect(compareGear(s, s.bag.find(e => e?.id === 'slime_ring')!)).toEqual([{ k: 'hp', v: 15 }, { k: 'mp', v: 10 }]);
   });
 });

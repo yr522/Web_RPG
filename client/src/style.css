@@ -509,6 +509,9 @@ html, body {
 .item-tip .tip-opt { color: var(--c-mint); font-weight: 400; }
 .item-tip .tip-opt small { opacity: .7; font-size: 11px; }
 .item-tip .tip-broken { color: #ff8a7a; font-weight: 700; }
+.item-tip hr { border: 0; border-top: 1px solid rgba(255,255,255,.25); margin: 4px 0; }
+.item-tip .tip-up { color: #9ef0a0; font-weight: 400; }
+.item-tip .tip-down { color: #ff8a7a; font-weight: 400; }
 /* 장비 칸: 강화 수치(왼쪽 아래), 파괴된 장비(흑백) */
 .inv-enh {
   position: absolute; left: calc(2 * var(--s)); bottom: 0; font-size: max(8px, 9 * var(--s)); font-weight: 700; color: #fff;

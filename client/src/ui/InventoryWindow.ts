@@ -5,6 +5,7 @@
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
 import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
 import { equippedEntry, equippedSlot, type BagEntry } from '@shared/rules/inventory';
+import { compareGear } from '@shared/rules/gear';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -363,7 +364,8 @@ export class InventoryWindow {
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 행동 */
   private bindCell(cell: HTMLElement, key: string, id: string | BagEntry, action: () => void) {
-    cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY); });
+    const cmp = () => (typeof id === 'string' ? null : compareGear(this.session.save, id));
+    cell.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') this.tip.show(key, id, e.clientX, e.clientY, cmp()); });
     cell.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') this.tip.hide(); });
     cell.addEventListener('contextmenu', e => { e.preventDefault(); if (this.lastPointer === 'mouse') action(); });
     cell.addEventListener('pointerup', e => {
@@ -378,7 +380,7 @@ export class InventoryWindow {
       } else {
         this.lastTap = { key, t: now };
         this.tip.key = null;
-        this.tip.show(key, id, e.clientX, e.clientY);
+        this.tip.show(key, id, e.clientX, e.clientY, cmp());
       }
     });
   }
