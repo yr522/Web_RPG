@@ -101,6 +101,11 @@ export const ARROW_RANGE = { min: 200, max: 800 };
 export const AIM_TURN = 4.0;
 /** MP 회복: 지능 1 마다 회복량 +이만큼 (5 기준) */
 export const INT_REGEN = 0.12;
+/**
+ * 방어력: 받는 피해 × (1 − 방어 / (방어 + k)), 최대 cap 까지 줄임 (기획서 5장)
+ * k = 100 이면 방어력 25 → 20%, 50 → 33%, 100 → 50%
+ */
+export const DEFENSE = { k: 100, cap: 0.75 };
 
 export const HINT = {
   /** 혈섬: 베기 + 출혈 (tick 초마다 공격력 × tickCoef × 레벨 배율, time 초 동안 + 이동 속도 slow 만큼 느려짐, 보스는 안 느려짐) */

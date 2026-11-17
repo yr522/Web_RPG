@@ -1,6 +1,13 @@
 // 아이템 (기획서 7장). 상점 물건, 몬스터 드롭, 장비가 전부 여기 있다.
 import type { StatId } from './classes';
 
+/** 장비가 올려 주는 값: 근력·민첩·지능 + 공격력·방어력 (공격력·방어력은 장비로만) */
+export type BonusId = StatId | 'atk' | 'def';
+export const BONUS_NAMES: Record<BonusId, string> = { str: '근력', dex: '민첩', int: '지능', atk: '공격력', def: '방어력' };
+/** '근력 +1 · 방어력 +5' */
+export const bonusText = (b: Partial<Record<BonusId, number>>) =>
+  (Object.keys(b) as BonusId[]).map(k => `${BONUS_NAMES[k]} +${b[k]}`).join(' · ');
+
 /** 인벤토리 탭 종류 */
 export type ItemKind = 'equip' | 'use' | 'etc';
 export const ITEM_TABS: { id: 'all' | ItemKind; label: string }[] = [
@@ -44,19 +51,21 @@ export interface ItemDef {
   bulk?: number[];
   /** 장비 부위와 능력치 */
   part?: EquipPart;
-  bonus?: Partial<Record<StatId, number>>;
+  bonus?: Partial<Record<BonusId, number>>;
   /** 장비 등급 (장비만) */
   grade?: Grade;
 }
 
 const ARMOR_IMG = 'equipment/armor/test_armor_icon';
-const testEquip = (name: string, part: EquipPart): ItemDef => ({
-  name, kind: 'equip', desc: '근력 +1', icon: '🛡️', img: ARMOR_IMG, price: 100, bulk: [1], part, bonus: { str: 1 },
-});
+const testEquip = (name: string, part: EquipPart): ItemDef => {
+  const bonus = part === 'weapon' ? { str: 1, atk: 5 } : { str: 1, def: 5 };
+  return { name, kind: 'equip', desc: bonusText(bonus), icon: '🛡️', img: ARMOR_IMG, price: 100, bulk: [1], part, bonus };
+};
 
-const gradeWeapon = (grade: Grade, n: number): ItemDef => ({
-  name: `${GRADES[grade].name} 테스트 무기`, kind: 'equip', desc: `근력 +${n}`, icon: '🗡️', img: ARMOR_IMG, price: 100, bulk: [1], part: 'weapon', bonus: { str: n }, grade,
-});
+const gradeWeapon = (grade: Grade, n: number): ItemDef => {
+  const bonus = { str: n, atk: n * 3 };
+  return { name: `${GRADES[grade].name} 테스트 무기`, kind: 'equip', desc: bonusText(bonus), icon: '🗡️', img: ARMOR_IMG, price: 100, bulk: [1], part: 'weapon', bonus, grade };
+};
 
 const ITEM_LIST = {
   hp: { name: 'HP 포션', kind: 'use', icon: '🧪', price: 30, desc: 'HP 50 회복 (1번 키)', bulk: [1, 10] },

@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES } from '../data/classes';
+import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -338,7 +338,7 @@ export class World implements SkillWorld {
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
-        const dmg = this.guardDmg(p, this.mobDmg(charging ? GOLEM_AI.chargeDmg : this.touchDmg(e)));
+        const dmg = this.guardDmg(p, this.defDmg(p, this.mobDmg(charging ? GOLEM_AI.chargeDmg : this.touchDmg(e))));
         p.hp -= dmg;
         this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
         if (charging) { p.stunT = GOLEM_AI.stunTime; this.float(cx(p), p.y - 34, '기절!', '#ffd84a', 18, 1.2); }
@@ -1000,7 +1000,7 @@ export class World implements SkillWorld {
         p.hp = 0; p.action = null;
         continue;
       }
-      this.hurtPlayer(p, Math.round(p.stats.maxHp * GOLEM_NORMAL.quakeHpPct), Math.sign(cx(p) - cx(e)) || 1);
+      this.hurtPlayer(p, Math.round(p.stats.maxHp * GOLEM_NORMAL.quakeHpPct), Math.sign(cx(p) - cx(e)) || 1, true);
     }
   }
 
@@ -1052,15 +1052,22 @@ export class World implements SkillWorld {
     }
   }
 
-  /** 몬스터 공격(접촉 말고)에 맞음 */
-  private hurtPlayer(p: PlayerState, dmg: number, dir: number) {
-    dmg = this.guardDmg(p, dmg);
+  /** 몬스터 공격(접촉 말고)에 맞음. pierce = 방어력 무시 (최대 HP 비율 피해) */
+  private hurtPlayer(p: PlayerState, dmg: number, dir: number, pierce = false) {
+    dmg = this.guardDmg(p, pierce ? dmg : this.defDmg(p, dmg));
     p.hp -= dmg;
     p.touchInv = false;
     this.float(cx(p), p.y - 10, `-${dmg}`, '#ff6b6b', 18);
     if (this.armorRoll(p)) { p.invT = 0.6; return; }
     p.invT = 1.0; p.hurt = 0.3; p.action = null;
     p.vx = dir * 300; p.vy = -340;
+  }
+
+  /** 방어력만큼 줄인 피해 (최소 1) */
+  private defDmg(p: PlayerState, dmg: number) {
+    const def = p.stats.def;
+    if (def <= 0) return dmg;
+    return Math.max(1, Math.round(dmg * (1 - Math.min(DEFENSE.cap, def / (def + DEFENSE.k)))));
   }
 
   /** 흘려베기 받아내기 중이면 받은 피해를 쌓고 줄인 피해를 돌려줌 */
