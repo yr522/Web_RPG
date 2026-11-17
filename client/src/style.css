@@ -775,11 +775,11 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .cwin { --s: max(calc(var(--u) * 1.445 * .8), .7px); --cell: calc(38 * var(--s)); --ico: calc(26 * var(--s)); right: auto; left: 50%; transform: translate(-50%, -50%); align-items: flex-start; }
 .cwin.moved { transform: none; }
 .cw-body { display: flex; align-items: stretch; gap: calc(12 * var(--s)); padding: calc(12 * var(--s)) calc(14 * var(--s)); }
-.cw-info { width: calc(128 * var(--s)); display: flex; flex-direction: column; gap: calc(8 * var(--s)); }
+.cw-info { width: calc(98 * var(--s)); flex: none; display: flex; flex-direction: column; gap: calc(8 * var(--s)); }
 .cw-name { font-family: var(--title); font-weight: 700; font-size: max(14px, 18 * var(--s)); color: var(--c-brown); word-break: keep-all; line-height: 1.2; }
 .cw-box {
   border: calc(1.5 * var(--s)) solid var(--c-latte); border-radius: calc(10 * var(--s)); background: var(--c-paper);
-  padding: calc(6 * var(--s)) calc(9 * var(--s)); display: flex; flex-direction: column;
+  padding: calc(5 * var(--s)) calc(7 * var(--s)); display: flex; flex-direction: column;
 }
 .cw-line {
   display: flex; justify-content: space-between; gap: calc(6 * var(--s)); padding: calc(4 * var(--s)) 0;
@@ -790,7 +790,7 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .cw-line span { white-space: nowrap; }
 /* 가운데: 오른쪽 보는 캐릭터 (걷기 시트 첫 칸). 몸(그림 칸 위에서 35~95px)의 가운데가 칸 높이 58% 에 오게,
    그림자는 발(그림 칸 95px) 아래 */
-.cw-figure { --S: calc(200 * var(--s)); position: relative; width: calc(130 * var(--s)); }
+.cw-figure { --S: calc(200 * var(--s)); position: relative; width: calc(130 * var(--s)); flex: none; }
 .cw-figure::after {
   content: ''; position: absolute; left: 50%; transform: translate(-50%, -50%);
   top: calc(58% - var(--S) * .677 + var(--S) * .99);
@@ -801,8 +801,9 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
   width: var(--S); height: var(--S);
   background-repeat: no-repeat; background-position: 0 0; background-size: 600% 100%; image-rendering: pixelated;
 }
-.cw-equip { display: flex; flex-direction: column; gap: calc(5 * var(--s)); justify-content: center; }
-.cw-row { display: flex; gap: calc(5 * var(--s)); }
+/* 장비 칸 줄 폭 = 왼쪽 정보 칸 폭 → 가운데 캐릭터가 창 가운데 */
+.cw-equip { width: calc(98 * var(--s)); flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: calc(5 * var(--s)); justify-content: center; }
+.cw-row { display: flex; gap: calc(5 * var(--s)); width: calc(var(--cell) * 2 + 5 * var(--s)); }
 .cwin .inv-cell.eq { background: var(--c-paper-lo); border-radius: calc(8 * var(--s)); }
 .cwin .inv-slot-ico { opacity: .55; }
 /* 오른쪽 세로 탭 (▶ STATUS 펼치기) */
