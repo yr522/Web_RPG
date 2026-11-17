@@ -2,7 +2,7 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, EQUIP_SLOTS, ITEMS, itemDef, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, EQUIP_SLOTS, ITEMS, itemDef, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { SaveData } from '../sim/save';
 
@@ -118,11 +118,11 @@ export function sortBag(s: SaveData) {
 }
 
 /** 장비로 오른 능력치 */
-export function equipBonus(s: SaveData): Record<StatId, number> {
-  const b: Record<StatId, number> = { str: 0, dex: 0, int: 0 };
+export function equipBonus(s: SaveData): Record<BonusId, number> {
+  const b: Record<BonusId, number> = { str: 0, dex: 0, int: 0, atk: 0, def: 0 };
   for (const slot of Object.keys(EQUIP_SLOTS) as EquipSlot[]) {
     const e = equippedEntry(s, slot), bonus = e ? itemDef(e.id)?.bonus : undefined;
-    if (bonus) for (const k of Object.keys(bonus) as StatId[]) b[k] += bonus[k] ?? 0;
+    if (bonus) for (const k of Object.keys(bonus) as BonusId[]) b[k] += bonus[k] ?? 0;
   }
   return b;
 }

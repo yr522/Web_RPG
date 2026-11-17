@@ -5,7 +5,7 @@ import type { MapId } from '../data/maps';
 import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
 import { questDef } from '../data/quests';
 import type { QuestSave } from '../rules/quests';
-import { addItem, emptyBag, migrateBag, totalStats, type Bag } from '../rules/inventory';
+import { addItem, emptyBag, equipBonus, migrateBag, totalStats, type Bag } from '../rules/inventory';
 
 export type Gender = 'M' | 'F';
 
@@ -139,15 +139,16 @@ function cleanSave(s: SaveData) {
 /** 패시브 레벨 (안 배웠으면 0). rules/progress 를 부르면 순환이라 여기 따로 */
 const plv = (s: SaveData, id: string) => (id in s.learned ? s.skillLevels[id] ?? 1 : 0);
 
-export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number }
+export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number; def: number }
 
 export function deriveStats(s: SaveData): DerivedStats {
-  const c = CLASSES[s.cls], st = totalStats(s);
+  const c = CLASSES[s.cls], st = totalStats(s), gear = equipBonus(s);
   return {
     maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6),
     maxMp: Math.round((c.mp + (s.level - 1) * 5) * (1 + PASSIVE.maxmp.pct * plv(s, 'maxmp'))),
     regen: c.regen * (1 + (st.int - 5) * INT_REGEN),
     speed: Math.min(420, 260 + (st.dex - 5) * 6),
-    atk: 20 + (st[c.main] - 5) * 1.6,
+    atk: 20 + (st[c.main] - 5) * 1.6 + gear.atk,
+    def: gear.def,
   };
 }

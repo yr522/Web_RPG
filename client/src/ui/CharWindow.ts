@@ -189,6 +189,7 @@ export class CharWindow {
     const list = el('div', 'cw-box cw-derived');
     const line = (k: string, v: string) => list.appendChild(el('div', 'cw-line', `<b>${k}</b><span>${v}</span>`));
     line('공격력', st.atk.toFixed(1));
+    line('방어력', String(st.def));
     line('최대 HP', String(st.maxHp));
     line('최대 MP', String(st.maxMp));
     line('이동속도', String(Math.round(st.speed)));
