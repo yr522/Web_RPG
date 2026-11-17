@@ -70,6 +70,17 @@ export function offeredQuests(s: SaveData, nowMs?: number): QuestDef[] {
 }
 
 /**
+ * 혼자 하는 퀘스트(대화 NPC 'self'): 내 머리 위에 띄울 말풍선. '?' = 받을 퀘스트, '✔' = 보고할 퀘스트, null = 없음
+ */
+export function selfMark(s: SaveData, nowMs?: number): '?' | '✔' | null {
+  const pick = pickTalk(s, 'self', nowMs);
+  if (!pick || pick.talk < 0) return null;
+  const fx = stepEffects(pick.steps);
+  if (fx.some(e => 'quest' in e && e.quest === 'report')) return '✔';
+  return fx.some(e => 'quest' in e && e.quest === 'give') ? '?' : null;
+}
+
+/**
  * 대사 안의 효과 위치: [단계 번호, 선택지 번호, 단계 번호, …].
  * 화면이 보낸 위치로 데이터에서 효과를 직접 찾는다 → 화면이 마음대로 효과를 만들 수 없다.
  */

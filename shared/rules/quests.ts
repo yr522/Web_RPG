@@ -1,6 +1,6 @@
 // 퀘스트 진행·보상. 저장 데이터만 다룬다.
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
-import { QUESTS, QUEST_PIN_MAX, questDef, questTitle, type QuestDef } from '../data/quests';
+import { QUESTS, QUEST_PIN_MAX, classNpc, questDef, questTitle, type QuestDef } from '../data/quests';
 import { CLASSES, SKILLS } from '../data/classes';
 import { MAPS, type MapId } from '../data/maps';
 import { MONSTERS, type MonsterId } from '../data/monsters';
@@ -65,15 +65,17 @@ function goalsDone(s: SaveData, q: QuestDef) {
 }
 
 /** 퀘스트를 다 했을 때 큰 글씨 알림 */
-export function questReadyText(q: QuestDef) {
-  const to = reportTo(q);
+export function questReadyText(q: QuestDef, s: SaveData) {
+  const to = reportTo(q, s);
+  // 혼자 하는 퀘스트(내 머리 위 [✔] 로 보고)
+  if (to === 'self') return '퀘스트 완료!';
   return `퀘스트 완료! ${to === 'prof' ? '교수님' : TALK_NPCS[to]?.name ?? to}께 가자`;
 }
 
 /** 보고할 NPC: 말 걸기 목표가 있으면 그 NPC, 없으면 준 사람 */
-export function reportTo(q: QuestDef): string {
+export function reportTo(q: QuestDef, s: SaveData): string {
   const t = q.goals.find(g => g.kind === 'talk');
-  return t && t.kind === 'talk' ? t.npc : q.giver;
+  return classNpc(t && t.kind === 'talk' ? t.npc : q.giver, s.cls);
 }
 
 export function questState(s: SaveData, id: string): QuestState {
@@ -148,7 +150,7 @@ export const nightLocked = (s: SaveData) => activeQuests(s).some(q => q.nightLoc
 
 /** 지금 따라다니는 NPC (없으면 null) */
 export function companionNpc(s: SaveData): string | null {
-  for (const q of activeQuests(s)) if (q.companion && q.companion.notCls !== s.cls) return q.companion.npc;
+  for (const q of activeQuests(s)) if (q.companion && q.companion.notCls !== s.cls) return classNpc(q.companion.npc, s.cls);
   return null;
 }
 
@@ -200,7 +202,7 @@ export function questsOnVisit(s: SaveData, map: MapId): QuestDef[] {
 export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number } | null {
   const state = questState(s, q.id);
   // 다 했으면 보고하러
-  if (state === 'ready') return npcPlace(reportTo(q), s);
+  if (state === 'ready') return npcPlace(reportTo(q, s), s);
   if (q.where) return { map: q.where };
   // 아직 안 끝난 첫 목표 쪽으로
   for (let i = 0; i < q.goals.length; i++) {
@@ -242,7 +244,8 @@ export function npcPlace(npc: string, s?: SaveData): { map: MapId; x: number } |
 
 /** NPC 이름 (교수님은 직업별 이름). 없으면 '없음' */
 export function npcName(s: SaveData, id: string): string {
-  if (!id) return '없음';
+  id = classNpc(id, s.cls);
+  if (!id || id === 'self') return '없음';
   if (id === 'prof') return CLASSES[s.cls].professor;
   return TALK_NPCS[id]?.name ?? '없음';
 }
@@ -273,7 +276,7 @@ function goalLine(s: SaveData, q: QuestDef, i: number, state: QuestState): GoalL
  */
 export function questLines(s: SaveData, q: QuestDef, state = questState(s, q.id)): GoalLine[] {
   const out = q.goals.map((_, i) => goalLine(s, q, i, state));
-  if (state === 'ready' && !isAuto(s, q) && !q.goals.some(g => g.kind === 'talk')) out.push({ text: `${npcName(s, q.giver)}에게 보고하기`, done: false });
+  if (state === 'ready' && !isAuto(s, q) && reportTo(q, s) !== 'self' && !q.goals.some(g => g.kind === 'talk')) out.push({ text: `${npcName(s, q.giver)}에게 보고하기`, done: false });
   return out;
 }
 

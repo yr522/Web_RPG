@@ -78,6 +78,8 @@ export interface MapDef {
 
 /** 동급생 마법사 (검사·궁수만 보임) 이 서 있는 조건 */
 const friend = (c: Cond): Cond => ({ all: [{ not: { cls: 'mage' } }, c] });
+/** 동급생 검사 (마법사에게만 보임, 동급생 마법사와 같은 자리) 가 서 있는 조건 */
+const wfriend = (c: Cond): Cond => ({ all: [{ cls: 'mage' }, c] });
 
 const slimes = (xs: [number, number?][]): Spawn[] => xs.map(([x, y]) => ({ x, mob: 'slime', y }));
 
@@ -203,7 +205,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 1420, to: 'crossroad', toX: 900, label: '갈림길' },
       { x: 80, to: 'guard_b', toX: 1390, label: '경비기계B 지역' },
     ],
-    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg5', state: 'done' }, { not: { quest: 'mg6', state: 'done' } }] }) }],
+    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg5', state: 'done' }, { not: { quest: 'mg6', state: 'done' } }] }) }, { id: 'warrior_friend', x: 1240, when: wfriend({ all: [{ quest: 'mg5', state: 'done' }, { not: { quest: 'mg6', state: 'done' } }] }) }],
     signs: [],
     spawns: [
       { x: 1100, mob: 'guard_a' }, { x: 860, mob: 'guard_a' }, { x: 680, mob: 'guard_a', y: 200 }, { x: 520, mob: 'guard_a' }, { x: 300, mob: 'guard_a' },
@@ -216,7 +218,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 1420, to: 'guard_a', toX: 180, label: '경비기계A 지역' },
       { x: 80, to: 'workshop_gate', toX: 990, label: '공방 입구' },
     ],
-    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg6', state: 'done' }, { not: { quest: 'mg7', state: 'done' } }] }) }],
+    npcs: [{ id: 'mage_friend', x: 1240, when: friend({ all: [{ quest: 'mg6', state: 'done' }, { not: { quest: 'mg7', state: 'done' } }] }) }, { id: 'warrior_friend', x: 1240, when: wfriend({ all: [{ quest: 'mg6', state: 'done' }, { not: { quest: 'mg7', state: 'done' } }] }) }],
     signs: [],
     spawns: [{ x: 1080, mob: 'guard_b' }, { x: 820, mob: 'guard_b' }, { x: 560, mob: 'guard_b' }, { x: 320, mob: 'guard_b' }],
   },
@@ -228,7 +230,7 @@ export const MAPS: Record<MapId, MapDef> = {
       // 공방 퀘스트 템을 가져다주면(보고) 열림
       { x: 684, to: 'workshop', toX: 1030, label: '공방 내부', when: { quest: 'mg9', state: 'done' } },
     ],
-    npcs: [{ id: 'mage_friend', x: 560, when: friend({ all: [{ quest: 'mg7', state: 'done' }, { not: { quest: 'mg9', state: 'done' } }] }) }],
+    npcs: [{ id: 'mage_friend', x: 560, when: friend({ all: [{ quest: 'mg7', state: 'done' }, { not: { quest: 'mg9', state: 'done' } }] }) }, { id: 'warrior_friend', x: 560, when: wfriend({ all: [{ quest: 'mg7', state: 'done' }, { not: { quest: 'mg9', state: 'done' } }] }) }],
     signs: [],
     spawns: [],
   },
@@ -252,7 +254,9 @@ export const MAPS: Record<MapId, MapDef> = {
       // 그림 속 아치 통로
       { x: HALL_ARCH_X, to: 'school_hallway', toX: 70, label: '학교 복도' },
     ],
-    npcs: [], signs: [], spawns: [],
+    // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
+    npcs: [{ id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
+    signs: [], spawns: [],
   },
   school_hallway: {
     name: '학교 복도', width: 1846, indoor: true, safe: true, bg: { img: 'school_hallway', groundY: 553 },
@@ -290,9 +294,9 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 120, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } },
     ],
     npcs: [
-      { id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) },
+      { id: 'mage_friend', x: 860, when: friend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) }, { id: 'warrior_friend', x: 860, when: wfriend({ all: [{ quest: 'mg9', state: 'done' }, { any: [{ quest: 'mg10', state: 'none' }, { quest: 'mg10', state: 'active' }] }] }) },
       // 골렘 뒤: 윗층에서 후일담
-      { id: 'mage_friend', x: 860, when: friend({ any: [{ quest: 'mg12', state: 'active' }, { quest: 'mg12', state: 'ready' }] }) },
+      { id: 'mage_friend', x: 860, when: friend({ any: [{ quest: 'mg12', state: 'active' }, { quest: 'mg12', state: 'ready' }] }) }, { id: 'warrior_friend', x: 860, when: wfriend({ any: [{ quest: 'mg12', state: 'active' }, { quest: 'mg12', state: 'ready' }] }) },
     ],
     signs: [],
     spawns: [],
@@ -304,7 +308,7 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: UNDER.platforms,
     portals: [],
     // 다 잡으면 마법사가 문 옆에 나타나 골렘 퀘스트를 줌
-    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg10', state: 'ready' }) }],
+    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg10', state: 'ready' }) }, { id: 'warrior_friend', x: UNDER.mid + 110, when: wfriend({ quest: 'mg10', state: 'ready' }) }],
     signs: [],
     spawns: UNDER.spawns.map(sp => ({ ...sp, once: true })),
     becomes: { when: { quest: 'mg10', state: 'done' }, to: 'under_cleared' },
@@ -317,7 +321,7 @@ export const MAPS: Record<MapId, MapDef> = {
     portals: [
       { x: UNDER.mid, to: 'golem_room', toX: 220, label: '???', confirm: '강력한 기운이 느껴집니다. 이동하시겠습니까?', boss: 'golem' },
     ],
-    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg11', state: 'active' }) }],
+    npcs: [{ id: 'mage_friend', x: UNDER.mid + 110, when: friend({ quest: 'mg11', state: 'active' }) }, { id: 'warrior_friend', x: UNDER.mid + 110, when: wfriend({ quest: 'mg11', state: 'active' }) }],
     signs: [],
     spawns: [],
     becomes: { when: { quest: 'mg11', state: 'done' }, to: 'under' },
@@ -375,7 +379,7 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: [],
     portals: [{ x: 220, to: 'under', toX: UNDER.mid, toY: UNDER.top, label: '공방 지하', when: { quest: 'mg11', state: 'done' } }],
     npcs: [
-      { id: 'mage_friend', x: 400, when: friend({ quest: 'mg11', state: 'ready' }) },
+      { id: 'mage_friend', x: 400, when: friend({ quest: 'mg11', state: 'ready' }) }, { id: 'warrior_friend', x: 400, when: wfriend({ quest: 'mg11', state: 'ready' }) },
       // 컷신이 끝나면(플래그) 사라짐
       { id: 'villain', x: 1120, when: { flag: 'mg_stolen', lt: 1 } },
     ],

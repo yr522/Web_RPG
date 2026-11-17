@@ -61,19 +61,20 @@ export interface QuestDef {
   nightLock?: boolean;
   /** 이 직업이면 (이야기 NPC 가 동행하지 않아서) 다 하면 바로 끝나고 next 를 바로 받음 */
   solo?: { cls: 'warrior' | 'mage' | 'archer'; next?: string };
-  /** 완료 조건을 채우는 순간 이 맵으로 옮기고 컷신 (혼자 하는 직업이면 soloCutscene) */
-  readyScene?: { map: MapId; x: number; cutscene: string; soloCutscene?: string };
+  /** 완료 조건을 채우는 순간 이 맵으로 옮기고 컷신 (직업마다 다른 컷신이면 cutsceneFor) */
+  readyScene?: { map: MapId; x: number; cutscene: string; cutsceneFor?: Partial<Record<'warrior' | 'mage' | 'archer', string>> };
   /** 하는 동안 따라다니는 NPC (연출, 무적. 플레이어 직업이 그 NPC 와 같으면 안 나옴) */
-  companion?: { npc: string; notCls: 'warrior' | 'mage' | 'archer' };
+  companion?: { npc: string; notCls?: 'warrior' | 'mage' | 'archer' };
   /** 길 안내 목적지 (없으면 목표에서 짐작: 말 걸기 → 그 NPC 맵, 가기 → 그 맵, 처치 → 그 몬스터 맵) */
   where?: MapId;
 }
 
 export const QUESTS: QuestDef[] = [
   // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시) ----
-  // 검사·궁수: 동급생 마법사가 퀘스트를 주고, 다 하면 마법사에게 가서 보고 → 마법사는 다음 맵으로 옮겨 가 있음 → 거기서 다음 퀘스트
-  // 마법사: 동행 NPC 가 없어서 다 하면 바로 끝나고 다음 퀘스트를 받음 (solo)
-  //   밤에 기숙사 침대에서 자면(Lv 3) 바로 mg5 (혼자 수색)
+  // 검사·궁수: 동급생 마법사(mage_friend)가 퀘스트를 주고, 다 하면 마법사에게 가서 보고 → 마법사는 다음 맵으로 옮겨 가 있음 → 거기서 다음 퀘스트
+  // 마법사: 처음(mgm2 숲 둘러보기 · mgm4 잠자기)은 혼자 — 내 머리 위 [?] 로 받고 [✔] 로 보고 (대화 NPC 'self').
+  //   밤에 자다가 소리를 듣고 깸 → 학교 홀의 동급생 검사(warrior_friend)를 깨움(mgm5) → mg5 부터는 검사·궁수와 같은 퀘스트.
+  //   mage_friend 가 나오는 자리(퀘스트 준 사람·보고·동행·지도)는 마법사에게 warrior_friend 로 바뀜 (FRIEND_SWAP)
   {
     id: 'mg2', name: '학교 뒤 숲 둘러보기', desc: '동급생이 밤 중의 이상한 소리를 들었다며 학교 뒤 숲을 살펴봐달라고 했다.', giver: 'mage_friend',
     goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
@@ -82,40 +83,53 @@ export const QUESTS: QuestDef[] = [
     id: 'mg4', name: '밤에 잠자기', desc: '밤에 기숙사 방 침대에서 자기', giver: 'mage_friend',
     goals: [{ kind: 'talk', npc: 'bed' }], reward: {},
   },
+  // ---- 마법사 전용 처음 부분 ----
   {
-    id: 'mg5', name: '마법사와 숲으로', desc: '밤의 숲 깊은 곳으로', giver: 'mage_friend',
+    id: 'mgm2', name: '학교 뒤 숲 둘러보기', desc: '밤마다 학교 뒤 숲 쪽에서 이상한 소리가 들린다. 숲 깊은 곳 갈림길까지 가 보자.', giver: 'self',
+    goals: [{ kind: 'visit', map: 'crossroad' }], reward: {},
+  },
+  {
+    id: 'mgm4', name: '밤에 잠자기', desc: '밤에 기숙사 방 침대에서 자기', giver: 'self',
+    goals: [{ kind: 'talk', npc: 'bed' }], reward: {},
+  },
+  {
+    id: 'mgm5', name: '동급생 깨우기', desc: '또 그 소리가 들린다. 혼자 가기엔 위험하다. 학교 홀의 동급생 검사를 깨우자.', giver: 'self', where: 'school_hall', nightLock: true,
+    goals: [{ kind: 'talk', npc: 'warrior_friend' }], reward: {},
+  },
+  {
+    id: 'mg5', name: '동급생과 숲으로', desc: '밤의 숲 깊은 곳으로', giver: 'mage_friend',
     goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, nightLock: true, doneBanner: '"…접근하지 마라."',
-    companion: { npc: 'mage_friend', notCls: 'mage' }, solo: { cls: 'mage', next: 'mg6' },
+    companion: { npc: 'mage_friend' },
   },
   {
     id: 'mg6', name: '길을 막는 기계 처치', desc: '경비기계A 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: {}, solo: { cls: 'mage', next: 'mg7' },
+    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: {},
   },
   {
     id: 'mg7', name: '길을 막는 기계 계속 처치', desc: '경비기계B 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: {}, solo: { cls: 'mage', next: 'mg9' },
+    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: {},
   },
   {
     // 공방 입구에서 받음. 보고하면(템은 이때 씀) 공방 입구의 포탈이 열림
     id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템 얻기', giver: 'mage_friend',
-    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg10' },
+    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: {},
   },
   {
     // 공방 안에서 받음. 지하는 갇히는 맵: 다 잡으면 마법사가 골렘 방 문 옆에 나타남 → 보고하고 골렘 퀘스트를 받으면 문이 열림
     id: 'mg10', name: '공방 지하', desc: '공방 지하의 경비기계 전부 처치', giver: 'mage_friend', where: 'under_trial',
     goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: {},
-    doneBanner: '강력한 기운이 느껴진다', solo: { cls: 'mage', next: 'mg11' },
+    doneBanner: '강력한 기운이 느껴진다',
   },
   {
     // 골렘을 잡는 순간 장면 전용 맵으로 옮겨 컷신(수상한 자가 결정체를 가져감) → 거기 서 있는 마법사에게 보고 (보스 메뉴의 마법 골렘 워프가 열림)
     id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
-    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {}, solo: { cls: 'mage', next: 'mg12' },
-    readyScene: { map: 'golem_scene', x: 560, cutscene: 'mg_steal', soloCutscene: 'mg_steal_solo' },
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {},
+    readyScene: { map: 'golem_scene', x: 560, cutscene: 'mg_steal', cutsceneFor: { mage: 'mg_steal_w' } },
   },
   {
     // 12. 공방 윗층(공방 내부)에서 마법사와 후일담
-    id: 'mg12', name: '놓쳐 버린 결정체', desc: '공방 윗층으로 돌아가 마법사와 이야기하기', giver: 'mage_friend', where: 'workshop',
-    goals: [{ kind: 'visit', map: 'workshop' }, { kind: 'talk', npc: 'mage_friend' }], reward: {}, solo: { cls: 'mage', next: 'mg13' },
+    id: 'mg12', name: '놓쳐 버린 결정체', desc: '공방 윗층으로 돌아가 동급생과 이야기하기', giver: 'mage_friend', where: 'workshop',
+    goals: [{ kind: 'visit', map: 'workshop' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
   },
   {
     // 13. 학교로 돌아가 교수님께 보고 → 최종 보상 (임시: EXP·골드)
@@ -168,3 +182,10 @@ export const QUEST_PIN_MAX = 3;
 export const questTitle = (q: QuestDef) => (q.repeat ? `[반복] ${q.name}` : q.name);
 
 export const questDef = (id: string) => QUESTS.find(q => q.id === id);
+
+/**
+ * 직업에 따라 바뀌는 이야기 NPC: 마법사에게는 동급생 마법사 대신 동급생 검사가 같은 역할 (퀘스트 준 사람·보고·동행·길 안내).
+ * 대사는 각 NPC 의 talks 에 따로 있음
+ */
+export const FRIEND_SWAP: Partial<Record<'warrior' | 'mage' | 'archer', Record<string, string>>> = { mage: { mage_friend: 'warrior_friend' } };
+export const classNpc = (npc: string, cls: 'warrior' | 'mage' | 'archer') => FRIEND_SWAP[cls]?.[npc] ?? npc;

@@ -119,7 +119,7 @@ describe('퀘스트', () => {
       if (q.giver && !npcExists(q.giver)) bad.push(`${q.id}: giver ${q.giver}`);
       if (q.where && !MAPS[q.where]) bad.push(`${q.id}: where ${q.where}`);
       if (q.readyScene && (!MAPS[q.readyScene.map] || !CUTSCENES[q.readyScene.cutscene])) bad.push(`${q.id}: readyScene`);
-      if (q.readyScene?.soloCutscene && !CUTSCENES[q.readyScene.soloCutscene]) bad.push(`${q.id}: soloCutscene`);
+      for (const c of Object.values(q.readyScene?.cutsceneFor ?? {})) if (!CUTSCENES[c]) bad.push(`${q.id}: cutsceneFor ${c}`);
       if (q.companion && !npcExists(q.companion.npc)) bad.push(`${q.id}: companion`);
       for (const it of [...(q.start?.items ?? []), ...(q.reward.items ?? [])]) if (!itemDef(it.id)) bad.push(`${q.id}: 물건 ${it.id}`);
       for (const g of q.goals) {

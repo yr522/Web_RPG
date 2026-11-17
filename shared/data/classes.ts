@@ -202,5 +202,7 @@ export const MAGE_SHOT = {
   basic: { shot: 0.1, dur: 0.2, lock: 0.2 },
   madan: { shot: 0.15, dur: 0.22, lock: 0.23 },
 };
+/** 마력탄 계수 (1.3 → 1.5, 2026-11-17 보스전에서 마법사가 약해서) */
+export const MADAN_COEF = 1.5;
 
 export const expNeed = (level: number) => 40 + (level - 1) * 25;

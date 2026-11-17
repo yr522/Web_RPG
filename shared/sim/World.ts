@@ -124,7 +124,7 @@ export class World implements SkillWorld {
       }
       return;
     }
-    this.events.push({ type: 'banner', playerId: p.id, text: questReadyText(q), color: '#9ef0a0' });
+    this.events.push({ type: 'banner', playerId: p.id, text: questReadyText(q, p.data), color: '#9ef0a0' });
   }
 
   removePlayer(id: EntityId) {

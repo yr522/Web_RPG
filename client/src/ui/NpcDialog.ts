@@ -174,7 +174,8 @@ export class NpcDialog {
     if (!npc || !pick) return Promise.resolve();
     // 교수님: 이름·초상화는 직업별 교수님
     const cls = this.session.save.cls, profName = CLASSES[cls].professor;
-    const nameOf = (who: string) => (who === 'prof' ? profName : TALK_NPCS[who]?.name);
+    // 'self' = 내 혼잣말 (이름 자리에 내 이름)
+    const nameOf = (who: string) => (who === 'prof' ? profName : who === 'self' ? this.session.save.name : TALK_NPCS[who]?.name);
     const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;
     // 대사 하나 + 데이터 안 위치 (효과를 보낼 때 씀)
