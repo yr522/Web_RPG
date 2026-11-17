@@ -89,6 +89,7 @@ export class Hud {
     for (const m of MENU) {
       const b = h('button', m.icon ? 'menu-btn ico' : 'menu-btn', m.icon ? `<img src="${m.icon}" alt="${m.label}" draggable="false">` : `<span>${m.label}</span>`);
       b.title = m.key ? `${m.label} (${m.key})` : m.label;
+      b.dataset.menu = m.id;
       b.addEventListener('click', () => this.onMenu(m.id));
       menu.appendChild(b);
     }
@@ -326,6 +327,11 @@ export class Hud {
     this.lastHits = p.hits;
   }
 
+  private menuBlink(id: string, on: boolean) {
+    const b = this.root.querySelector<HTMLElement>(`.menu-btn[data-menu="${id}"]`);
+    if (b && b.classList.contains('blink') !== on) b.classList.toggle('blink', on);
+  }
+
   update(s: Session) {
     const p = s.me(), save = s.save, st = p.stats;
 
@@ -338,6 +344,9 @@ export class Hud {
 
     this.bossBar(s);
     this.comboView(p);
+    // 쓸 포인트가 있으면 메뉴 버튼 깜빡임: 능력치 → 캐릭터, SP → 스킬
+    this.menuBlink('char', save.statPts > 0);
+    this.menuBlink('skill', save.skillPts > 0);
 
     const hpTxt = `${Math.ceil(p.hp)} / ${st.maxHp}`;
     this.set('hpW', this.els.hp.querySelector('i')!, 'width', `${(100 * p.hp / st.maxHp).toFixed(2)}%`);
