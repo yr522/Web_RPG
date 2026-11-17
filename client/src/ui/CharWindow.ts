@@ -127,6 +127,8 @@ export class CharWindow {
     this.sig = this.signature();
     this.tip.hide();
     const s = this.session.save, cls = CLASSES[s.cls];
+    // 올릴 능력치가 있는데 STATUS 를 닫아 두면 여는 탭이 깜빡임
+    this.sideBtn.classList.toggle('blink', !this.statusOpen && s.statPts > 0);
 
     // 왼쪽: 닉네임 + 정보 상자
     this.info.innerHTML = '';
