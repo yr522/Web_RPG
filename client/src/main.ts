@@ -74,6 +74,7 @@ async function boot() {
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
   const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
   const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
+  if (import.meta.env.DEV) Object.assign(window, { __npc: openNpc });
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) void document.exitFullscreen();
