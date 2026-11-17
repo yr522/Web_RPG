@@ -771,7 +771,8 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 
 /* ===== 캐릭터 창 (C, 인벤토리 창과 같은 틀) =====
    CHARACTER: 왼쪽 닉네임·정보 상자, 가운데 캐릭터, 오른쪽 장비 칸 2줄 / 오른쪽 세로 탭 / STATUS (펼침) */
-.cwin { right: auto; left: 50%; transform: translate(-50%, -50%); align-items: flex-start; }
+/* 인벤토리보다 조금 작게 (전체 0.8배, 장비 칸 38) */
+.cwin { --s: max(calc(var(--u) * 1.445 * .8), .7px); --cell: calc(38 * var(--s)); --ico: calc(26 * var(--s)); right: auto; left: 50%; transform: translate(-50%, -50%); align-items: flex-start; }
 .cwin.moved { transform: none; }
 .cw-body { display: flex; align-items: stretch; gap: calc(12 * var(--s)); padding: calc(12 * var(--s)) calc(14 * var(--s)); }
 .cw-info { width: calc(128 * var(--s)); display: flex; flex-direction: column; gap: calc(8 * var(--s)); }
@@ -787,14 +788,17 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .cw-line:last-child { border-bottom: none; }
 .cw-line b { font-weight: 700; }
 .cw-line span { white-space: nowrap; }
-/* 가운데: 오른쪽 보는 캐릭터 (걷기 시트 첫 칸, 96px → 2.6배) */
-.cw-figure { position: relative; width: calc(150 * var(--s)); display: flex; align-items: flex-end; justify-content: center; }
+/* 가운데: 오른쪽 보는 캐릭터 (걷기 시트 첫 칸). 몸(그림 칸 위에서 35~95px)의 가운데가 칸 높이 58% 에 오게,
+   그림자는 발(그림 칸 95px) 아래 */
+.cw-figure { --S: calc(200 * var(--s)); position: relative; width: calc(130 * var(--s)); }
 .cw-figure::after {
-  content: ''; position: absolute; left: 50%; bottom: calc(6 * var(--s)); transform: translateX(-50%);
-  width: calc(90 * var(--s)); height: calc(14 * var(--s)); border-radius: 50%; background: rgba(103, 93, 80, .22);
+  content: ''; position: absolute; left: 50%; transform: translate(-50%, -50%);
+  top: calc(58% - var(--S) * .677 + var(--S) * .99);
+  width: calc(70 * var(--s)); height: calc(12 * var(--s)); border-radius: 50%; background: rgba(103, 93, 80, .25);
 }
 .cw-sprite {
-  position: relative; z-index: 1; width: calc(250 * var(--s)); height: calc(250 * var(--s)); flex: none; margin-bottom: calc(-4 * var(--s));
+  position: absolute; z-index: 1; left: calc(50% - var(--S) * .51); top: calc(58% - var(--S) * .677);
+  width: var(--S); height: var(--S);
   background-repeat: no-repeat; background-position: 0 0; background-size: 600% 100%; image-rendering: pixelated;
 }
 .cw-equip { display: flex; flex-direction: column; gap: calc(5 * var(--s)); justify-content: center; }
