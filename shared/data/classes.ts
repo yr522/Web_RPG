@@ -95,6 +95,18 @@ export function unlockLevel(cls: ClassId, id: string) {
  */
 /** 이동기 (질풍참·사슬 화살): 쿨타임 짧고 MP 적게, 대신 피해 낮게 */
 export const MOVE_SKILL = { jilpung: { coef: 1.6 }, sasl: { coef: 1.4 } };
+/**
+ * 검사 판정·거리 (테스터 의견으로 늘림, 2026-11-17).
+ * basicW·ilseomW = 앞으로 닿는 폭(px) (52 → 72, 106 → 136),
+ * jilpung = 돌진 속도·시간 (거리 220 → 280px), cheonbung = 판정 상자 폭·높이 (270×170 → 460×260)
+ */
+export const WARRIOR_REACH = {
+  basicW: 72, ilseomW: 136,
+  jilpung: { speed: 1000, time: 0.28 },
+  cheonbung: { w: 460, h: 260 },
+};
+/** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17) */
+export const SOYONG_PULL_R = 300;
 /** 궁수 기본 공격·마법 화살 사거리: 바로 떼면 min, 최대 충전이면 max */
 export const ARROW_RANGE = { min: 200, max: 800 };
 /** 사슬 화살 조준 각도 바뀌는 속도 (라디안/초) */
@@ -154,19 +166,18 @@ export const CREATE_STAT_POINTS = 5;
 export const NAME_MAX = 10;
 export const DEFAULT_NAME = '견습생';
 
-/** 마법사 기본 공격(기본 공격·마력탄): 쏘는 순간 뒤로 밀려남. dist(px)를 time(초) 동안 미끄러지듯. 공중에서도 */
 /** 체력이 0 이 되면 최대 이만큼(초) 쓰러져 있다가 깨어나는 곳으로 (그동안 조작 불가, 무적). [부활하기]를 누르면 바로 */
 export const DOWN_TIME = 20;
 
-export const MAGE_RECOIL = { dist: 20, time: 0.1 };
 /**
- * 마법사 기본 공격 타이밍 (초). 묵직하게: 처음 값의 2배.
+ * 마법사 기본 공격 타이밍 (초). 테스터 의견으로 줄임 (2026-11-17, 살짝 딜레이만): 기본 공격 0.8 → 0.4초, 마력탄 1.0 → 0.45초 마다 한 발.
+ * 쏠 때 뒤로 밀려나던 반동은 없앰.
  * shot = 쏘는 순간, dur = 동작 끝, lock = 끝난 뒤 다음 행동까지 쉬는 시간.
  * 마력탄은 마력 해방 중 절반.
  */
 export const MAGE_SHOT = {
-  basic: { shot: 0.16, dur: 0.4, lock: 0.4 },
-  madan: { shot: 0.36, dur: 0.44, lock: 0.56 },
+  basic: { shot: 0.1, dur: 0.2, lock: 0.2 },
+  madan: { shot: 0.15, dur: 0.22, lock: 0.23 },
 };
 
 export const expNeed = (level: number) => 40 + (level - 1) * 25;

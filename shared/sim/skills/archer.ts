@@ -2,7 +2,7 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
-import { AIM_TURN, ARROW_RANGE, HINT, MOVE_SKILL, PASSIVE } from '../../data/classes';
+import { AIM_TURN, ARROW_RANGE, HINT, MOVE_SKILL, PASSIVE, SOYONG_PULL_R } from '../../data/classes';
 import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -126,7 +126,7 @@ export const ARCHER: ClassSkills = {
         name: 'draw', skill: 'soyong', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
           const vx = cx(p) + p.face * 270, vy = cy(p) - 6;
-          w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: 210, color: c });
+          w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: SOYONG_PULL_R, color: c });
           p.lockT = 0.4 + 0.25;
           w.later(p, 0.4, () => {
             const sx = cx(p), sy = cy(p) - 6, dx = vx - sx, dy = vy - sy, d = Math.hypot(dx, dy) || 1;

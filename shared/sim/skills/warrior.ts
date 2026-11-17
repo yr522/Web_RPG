@@ -1,6 +1,6 @@
 // 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, MOVE_SKILL } from '../../data/classes';
+import { HINT, MOVE_SKILL, WARRIOR_REACH as R } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
 
@@ -19,7 +19,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
       events: [
         // 베기 그림 (임시 Smear): 0.04초마다 한 장, 판정이 나오는 0.08초에 휘두르는 장면
         { at: 0, fn: () => w.fx({ kind: 'anim', anim: 'smear_h1', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 12, dy: -6, life: 0.2 }) },
-        { at: 0.08, fn: () => w.addHB(p, { dx: -6, dy: -30, w: 52, h: 52, coef: 0.6, elem: null, kb: 120, life: 0.06, skill: 'basic' }) },
+        { at: 0.08, fn: () => w.addHB(p, { dx: -6, dy: -30, w: R.basicW, h: 52, coef: 0.6, elem: null, kb: 120, life: 0.06, skill: 'basic' }) },
       ],
       end: () => { p.lockT = 0.16; },
     };
@@ -27,7 +27,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
 
   ilseom(w, p, chain) {
     const el = w.elemOf(p, 'ilseom'), c = color(el);
-    const hit = () => w.addHB(p, { dx: -6, dy: -46, w: 106, h: 78, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
+    const hit = () => w.addHB(p, { dx: -6, dy: -46, w: R.ilseomW, h: 78, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
     // 베기 그림 (임시 sword_slash, 원소 색): 첫 번째는 위→아래, 두 번째는 위아래 뒤집어 아래→위
     const slash = (i: number) => w.fx({ kind: 'anim', anim: 'sword_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 48, dy: -8, color: c, flipY: i === 1, life: 0.13 });
     p.action = {
@@ -61,10 +61,10 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
 
   jilpung(w, p, chain) {
     // 바라보는 방향으로 곧장 돌진 (각도 조절 없음 — 궁수 사슬 화살과 차별화)
-    const el = w.elemOf(p, 'jilpung'), sp = 1000;
+    const el = w.elemOf(p, 'jilpung'), sp = R.jilpung.speed;
     w.chainText(p, 'jilpung', chain);
     p.action = {
-      name: 'dash', skill: 'jilpung', t: 0, dur: 0.22, noGravity: true, inv: true,
+      name: 'dash', skill: 'jilpung', t: 0, dur: R.jilpung.time, noGravity: true, inv: true,
       update: () => {
         p.vx = sp * p.face;
         p.vy = 0;
@@ -76,7 +76,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
         p.combo = 0;
       },
     };
-    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: MOVE_SKILL.jilpung.coef, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: 0.22, skill: 'jilpung' });
+    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: MOVE_SKILL.jilpung.coef, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: R.jilpung.time, skill: 'jilpung' });
   },
 
   cheonbung(w, p, chain) {
@@ -87,13 +87,13 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     for (let i = 0; i < 5; i++) {
       events.push({
         at: 0.06 + i * 0.11, fn: () => {
-          w.addHB(p, { center: true, dx: 0, dy: 0, w: 270, h: 170, coef: 1.1, elem: el, order: 3, chain, kb: i === 4 ? 260 : 60, launch: i === 4 ? -380 : -90, life: 0.05, skill: 'cheonbung' });
+          w.addHB(p, { center: true, dx: 0, dy: 0, w: R.cheonbung.w, h: R.cheonbung.h, coef: 1.1, elem: el, order: 3, chain, kb: i === 4 ? 260 : 60, launch: i === 4 ? -380 : -90, life: 0.05, skill: 'cheonbung' });
           for (let j = 0; j < 3; j++) {
-            const ang = w.rng() * Math.PI, len = 130 + w.rng() * 40;
-            const mx = cx(p) + (w.rng() - 0.5) * 160, my = cy(p) + (w.rng() - 0.5) * 80;
+            const ang = w.rng() * Math.PI, len = 130 + w.rng() * 80;
+            const mx = cx(p) + (w.rng() - 0.5) * R.cheonbung.w * 0.6, my = cy(p) + (w.rng() - 0.5) * R.cheonbung.h * 0.5;
             w.fx({ kind: 'line', x1: mx - Math.cos(ang) * len / 2, y1: my - Math.sin(ang) * len / 2, x2: mx + Math.cos(ang) * len / 2, y2: my + Math.sin(ang) * len / 2, color: c, w: 5, life: 0.16 });
           }
-          if (i === 4) w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 20, r1: 160, life: 0.4 });
+          if (i === 4) w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 20, r1: R.cheonbung.w * 0.55, life: 0.4 });
         },
       });
     }
