@@ -15,11 +15,16 @@ export interface ProjSpec {
   pierce?: boolean; order?: number; chain?: boolean;
   skill: string;
   exec?: { pct: number; cap: number };
+  /** 이 몬스터만 맞음 */
+  only?: string;
 }
 
 /** 스킬 코드가 월드에 할 수 있는 일 */
 export interface SkillWorld {
   time: number;
+  readonly enemies: readonly Enemy[];
+  /** 움직일 수 있는 범위 */
+  readonly bounds: { l: number; r: number; top: number };
   rng: () => number;
   addHB(p: PlayerState, h: HitboxSpec): void;
   addProj(p: PlayerState, s: ProjSpec): Projectile;

@@ -2,7 +2,7 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
-import { AIM_TURN, ARROW_RANGE, HINT, MOVE_SKILL, PASSIVE } from '../../data/classes';
+import { AIM_TURN, ARROW_RANGE, DOYAK, HINT, MOVE_SKILL, PASSIVE, SOYONG_PULL_R } from '../../data/classes';
 import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -126,7 +126,7 @@ export const ARCHER: ClassSkills = {
         name: 'draw', skill: 'soyong', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
           const vx = cx(p) + p.face * 270, vy = cy(p) - 6;
-          w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: 210, color: c });
+          w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: SOYONG_PULL_R, color: c });
           p.lockT = 0.4 + 0.25;
           w.later(p, 0.4, () => {
             const sx = cx(p), sy = cy(p) - 6, dx = vx - sx, dy = vy - sy, d = Math.hypot(dx, dy) || 1;
@@ -134,6 +134,37 @@ export const ARCHER: ClassSkills = {
           });
         },
       };
+    },
+
+    /** 후방 도약 (이동기): 뒤로 포물선을 그리며 날아가면서(무적) 앞쪽 가까운 몬스터 3마리에게 한 발씩 */
+    doyak(w, p) {
+      const D = DOYAK, face = p.face, x0 = cx(p), y0 = cy(p);
+      const targets = w.enemies
+        .filter(e => !e.dead && !e.held && Math.abs(e.y + e.h / 2 - y0) < 180)
+        .map(e => ({ e, dx: (e.x + e.w / 2 - x0) * face }))
+        .filter(o => o.dx > -40 && o.dx < D.range)
+        .sort((a, b) => Math.abs(a.dx) - Math.abs(b.dx))
+        .slice(0, D.n).map(o => o.e);
+      const act: PlayerAction = {
+        name: 'leap', skill: 'doyak', t: 0, dur: D.time, noGravity: true, inv: true,
+        update: () => {
+          const k = Math.min(1, act.t / D.time);
+          p.face = face;
+          p.vx = -face * D.back / D.time;
+          p.vy = -4 * D.height / D.time * (1 - 2 * k);
+        },
+        end: () => { p.vx = -face * 60; p.vy = 0; },
+      };
+      p.action = act;
+      for (let i = 0; i < D.n; i++) {
+        w.later(p, D.first + i * D.gap, () => {
+          const e = targets[i], sx = cx(p) + face * 10, sy = cy(p) - 4;
+          // 몬스터가 없으면 앞 땅에 꽂음 (아무도 안 맞음)
+          const tx = e && !e.dead ? e.x + e.w / 2 : x0 + face * (120 + i * 70), ty = e && !e.dead ? e.y + e.h / 2 : y0 + 30;
+          const dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy) || 1;
+          w.addProj(p, { kind: 'arrow', x: sx, y: sy, vx: dx / d * 1500, vy: dy / d * 1500, range: e && !e.dead ? d + 60 : d, size: 14, len: 28, coef: D.coef, elem: null, kb: 120, skill: 'doyak', only: e && !e.dead ? e.id : '-' });
+        });
+      }
     },
 
     hwasalbi(w, p) {

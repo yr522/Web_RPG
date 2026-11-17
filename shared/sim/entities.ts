@@ -51,8 +51,6 @@ export interface PlayerState extends Body {
   potionCd: number;
   /** 쓰러져 있는 남은 시간 (0 = 안 쓰러짐). 끝나면 died 이벤트 */
   downT: number;
-  /** 남은 밀려남 거리 (px, 부호 = 방향). 마법사 기본 공격 반동 */
-  push: number;
   warnCd: number;
   action: PlayerAction | null;
   cd: Record<string, number>;
@@ -65,7 +63,7 @@ export interface PlayerState extends Body {
   hitsT: number;
   /** 검사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
   combo: number;
-  /** 질풍참 직후 천붕을 쓸 수 있는 시간 */
+  /** 회류참 직후 천붕을 쓸 수 있는 시간 */
   cbWindow: number;
   /** 맞은 뒤 무적 시간 */
   invT: number;
@@ -203,6 +201,8 @@ export interface Projectile extends Attack {
   orbit?: { ang: number; t: number; wait: number };
   /** 궤도탄: 쫓아가는 몬스터 */
   target?: EntityId;
+  /** 이 몬스터만 맞음 (후방 도약 화살) */
+  only?: EntityId;
 }
 
 /** 소용돌이 화살: 범위 안 몬스터를 가운데로 끌어모음 */

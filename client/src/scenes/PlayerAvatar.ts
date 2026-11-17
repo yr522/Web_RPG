@@ -83,7 +83,8 @@ function attackPose(me: PlayerState): Pose | null {
   if (sheet === 'bow') {
     // 당기기 시작 → 당기는 중 → (놓으면) 발사됨. 다시 누르면 바로 처음부터.
     if (a.name === 'charge' || a.name === 'aim' || a.name === 'draw') return { sheet, frame: a.t < DRAW_START_TIME ? 0 : 1 };
-    if (a.name === 'recover') return { sheet, frame: 2 };
+    // 쏜 직후 · 후방 도약으로 날아가며 쏘는 중
+    if (a.name === 'recover' || a.name === 'leap') return { sheet, frame: 2 };
     return null;
   }
   if (a.name === 'dash') return { sheet, frame: 1 };

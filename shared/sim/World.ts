@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
+import { SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -104,7 +104,7 @@ export class World implements SkillWorld {
     const p: PlayerState = {
       id, name: data.name, data, stats, x, y: y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
-      cmd: emptyCommand(), potionCd: 0, push: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
+      cmd: emptyCommand(), potionCd: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
       lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
@@ -316,17 +316,7 @@ export class World implements SkillWorld {
         }
       }
     }
-    // 반동으로 밀려나는 중: 이번 틱만 그만큼 옆으로 움직이고 원래 속도로 되돌린다
-    const keepVx = p.vx;
-    if (p.push) {
-      const step = Math.sign(p.push) * Math.min(Math.abs(p.push), (MAGE_RECOIL.dist / MAGE_RECOIL.time) * dt);
-      p.push -= step;
-      if (Math.abs(p.push) < 0.01) p.push = 0;
-      p.vx = step / dt;
-    }
-    const pushed = p.vx !== keepVx;
     stepBody(p, dt, this.solids, this.bounds, !(p.action && p.action.noGravity));
-    if (pushed) p.vx = keepVx;
 
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.vx) || !Number.isFinite(p.vy)) {
       p.action = null; p.x = 300; p.y = GROUND_Y - p.h; p.vx = p.vy = 0;
@@ -364,7 +354,9 @@ export class World implements SkillWorld {
 
   // ===================== 스킬 =====================
   private slotOf(p: PlayerState, skill: string) {
-    return Math.max(0, CLASSES[p.data.cls].skills.indexOf(skill));
+    // 검사는 연계 순서(5초식), 나머지는 기본 스킬 순서
+    const list = p.data.cls === 'warrior' ? WARRIOR_CHAIN : CLASSES[p.data.cls].skills;
+    return Math.max(0, list.indexOf(skill));
   }
 
   private tryStart(p: PlayerState, name: string, silent = false) {
@@ -382,10 +374,11 @@ export class World implements SkillWorld {
     const order = this.slotOf(p, name);
     // 연계 보너스는 검사 전용
     const chain = p.data.cls === 'warrior' && !!(p.lastHit && this.time - p.lastHit.t < this.comboWindow(p) && order > p.lastHit.order);
-    // 검사 초식 순서: 일섬 → 월참 → 질풍참이 이어져야(연계) 천붕이 열린다
+    // 검사 초식 순서: 일섬 → 월참 → 질풍참 → 회류참이 이어져야(연계) 천붕이 열린다
     if (name === 'ilseom') p.combo = 1;
     else if (name === 'wolcham') p.combo = chain && p.combo === 1 ? 2 : 0;
     else if (name === 'jilpung') p.combo = chain && p.combo === 2 ? 3 : 0;
+    else if (name === 'hoeryu') p.combo = chain && p.combo === 3 ? 4 : 0;
     else p.combo = 0;
     start(this, p, chain);
     return true;
@@ -410,7 +403,7 @@ export class World implements SkillWorld {
       id: `j${this.nextId++}`, kind: s.kind, x: s.x, y: s.y, ang: Math.atan2(s.vy, s.vx), speed: Math.hypot(s.vx, s.vy),
       range: s.range, traveled: 0, size: s.size, len: s.len, pierce: s.pierce, hit: new Set(), dead: false,
       owner: p, face: Math.sign(s.vx) || p.face, coef: s.coef, elem: s.elem, order: s.order ?? 0, chain: s.chain ?? false, kb: s.kb,
-      sm: this.skillMult(p, s.skill), skill: s.skill, exec: s.exec,
+      sm: this.skillMult(p, s.skill), skill: s.skill, exec: s.exec, only: s.only,
     };
     this.projectiles.push(o);
     return o;
@@ -480,7 +473,7 @@ export class World implements SkillWorld {
       o.x += Math.cos(o.ang) * step; o.y += Math.sin(o.ang) * step; o.traveled += step;
       const r = { x: o.x - o.size / 2, y: o.y - o.size / 2, w: o.size, h: o.size };
       for (const e of this.enemies) {
-        if (e.dead || o.hit.has(e.id) || !overlaps(r, e)) continue;
+        if (e.dead || o.hit.has(e.id) || (o.only && e.id !== o.only) || !overlaps(r, e)) continue;
         o.hit.add(e.id);
         this.hitEnemy(e, o);
         if (!o.pierce) {

@@ -281,7 +281,7 @@ export class Hud {
     const e = el ? ELEMENTS[el] : NO_ELEMENT;
     const me = s.me();
     let cd = sk.cd ? Math.min(1, (me.cd[id] ?? 0) / sk.cd) : 0;
-    // 천붕: 질풍참 직후에만 쓸 수 있음
+    // 천붕: 회류참 직후에만 쓸 수 있음
     if (id === 'cheonbung') cd = me.cbWindow > 0 ? 0 : 1;
     // 마력 해방 중: 남은 버프 시간
     if (id === 'haebang' && me.buffT > 0) return { slot: k, name, sub: me.buffT.toFixed(1), color: e.color, locked: false, empty: false, cd: 0 };

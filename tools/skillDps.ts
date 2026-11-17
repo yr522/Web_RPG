@@ -3,7 +3,7 @@
 // 수치(스킬·직업 표)를 고친 뒤 다시 돌리면 표가 갱신된다.
 import { writeFileSync } from 'node:fs';
 import { World, TICK } from '../shared/sim/World';
-import { CLASSES, SKILLS, SLOT_KEYS, classActiveIds, type ClassId, type SlotKey } from '../shared/data/classes';
+import { CLASSES, SKILLS, SLOT_KEYS, WARRIOR_CHAIN, classActiveIds, type ClassId, type SlotKey } from '../shared/data/classes';
 import { newSave, type SaveData } from '../shared/sim/save';
 import { emptyCommand, type Command } from '../shared/sim/types';
 import type { Enemy, PlayerState } from '../shared/sim/entities';
@@ -105,7 +105,10 @@ function bestSolo(cls: ClassId, key: SlotKey, lv: number) {
 
 /** 돌려 쓰기: 뒤 키부터(강한 스킬부터) 쿨타임이 끝난 것을 누름, 기본기는 누르고 있음. MP 는 실제처럼 */
 function rotation(cls: ClassId, lv: number, infMp: boolean): Result {
-  const keys = classActiveIds(cls).map((_, i) => SLOT_KEYS[i]);
+  // 이동기(텔레포트·후방 도약)는 돌려 쓰기에서 뺌 (검사 회류참은 연계 4식이라 씀)
+  const ids = classActiveIds(cls);
+  const keys = ids.map((_, i) => SLOT_KEYS[i]).filter((_, i) => cls === 'warrior' || ids[i] !== CLASSES[cls].move);
+  const keyOf = (id: string) => SLOT_KEYS[ids.indexOf(id)];
   const ready = (p: PlayerState, k: SlotKey) => (p.cd[p.data.skillKeys[k]!] ?? 0) <= 0 && p.mp >= SKILLS[p.data.skillKeys[k]!].mp;
   let best: Result = { dmg: -1, casts: 0, mpUsed: 0 };
   for (const d of DISTS) {
@@ -116,10 +119,10 @@ function rotation(cls: ClassId, lv: number, infMp: boolean): Result {
       if (cls === 'archer' && t % 24 < 18) c.skillHeld = [keys[0]];
       if (t % 6 === 0) {
         if (cls === 'warrior') {
-          // 검사: 일섬 → 월참 → 질풍참 → 천붕 연계, 이어지지 않으면 일섬부터. 힌트 스킬은 연계 사이에
-          // 질풍참 뒤 천붕 열림(cbWindow) → 천붕
-          const next = p.cbWindow > 0 ? keys[3] : keys[Math.min(2, p.combo)];
-          const hint = keys.slice(4).find(k => ready(p, k));
+          // 검사: 일섬 → 월참 → 질풍참 → 회류참 → 천붕 연계, 이어지지 않으면 일섬부터. 힌트 스킬은 연계 사이에
+          // 회류참 뒤 천붕 열림(cbWindow) → 천붕
+          const next = keyOf(p.cbWindow > 0 ? 'cheonbung' : WARRIOR_CHAIN[Math.min(3, p.combo)]);
+          const hint = [keyOf(CLASSES.warrior.hints[0]), keyOf(CLASSES.warrior.hints[1])].find(k => ready(p, k));
           c.skillPressed = [p.combo === 0 && p.cbWindow <= 0 && hint ? hint : ready(p, next) ? next : keys[0]];
         } else {
           const r = keys.slice(1).reverse().find(k => ready(p, k));
