@@ -6,6 +6,7 @@ import { DEFENSE } from '../shared/data/classes';
 import { addItem, toggleEquip } from '../shared/rules/inventory';
 import { newSave } from '../shared/sim/save';
 import type { Enemy, PlayerState } from '../shared/sim/entities';
+import { emptyCommand } from '../shared/sim/types';
 
 // 테스트에서만 안쪽 함수를 부름
 type Inside = { kill(e: Enemy, p: PlayerState): void; dropItem(x: number, y: number, item: string): void; hurtPlayer(p: PlayerState, d: number, dir: number, pierce?: boolean): void };
@@ -115,5 +116,45 @@ describe('던전', () => {
     expect(w.cleared).toBe(true);
     pickAll(w, p);
     expect(s.gold - gold0).toBeGreaterThanOrEqual(w.map.clearReward!.gold);
+  });
+});
+
+describe('훈련장 허수아비', () => {
+  it('학교에서 훈련장으로 오가는 포탈', async () => {
+    const { MAPS } = await import('../shared/data/maps');
+    expect(MAPS.school.portals.some(p => p.to === 'training')).toBe(true);
+    expect(MAPS.training.portals.some(p => p.to === 'school')).toBe(true);
+  });
+  it('안 움직이고, 안 죽고, 부딪혀도 피해 없음, 맞으면 초당 피해가 뜸', async () => {
+    const { DUMMY } = await import('../shared/data/monsters');
+    const w = new World('training', 1);
+    const s = newSave('t', 'warrior', 'M');
+    const d = w.enemies.find(e => e.mob === 'dummy')!;
+    const p = w.addPlayer('p', s, d.x);
+    const x0 = d.x, hp0 = p.hp;
+    run(w, 1);
+    expect(p.hp).toBe(hp0);
+    expect(d.meter).toBeUndefined();
+    // 2초 동안 매 틱 10씩 = 초당 600
+    for (let i = 0; i < 2 / TICK; i++) { d.hp -= 10; w.step(new Map()); }
+    expect(d.x).toBe(x0);
+    expect(d.dead).toBe(false);
+    expect(d.meter!.on).toBe(true);
+    expect(d.meter!.dps).toBeGreaterThan(560);
+    expect(d.meter!.dps).toBeLessThan(640);
+    // 안 때리면 쉬는 시간만큼 내려가다가 idle 초 뒤 측정 끝, 값은 남음
+    run(w, DUMMY.idle + 0.5);
+    expect(d.meter!.on).toBe(false);
+    expect(d.meter!.dps).toBeGreaterThan(560);
+  });
+  it('진짜 공격으로 때려도 재짐 (검사 일섬)', () => {
+    const w = new World('training', 1);
+    const s = newSave('t', 'warrior', 'M');
+    s.learned.ilseom = 'fire';
+    const d = w.enemies.find(e => e.mob === 'dummy')!;
+    w.addPlayer('p', s, d.x - 40);
+    for (let i = 0; i < 3 / TICK; i++) w.step(new Map([['p', { ...emptyCommand(), skillHeld: ['Z'] }]]));
+    expect(d.meter!.dps).toBeGreaterThan(0);
+    expect(d.x).toBe(d.spawnX);
   });
 });

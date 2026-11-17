@@ -11,7 +11,7 @@ import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKil
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
-import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -336,7 +336,7 @@ export class World implements SkillWorld {
     // 이동기 무적은 다 막음. 몸통 접촉 무적은 보스 돌진을 못 막음
     if (!invAtStart && !(p.action && p.action.inv)) {
       for (const e of this.enemies) {
-        if (e.dead || e.held || !overlaps(p, e)) continue;
+        if (e.dead || e.held || MONSTERS[e.mob].ai === 'dummy' || !overlaps(p, e)) continue;
         // 골렘 돌진에 맞으면 기절
         const charging = e.pat === 'charge' && e.leap === 'leap';
         if (p.invT > 0 && !(charging && p.touchInv)) continue;
@@ -553,7 +553,7 @@ export class World implements SkillWorld {
     for (const v of this.vortices) {
       v.t += dt;
       for (const e of this.enemies) {
-        if (e.dead || MONSTERS[e.mob].boss) continue;
+        if (e.dead || MONSTERS[e.mob].boss || MONSTERS[e.mob].ai === 'dummy') continue;
         const dx = v.x - cx(e), dy = v.y - cy(e);
         if (Math.hypot(dx, dy) > v.r) continue;
         const f = Math.min(1, dt * 7);
@@ -613,7 +613,7 @@ export class World implements SkillWorld {
       this.float(cx(e), e.y - 30, '분노!', '#ff5040', 20, 1.0);
     }
     // 보스·강철 정예는 밀리지 않고 경직 없음
-    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron')) {
+    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron') && MONSTERS[e.mob].ai !== 'dummy') {
       if (h.kbAng !== undefined) { e.vx = Math.cos(h.kbAng) * h.face * h.kb; e.vy = Math.min(-150, Math.sin(h.kbAng) * h.kb); }
       else { e.vx = h.face * h.kb; e.vy = h.launch ?? -140; }
       e.stun = h.launch && h.launch < -300 ? 0.7 : 0.3;
@@ -727,6 +727,30 @@ export class World implements SkillWorld {
     e.speed = this.range(def.speed);
   }
 
+  /**
+   * 허수아비: 제자리, 출혈만 흐름. 지난 틱에 깎인 HP = 받은 피해 → 측정에 더하고 HP 를 다시 채움 (DUMMY)
+   */
+  private stepDummy(e: Enemy) {
+    if (e.bleed) this.stepBleed(e, TICK);
+    e.x = e.spawnX; e.y = e.spawnY; e.vx = e.vy = 0; e.stun = 0; e.root = 0; e.leap = 'none'; e.dead = false;
+    const lost = e.maxHp - e.hp;
+    e.hp = e.maxHp;
+    const m = e.meter;
+    if (lost > 0) {
+      if (!m || !m.on) e.meter = { dmg: lost, t0: this.time - TICK, last: this.time, dps: 0, on: true };
+      else { m.dmg += lost; m.last = this.time; }
+    }
+    const cur = e.meter;
+    if (!cur?.on) return;
+    if (this.time - cur.last > DUMMY.idle) {
+      // 측정 끝: 마지막으로 때린 순간까지로 계산한 값을 남김
+      cur.on = false;
+      cur.dps = cur.dmg / Math.max(DUMMY.minTime, cur.last - cur.t0);
+      return;
+    }
+    cur.dps = cur.dmg / Math.max(DUMMY.minTime, this.time - cur.t0);
+  }
+
   /** 몸통 피해 (정예·분노 배수) */
   private touchDmg(e: Enemy) {
     let d = MONSTERS[e.mob].touch;
@@ -789,6 +813,7 @@ export class World implements SkillWorld {
         }
         continue;
       }
+      if (MONSTERS[e.mob].ai === 'dummy') { this.stepDummy(e); continue; }
       if (e.bleed) { this.stepBleed(e, dt); if (e.dead) continue; }
       // 소용돌이에 끌려가는 중: 스스로 움직이지 않음 (stepVortices 가 다음 틱에 다시 끌어당김)
       if (e.pulled) { e.pulled = false; continue; }
