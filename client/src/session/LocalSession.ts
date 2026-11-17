@@ -11,7 +11,7 @@ import { autoReport, isAuto, newlyReady, nightLocked, questReadyText } from '@sh
 import { MAPS } from '@shared/data/maps';
 import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
-import { BOSSES, bossDef, type Difficulty } from '@shared/data/bosses';
+import { BOSSES, bossDef, roomDifficulty, type Difficulty } from '@shared/data/bosses';
 import { questDef } from '@shared/data/quests';
 
 export interface Session {
@@ -66,7 +66,7 @@ export class LocalSession implements Session {
   private enter(map: MapId, x: number, keep?: { hp: number; mp: number }, y?: number, difficulty?: Difficulty) {
     // 포탈 등으로 옮겨 갈 때는 콤보가 이어짐 (쓰러지거나 처음 들어올 때는 0)
     const old = keep ? this.world?.players.get(this.playerId) : undefined;
-    this.world = new World(map, undefined, difficulty);
+    this.world = new World(map, undefined, roomDifficulty(map, difficulty));
     const p = this.world.addPlayer(this.playerId, this.save, x, keep?.hp, keep?.mp, y);
     if (old) { p.hits = old.hits; p.hitsT = old.hitsT; }
     this.prev = { x: p.x, y: p.y };
