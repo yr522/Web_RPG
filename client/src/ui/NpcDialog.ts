@@ -14,7 +14,11 @@ import { canAttend, learnable, learned, nextLocked, skillKeyOf, skillLevel, type
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { DialogHost, el, esc } from './Dialog';
-import { itemIcon } from './icons';
+import { decorateGear, itemIcon } from './icons';
+import { ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPT_MAX_TIER, OPT_UP_COST, REROLL_COST, repairCost } from '@shared/data/gear';
+import { baseBonus, optionValue } from '@shared/rules/gear';
+import { bonusLine, itemDef, type BonusId } from '@shared/data/items';
+import type { BagEntry } from '@shared/rules/inventory';
 import profMagePortrait from '../../../assets/temp/magician_professer_portrait.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 
@@ -28,6 +32,9 @@ const PROF_QUESTS = () => QUESTS.filter(q => q.giver === 'prof');
 const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 type ProfView = 'main' | 'learn' | 'class' | 'quest' | 'test';
+type SmithView = 'enhance' | 'repair' | 'option';
+const SMITH_TABS: { id: SmithView; label: string }[] = [{ id: 'enhance', label: '강화' }, { id: 'repair', label: '수리' }, { id: 'option', label: '옵션' }];
+const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export class NpcDialog {
   private body: HTMLElement | null = null;
@@ -144,6 +151,15 @@ export class NpcDialog {
   openShop() {
     const box = this.frame('매점 모리', moriPortrait, '🛒');
     this.refresh = () => this.renderShop();
+    this.refresh();
+    this.host.open(box, () => { this.refresh = null; });
+  }
+
+  /** 대장장이: 강화 · 수리 · 옵션(칸 강화·재설정) */
+  openSmith() {
+    const box = this.frame('대 장장이', null, '🔨');
+    let view: SmithView = 'enhance', pick: number | null = null;
+    this.refresh = () => this.renderSmith(view, pick, v => { view = v; pick = null; this.refresh!(); }, uid => { pick = uid; this.refresh!(); });
     this.refresh();
     this.host.open(box, () => { this.refresh = null; });
   }
@@ -345,6 +361,69 @@ export class NpcDialog {
     opts.appendChild(el('button', 'opt', '📖 이야기 테스트 초기화', () => this.act({ type: 'debug', what: 'resetStory' })));
     b.appendChild(opts);
     back();
+  }
+
+  // ---------- 대장장이 ----------
+  private renderSmith(view: SmithView, pick: number | null, go: (v: SmithView) => void, choose: (uid: number) => void) {
+    const b = this.body!, s = this.session.save;
+    b.innerHTML = '';
+    b.appendChild(el('p', 'line', `<span class="gold">💰 ${s.gold} G</span>`));
+    const tabs = el('div', 'chips');
+    for (const t of SMITH_TABS) {
+      const c = el('button', 'chip' + (t.id === view ? ' sel' : ''), t.label, () => go(t.id));
+      c.style.setProperty('--c', 'var(--c-mint)');
+      tabs.appendChild(c);
+    }
+    b.appendChild(tabs);
+    // 고를 수 있는 장비
+    const fits = (e: BagEntry) => view === 'repair' ? !!e.broken : view === 'option' ? !!e.opts?.length : !e.broken;
+    const list = s.bag.filter((e): e is BagEntry => !!e && e.uid !== undefined && itemDef(e.id)?.kind === 'equip' && fits(e));
+    const grid = el('div', 'smith-items');
+    for (const e of list) {
+      const cell = el('div', 'inv-cell has smith-cell' + (e.uid === pick ? ' sel' : ''), '', () => choose(e.uid!));
+      const g = itemGrade(itemDef(e.id));
+      if (g) { cell.classList.add('graded', `g-${g}`); cell.style.setProperty('--gc', GRADES[g].color); }
+      cell.appendChild(itemIcon(e.id));
+      decorateGear(cell, e);
+      grid.appendChild(cell);
+    }
+    if (!list.length) grid.appendChild(el('span', 'note', '-'));
+    b.appendChild(grid);
+    const e = list.find(x => x.uid === pick);
+    if (!e) return;
+    const d = itemDef(e.id)!, g = itemGrade(d), lv = e.enh ?? 0, uid = e.uid!;
+    const card = el('div', 'card smith');
+    card.appendChild(el('b', '', `<span${g ? ` style="color:${GRADES[g].color}"` : ''}>${lv ? `+${lv} ` : ''}${esc(d.name)}</span>`));
+    const base = baseBonus(e);
+    card.appendChild(el('div', 'note', (Object.keys(base) as BonusId[]).map(k => esc(bonusLine(k, base[k] ?? 0))).join(' · ')));
+    const btn = (label: string, cost: number, a: MenuAction, cls = 'sm go') => {
+      const x = el('button', cls, `${label} <span class="cost">${cost} G</span>`, () => this.act(a)) as HTMLButtonElement;
+      x.disabled = s.gold < cost;
+      return x;
+    };
+    const row = el('div', 'smith-row');
+    if (view === 'enhance') {
+      if (lv >= ENHANCE_MAX) card.appendChild(el('div', 'line', `+${ENHANCE_MAX}`));
+      else {
+        const t = ENHANCE[lv];
+        card.appendChild(el('div', 'line', `+${lv} → +${lv + 1}`));
+        card.appendChild(el('div', 'note', `성공 ${pct(t.ok)} · 실패 ${pct(1 - t.ok - t.boom)} · 파괴 ${pct(t.boom)}`));
+        row.appendChild(btn('강화', t.cost, { type: 'smithEnhance', uid, protect: false }));
+        if (t.boom > 0) row.appendChild(btn('파괴 방지 강화', t.cost * ENHANCE_PROTECT, { type: 'smithEnhance', uid, protect: true }, 'sm'));
+      }
+    } else if (view === 'repair') {
+      row.appendChild(btn('수리', repairCost(lv), { type: 'smithRepair', uid }));
+    } else {
+      (e.opts ?? []).forEach((o, i) => {
+        const r = el('div', 'smith-opt');
+        r.appendChild(el('span', 'grow', `${esc(bonusLine(o.id, optionValue(o)))} <small>${o.tier}단계</small>`));
+        if (o.tier < OPT_MAX_TIER) r.appendChild(btn('칸 강화', OPT_UP_COST[o.tier], { type: 'smithOptUp', uid, slot: i }));
+        card.appendChild(r);
+      });
+      row.appendChild(btn('옵션 재설정', REROLL_COST, { type: 'smithReroll', uid }, 'sm'));
+    }
+    card.appendChild(row);
+    b.appendChild(card);
   }
 
   // ---------- 매점 ----------

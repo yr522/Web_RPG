@@ -5,6 +5,7 @@ import { SKILLS, MAGE_RECOIL, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLAS
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, itemDef } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
+import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
 import { mapNpcs, mapPortals } from '../rules/story';
@@ -243,6 +244,7 @@ export class World implements SkillWorld {
     const cs = CLASS_SKILLS[p.data.cls];
     p.mp = Math.min(p.stats.maxMp, p.mp + p.stats.regen * dt);
     if (this.map.safe) p.hp = Math.min(p.stats.maxHp, p.hp + 6 * dt);
+    if (p.stats.hpRegen > 0 && p.hp > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.hpRegen * dt);
 
     for (const k of cmd.potionPressed) this.usePotion(p, k);
 
@@ -370,10 +372,11 @@ export class World implements SkillWorld {
     const can = cs.can[name]?.(this, p);
     if (can !== undefined && can !== true) { if (!silent) this.warn(p, can); return false; }
     if ((p.cd[name] ?? 0) > 0) { if (!silent) this.warn(p, '쿨타임'); return false; }
-    if (p.mp < sk.mp) { if (!silent) this.warn(p, 'MP 부족'); return false; }
+    const mpCost = sk.mp * (1 - p.stats.mpCost);
+    if (p.mp < mpCost) { if (!silent) this.warn(p, 'MP 부족'); return false; }
     const start = cs.start[name];
     if (!start) { if (!silent) this.warn(p, '아직 못 쓰는 스킬이야'); return false; }
-    p.mp -= sk.mp;
+    p.mp -= mpCost;
     // 마력 해방의 쿨타임은 버프가 끝난 뒤부터
     if (sk.cd && name !== 'haebang') p.cd[name] = sk.cd;
     const order = this.slotOf(p, name);
@@ -575,8 +578,8 @@ export class World implements SkillWorld {
     const res = h.elem && e.record && e.record !== h.elem ? PASSIVE.gongmyeong.bonus * passiveLv(p.data, 'gongmyeong') : 0;
     // 치명타 (궁수 패시브)
     const critLv = passiveLv(p.data, 'crit');
-    const crit = critLv > 0 && this.rng() < PASSIVE.crit.chance * critLv;
-    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1);
+    const crit = this.rng() < PASSIVE.crit.chance * critLv + p.stats.crit;
+    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
     // 그림자 화살: 잃은 HP 비례 추가 피해
     if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
     // 정예 강철: 받는 피해 감소
@@ -1185,6 +1188,11 @@ export class World implements SkillWorld {
           let added = false;
           const ready = newlyReady(p.data, () => { added = addItem(p.data, c.item!, c.amt); });
           if (!added) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
+          // 장비는 주울 때 부가효과를 굴림
+          if (itemDef(c.item)?.kind === 'equip') {
+            const e = p.data.bag.find(x => x?.uid === p.data.nextUid - 1);
+            if (e) rollOptions(e, this.rng);
+          }
           for (const q of ready) this.questReady(p, q);
           this.float(cx(c), c.y - 6, `+${itemDef(c.item)?.name ?? c.item}`, '#ffffff', 15, 0.8);
         } else {

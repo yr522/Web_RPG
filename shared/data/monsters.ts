@@ -39,11 +39,11 @@ export interface MonsterDef {
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
   slime: {
     name: '슬라임', hp: 140, exp: 10, touch: 8, gold: [5, 9], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7,
-    drops: [{ item: 'slime_gel', chance: 0.4 }],
+    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   slime_elem: {
     name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
-    drops: [{ item: 'slime_gel', chance: 0.4 }],
+    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   // 마법공학의 유산 (임시 그림, 수치 임시)
   guard_a: { name: '경비기계A', hp: 420, exp: 30, touch: 16, gold: [20, 30], w: 44, h: 52, ai: 'walker', speed: [45, 60], chase: 1.6 },

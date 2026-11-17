@@ -332,6 +332,17 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
         continue;
       }
+      if (n.id === 'smith') {
+        // 대장장이 (임시): 모루 + 뼈대 그림
+        g.fillStyle(0x3d3d44).fillRect(x - 70, y - 26, 44, 10).fillRect(x - 60, y - 16, 24, 16);
+        g.fillStyle(0x55555e).fillRect(x - 78, y - 30, 20, 6);
+        const root = makeStaticAvatar(this, x, y, -1), label = this.text('대 장장이', 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(0xc89a7a);
+        this.mapLayer.add(root);
+        this.mapLayer.add(label);
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+        continue;
+      }
       if (n.id === 'shop') {
         g.fillStyle(0x6b4a2a).fillRect(x - 60, y - 46, 120, 46);
         g.fillStyle(0x8a6438).fillRect(x - 64, y - 50, 128, 8);
@@ -500,7 +511,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
-    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : '대화'}`);
+    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : npc.id === 'smith' ? '대장간' : '대화'}`);
     else this.bubble.setVisible(false);
     if (this.bubble.visible && (input.blocked || this.cut.running)) this.bubble.setVisible(false);
 

@@ -20,7 +20,7 @@ export interface Portal {
   /** 던전 방: 몬스터 웨이브를 다 잡아야 나타남 */
   afterClear?: boolean;
 }
-/** id: 'prof'(교수님), 'shop'(매점) 은 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
+/** id: 'prof'(교수님), 'shop'(매점), 'smith'(대장장이) 는 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
 export interface Npc { id: string; x: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
@@ -146,7 +146,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
     ],
     npcs: [
-      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 },
+      { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 }, { id: 'smith', x: 1400 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
       // 미니 챕터를 끝내고 학교로 돌아옴
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },

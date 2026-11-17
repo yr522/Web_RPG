@@ -139,16 +139,25 @@ function cleanSave(s: SaveData) {
 /** 패시브 레벨 (안 배웠으면 0). rules/progress 를 부르면 순환이라 여기 따로 */
 const plv = (s: SaveData, id: string) => (id in s.learned ? s.skillLevels[id] ?? 1 : 0);
 
-export interface DerivedStats { maxHp: number; maxMp: number; regen: number; speed: number; atk: number; def: number }
+export interface DerivedStats {
+  maxHp: number; maxMp: number; regen: number; speed: number; atk: number; def: number;
+  /** 장비 옵션 (비율은 0~1): 치명타 확률, MP 소모 감소, 초당 HP 회복, 보스·일반몹 피해 + */
+  crit: number; mpCost: number; hpRegen: number; boss: number; mob: number;
+}
 
 export function deriveStats(s: SaveData): DerivedStats {
   const c = CLASSES[s.cls], st = totalStats(s), gear = equipBonus(s);
   return {
-    maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6),
-    maxMp: Math.round((c.mp + (s.level - 1) * 5) * (1 + PASSIVE.maxmp.pct * plv(s, 'maxmp'))),
+    maxHp: Math.round(c.hp + (s.level - 1) * 8 + (st.str - 5) * 6 + gear.hp),
+    maxMp: Math.round((c.mp + (s.level - 1) * 5) * (1 + PASSIVE.maxmp.pct * plv(s, 'maxmp')) + gear.mp),
     regen: c.regen * (1 + (st.int - 5) * INT_REGEN),
-    speed: Math.min(420, 260 + (st.dex - 5) * 6),
+    speed: Math.min(420, 260 + (st.dex - 5) * 6) * (1 + gear.speed / 100),
     atk: 20 + (st[c.main] - 5) * 1.6 + gear.atk,
     def: gear.def,
+    crit: gear.crit / 100,
+    mpCost: Math.min(0.5, gear.mpCost / 100),
+    hpRegen: gear.hpRegen,
+    boss: gear.boss / 100,
+    mob: gear.mob / 100,
   };
 }

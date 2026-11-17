@@ -5,6 +5,7 @@ import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
 import { QUESTS, questDef } from '../data/quests';
+import { enhance, optionUp, repair, reroll } from './gear';
 import { acceptQuest, questState, reportQuest, togglePin } from './quests';
 import { applyEffect, findEffect, pickTalk } from './story';
 import { CUTSCENES } from '../data/cutscenes';
@@ -39,6 +40,10 @@ export type MenuAction =
   | { type: 'storyDo'; npc: string; talk: number; path: number[] }
   /** 컷신 안의 { do } 단계 (데이터에서 직접 찾음) */
   | { type: 'cutDo'; cut: string; step: number }
+  | { type: 'smithEnhance'; uid: number; protect: boolean }
+  | { type: 'smithRepair'; uid: number }
+  | { type: 'smithReroll'; uid: number }
+  | { type: 'smithOptUp'; uid: number; slot: number }
   | { type: 'debug'; what: 'nextPhase' | 'levelUp' | 'gold' | 'resetStory' };
 
 export interface ActionResult {
@@ -142,7 +147,7 @@ export function canAttend(s: SaveData, nowMs: number): string | null {
   return null;
 }
 
-export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionResult {
+export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () => number = Math.random): ActionResult {
   switch (a.type) {
     case 'buy': {
       const it: ItemDef | undefined = SHOP_ITEMS.includes(a.item) ? ITEMS[a.item] : undefined;
@@ -258,6 +263,10 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number): ActionRe
       const st = CUTSCENES[a.cut]?.[a.step];
       return st && 'do' in st ? applyEffect(s, st.do) : fail('없는 컷신이야');
     }
+    case 'smithEnhance': return enhance(s, a.uid, a.protect, rng);
+    case 'smithRepair': return repair(s, a.uid);
+    case 'smithReroll': return reroll(s, a.uid, rng);
+    case 'smithOptUp': return optionUp(s, a.uid, a.slot);
     case 'debug': {
       if (a.what === 'resetStory') {
         // 이야기 테스트 처음부터 (플래그 + 이야기 퀘스트)

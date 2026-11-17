@@ -30,3 +30,14 @@ export function itemIcon(id: string): HTMLElement {
   span.textContent = itemDef(id)?.icon ?? '?';
   return span;
 }
+
+/** 장비 칸 꾸미기: 강화 수치(+n), 파괴된 장비 표시 */
+export function decorateGear(cell: HTMLElement, e: { enh?: number; broken?: true }) {
+  if (e.enh) {
+    const s = document.createElement('span');
+    s.className = 'inv-enh';
+    s.textContent = `+${e.enh}`;
+    cell.appendChild(s);
+  }
+  if (e.broken) cell.classList.add('broken');
+}
