@@ -1,7 +1,8 @@
 // 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, MOVE_SKILL, WARRIOR_REACH as R } from '../../data/classes';
-import type { PlayerState } from '../entities';
+import { HINT, HOERYU, MOVE_SKILL, WARRIOR_REACH as R } from '../../data/classes';
+import { MONSTERS } from '../../data/monsters';
+import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
 
 const color = (e: Element | null) => (e ? ELEMENTS[e].color : '#dddddd');
@@ -9,7 +10,7 @@ const cx = (p: PlayerState) => p.x + p.w / 2;
 const cy = (p: PlayerState) => p.y + p.h / 2;
 
 export const WARRIOR_CAN: Record<string, (w: SkillWorld, p: PlayerState) => true | string> = {
-  cheonbung: (_w, p) => p.cbWindow > 0 || '일섬→월참→질풍참 순서로 이어야 해!',
+  cheonbung: (_w, p) => p.cbWindow > 0 || '일섬→월참→질풍참→회류참 순서로 이어야 해!',
 };
 
 export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain: boolean) => void> = {
@@ -70,13 +71,51 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
         p.vy = 0;
         w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: color(el), life: 0.18 });
       },
+      // 연계(combo 3)는 그대로 두고 4식 회류참으로 이어 감
+      end: () => { p.vx *= 0.25; },
+    };
+    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: MOVE_SKILL.jilpung.coef, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: R.jilpung.time, skill: 'jilpung' });
+  },
+
+  /** 회류참 (4식): 땅에서 뒤로 물러나며 앞쪽을 넓게 긁어 몬스터를 내 앞으로 끌어모음. 이어서 천붕 */
+  hoeryu(w, p, chain) {
+    const H = HOERYU, el = w.elemOf(p, 'hoeryu'), c = color(el), face = p.face;
+    w.chainText(p, 'hoeryu', chain);
+    const feet = p.y + p.h;
+    const rect = face > 0
+      ? { x: p.x - H.behind, y: feet - H.h, w: H.behind + p.w + H.front, h: H.h + 20 }
+      : { x: p.x - H.front, y: feet - H.h, w: H.front + p.w + H.behind, h: H.h + 20 };
+    const inRect = (e: { x: number; y: number; w: number; h: number }) => e.x < rect.x + rect.w && e.x + e.w > rect.x && e.y < rect.y + rect.h && e.y + e.h > rect.y;
+    // 끌어올 몬스터 (보스·허수아비는 제자리), 가까운 순
+    const pulled = w.enemies
+      .filter(e => !e.dead && !e.held && !MONSTERS[e.mob].boss && MONSTERS[e.mob].ai !== 'dummy' && inRect(e))
+      .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x));
+    w.addHB(p, { abs: rect, coef: H.coef, elem: el, order: 3, chain, kb: 0, launch: -90, life: 0.05, face, skill: 'hoeryu' });
+    // 긁는 그림: 앞쪽 넓은 반달 + 바닥 선
+    w.fx({ kind: 'arc', x: p.x + p.w / 2 + face * H.front * 0.45, y: feet - 40, face: -face, r: H.front * 0.55, a0: -1.2, a1: 1.2, color: c, w: 10, life: 0.25 });
+    w.fx({ kind: 'line', x1: p.x + p.w / 2 + face * H.front, y1: feet - 4, x2: p.x + p.w / 2, y2: feet - 4, color: c, w: 4, life: 0.3 });
+    const act: PlayerAction = {
+      name: 'hoeryu', t: 0, dur: H.time, inv: true,
+      events: [{ at: 0.02, fn: () => {} }],
+      update: dt => {
+        p.face = face;
+        p.vx = -face * H.back / H.time;
+        w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: c, life: 0.15 });
+        // 끌려오는 몬스터: 내 앞으로 모임 (겹치지 않게 조금씩 떨어져서)
+        pulled.forEach((e, i) => {
+          if (e.dead) return;
+          const tx = p.x + p.w / 2 + face * (H.gather + i * 14) - e.w / 2;
+          e.x += (tx - e.x) * Math.min(1, dt * 14);
+          e.vx = 0; e.stun = Math.max(e.stun, 0.35); e.leap = 'none';
+        });
+      },
       end: () => {
-        p.vx *= 0.25;
-        if (w.learned(p, 'cheonbung') && p.combo === 3) p.cbWindow = 1.2;
+        p.vx = 0;
+        if (w.learned(p, 'cheonbung') && p.combo === 4) p.cbWindow = 1.2;
         p.combo = 0;
       },
     };
-    w.addHB(p, { center: true, dx: 0, dy: 0, w: 84, h: 84, coef: MOVE_SKILL.jilpung.coef, elem: el, order: 2, chain, kb: 260, kbAng: 0, life: R.jilpung.time, skill: 'jilpung' });
+    p.action = act;
   },
 
   cheonbung(w, p, chain) {
@@ -87,7 +126,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     for (let i = 0; i < 5; i++) {
       events.push({
         at: 0.06 + i * 0.11, fn: () => {
-          w.addHB(p, { center: true, dx: 0, dy: 0, w: R.cheonbung.w, h: R.cheonbung.h, coef: 1.1, elem: el, order: 3, chain, kb: i === 4 ? 260 : 60, launch: i === 4 ? -380 : -90, life: 0.05, skill: 'cheonbung' });
+          w.addHB(p, { center: true, dx: 0, dy: 0, w: R.cheonbung.w, h: R.cheonbung.h, coef: 1.1, elem: el, order: 4, chain, kb: i === 4 ? 260 : 60, launch: i === 4 ? -380 : -90, life: 0.05, skill: 'cheonbung' });
           for (let j = 0; j < 3; j++) {
             const ang = w.rng() * Math.PI, len = 130 + w.rng() * 80;
             const mx = cx(p) + (w.rng() - 0.5) * R.cheonbung.w * 0.6, my = cy(p) + (w.rng() - 0.5) * R.cheonbung.h * 0.5;

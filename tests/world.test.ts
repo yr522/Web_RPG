@@ -201,3 +201,57 @@ describe('이동기 (텔레포트 · 후방 도약)', () => {
     expect(MONSTERS.dummy).toBeDefined();
   });
 });
+
+describe('검사 회류참 (4식)', () => {
+  it('뒤로 물러나며 앞쪽 몬스터를 끌어오고, 조금 뒤에 걸친 몬스터도 맞음, 보스는 안 끌려옴', async () => {
+    const { HOERYU } = await import('../shared/data/classes');
+    const w = new World('training', 1);
+    const s = newSave('t', 'warrior', 'M');
+    s.learned.hoeryu = 'water'; s.skillKeys = { Q: 'hoeryu' };
+    const p = w.addPlayer('p', s, 500);
+    run(w, 0.5);
+    p.face = 1;
+    const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
+    w.enemies.length = 0;
+    const far = inside.spawnEnemy('guard_a', p.x + p.w + 260, null);
+    const behind = inside.spawnEnemy('guard_a', p.x - 30, null);
+    const out = inside.spawnEnemy('guard_a', p.x + p.w + HOERYU.front + 120, null);
+    const boss = inside.spawnEnemy('guard_boss', p.x + p.w + 150, null);
+    for (const e of [far, behind, out, boss]) { e.maxHp = e.hp = 1e6; }
+    const bossX = boss.x, x0 = p.x;
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    run(w, HOERYU.time + 0.05);
+    expect(x0 - p.x).toBeGreaterThan(HOERYU.back * 0.8);
+    expect(far.hp).toBeLessThan(1e6);
+    expect(behind.hp).toBeLessThan(1e6);
+    expect(out.hp).toBe(1e6);
+    expect(boss.hp).toBeLessThan(1e6);
+    // 끌려옴: 내 앞 가까이
+    expect(Math.abs(far.x - (p.x + p.w))).toBeLessThan(120);
+    expect(Math.abs(boss.x - bossX)).toBeLessThan(40);
+  });
+  it('일섬 → 월참 → 질풍참 → 회류참으로 이어야 천붕이 열림', () => {
+    const w = new World('training', 1);
+    const s = newSave('t', 'warrior', 'M');
+    s.level = 10;
+    for (const id of ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbung']) s.learned[id] = 'fire';
+    s.skillKeys = { Z: 'ilseom', A: 'wolcham', S: 'jilpung', Q: 'hoeryu', D: 'cheonbung' };
+    const d = w.enemies.find(e => e.mob === 'dummy')!;
+    const p = w.addPlayer('p', s, d.x - 60);
+    run(w, 0.3);
+    p.face = 1;
+    const press = (k: 'Z' | 'A' | 'S' | 'Q' | 'D') => w.step(new Map([['p', { ...emptyCommand(), skillPressed: [k] }]]));
+    const until = (cond: () => boolean) => { for (let i = 0; i < 120 && !cond(); i++) w.step(new Map()); };
+    press('Z'); until(() => !p.action && p.lockT <= 0);
+    p.face = 1; press('A'); until(() => !p.action && p.lockT <= 0);
+    expect(p.combo).toBe(2);
+    // 질풍참은 허수아비를 지나쳐 가므로 다시 허수아비 앞에서
+    p.face = 1; press('S'); until(() => !p.action);
+    expect(p.combo).toBe(3);
+    expect(p.cbWindow).toBe(0);
+    p.x = d.x - 120; p.face = 1; press('Q'); until(() => !p.action);
+    expect(p.cbWindow).toBeGreaterThan(0);
+    press('D');
+    expect(p.action?.name).toBe('cheonbung');
+  });
+});

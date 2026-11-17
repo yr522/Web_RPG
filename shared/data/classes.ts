@@ -16,13 +16,13 @@ export interface ClassDef {
   hints: [string, string];
   /** 패시브 2개: [직업 정체성, 단순 스탯] */
   passives: [string, string];
-  /** 추가 이동기 (스킬 트리 Lv3 줄 2번째 칸). 검사는 질풍참이 있어서 없음 */
+  /** 추가 이동기 (스킬 트리 Lv3 줄 2번째 칸). 검사는 4식 회류참 */
   move?: string;
   professor: string;
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
-  warrior: { name: '검사', hp: 150, mp: 100, regen: 1.5, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], hints: ['hyeolseom', 'heullyeo'], passives: ['geomgil', 'armor'], professor: '검술과 바르크 교수' },
+  warrior: { name: '검사', hp: 150, mp: 100, regen: 1.5, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], hints: ['hyeolseom', 'heullyeo'], passives: ['geomgil', 'armor'], move: 'hoeryu', professor: '검술과 바르크 교수' },
   mage: { name: '마법사', hp: 110, mp: 140, regen: 2.5, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], hints: ['ssiat', 'gwedo'], passives: ['gongmyeong', 'maxmp'], move: 'teleport', professor: '마법학과 엘린 교수' },
   archer: { name: '궁수', hp: 125, mp: 110, regen: 2, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], hints: ['deot', 'geurimja'], passives: ['jeongryeong', 'crit'], move: 'doyak', professor: '궁술과 시엘 교수' },
 };
@@ -51,7 +51,8 @@ export const SKILLS: Record<string, SkillDef> = {
   sasl: { name: '사슬 화살', cd: 3.5, mp: 3, elements: ['earth', 'water', 'dark'] },
   soyong: { name: '소용돌이 화살', short: '소용돌이', cd: 10, mp: 30, elements: ['earth', 'light', 'dark'] },
   hwasalbi: { name: '화살비', cd: 12, mp: 33, elements: ['fire', 'light'] },
-  // 추가 이동기 (쿨타임·MP 는 질풍참·사슬 화살 수준)
+  // 추가 이동기 (쿨타임·MP 는 질풍참·사슬 화살 수준). 회류참은 검사 연계 4식
+  hoeryu: { name: '회류참', cd: 3.5, mp: 5, elements: ['water', 'earth', 'dark'] },
   teleport: { name: '텔레포트', short: '텔포', cd: 3, mp: 3, elements: [] },
   doyak: { name: '후방 도약', short: '도약', cd: 3.5, mp: 3, elements: [] },
   // 힌트 스킬 (2라인·3라인 맛보기)
@@ -106,6 +107,13 @@ export const MOVE_SKILL = { jilpung: { coef: 1.6 }, sasl: { coef: 1.4 } };
  * basicW·ilseomW = 앞으로 닿는 폭(px) (52 → 72, 106 → 136),
  * jilpung = 돌진 속도·시간 (거리 220 → 280px), cheonbung = 판정 상자 폭·높이 (270×170 → 460×260)
  */
+/** 검사 초식 연계 순서 (제1초 ~ 제5초). 천붕은 회류참까지 이어야 열림 */
+export const WARRIOR_CHAIN = ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbung'];
+/**
+ * 검사 회류참 (4식): 땅에서 뒤로 back(px) 물러나며(time 초, 무적) 앞쪽을 넓게 긁어 몬스터를 끌어옴.
+ * 판정: 몸 앞 front · 몸 뒤 behind · 발에서 위로 h. 끌려온 몬스터는 내 앞 gather(px) 쪽으로 모임 (보스는 안 끌려옴)
+ */
+export const HOERYU = { back: 170, time: 0.32, front: 330, behind: 40, h: 200, coef: 1.4, gather: 46 };
 export const WARRIOR_REACH = {
   basicW: 72, ilseomW: 136,
   jilpung: { speed: 1000, time: 0.28 },

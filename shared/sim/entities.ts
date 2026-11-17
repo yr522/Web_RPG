@@ -63,7 +63,7 @@ export interface PlayerState extends Body {
   hitsT: number;
   /** 검사 초식 순서 (일섬 1 → 월참 2 → 질풍참 3) */
   combo: number;
-  /** 질풍참 직후 천붕을 쓸 수 있는 시간 */
+  /** 회류참 직후 천붕을 쓸 수 있는 시간 */
   cbWindow: number;
   /** 맞은 뒤 무적 시간 */
   invT: number;
