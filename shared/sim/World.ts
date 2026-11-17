@@ -400,7 +400,7 @@ export class World implements SkillWorld {
       id: `j${this.nextId++}`, kind: s.kind, x: s.x, y: s.y, ang: Math.atan2(s.vy, s.vx), speed: Math.hypot(s.vx, s.vy),
       range: s.range, traveled: 0, size: s.size, len: s.len, pierce: s.pierce, hit: new Set(), dead: false,
       owner: p, face: Math.sign(s.vx) || p.face, coef: s.coef, elem: s.elem, order: s.order ?? 0, chain: s.chain ?? false, kb: s.kb,
-      sm: this.skillMult(p, s.skill), skill: s.skill, exec: s.exec,
+      sm: this.skillMult(p, s.skill), skill: s.skill, exec: s.exec, only: s.only,
     };
     this.projectiles.push(o);
     return o;
@@ -470,7 +470,7 @@ export class World implements SkillWorld {
       o.x += Math.cos(o.ang) * step; o.y += Math.sin(o.ang) * step; o.traveled += step;
       const r = { x: o.x - o.size / 2, y: o.y - o.size / 2, w: o.size, h: o.size };
       for (const e of this.enemies) {
-        if (e.dead || o.hit.has(e.id) || !overlaps(r, e)) continue;
+        if (e.dead || o.hit.has(e.id) || (o.only && e.id !== o.only) || !overlaps(r, e)) continue;
         o.hit.add(e.id);
         this.hitEnemy(e, o);
         if (!o.pierce) {

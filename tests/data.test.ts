@@ -186,6 +186,6 @@ describe('대화 NPC · 컷신', () => {
 
 describe('직업', () => {
   it('직업 스킬이 다 있음', () => {
-    for (const [id, c] of Object.entries(CLASSES)) for (const sk of c.skills) expect(SKILLS[sk], `${id}: ${sk}`).toBeDefined();
+    for (const [id, c] of Object.entries(CLASSES)) for (const sk of [...c.skills, ...c.hints, ...c.passives, ...(c.move ? [c.move] : [])]) expect(SKILLS[sk], `${id}: ${sk}`).toBeDefined();
   });
 });

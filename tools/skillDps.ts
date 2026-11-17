@@ -105,7 +105,8 @@ function bestSolo(cls: ClassId, key: SlotKey, lv: number) {
 
 /** 돌려 쓰기: 뒤 키부터(강한 스킬부터) 쿨타임이 끝난 것을 누름, 기본기는 누르고 있음. MP 는 실제처럼 */
 function rotation(cls: ClassId, lv: number, infMp: boolean): Result {
-  const keys = classActiveIds(cls).map((_, i) => SLOT_KEYS[i]);
+  // 이동기(텔레포트·후방 도약)는 돌려 쓰기에서 뺌
+  const keys = classActiveIds(cls).map((_, i) => SLOT_KEYS[i]).filter((_, i) => classActiveIds(cls)[i] !== CLASSES[cls].move);
   const ready = (p: PlayerState, k: SlotKey) => (p.cd[p.data.skillKeys[k]!] ?? 0) <= 0 && p.mp >= SKILLS[p.data.skillKeys[k]!].mp;
   let best: Result = { dmg: -1, casts: 0, mpUsed: 0 };
   for (const d of DISTS) {

@@ -201,6 +201,8 @@ export interface Projectile extends Attack {
   orbit?: { ang: number; t: number; wait: number };
   /** 궤도탄: 쫓아가는 몬스터 */
   target?: EntityId;
+  /** 이 몬스터만 맞음 (후방 도약 화살) */
+  only?: EntityId;
 }
 
 /** 소용돌이 화살: 범위 안 몬스터를 가운데로 끌어모음 */

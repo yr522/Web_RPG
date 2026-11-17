@@ -16,13 +16,15 @@ export interface ClassDef {
   hints: [string, string];
   /** 패시브 2개: [직업 정체성, 단순 스탯] */
   passives: [string, string];
+  /** 추가 이동기 (스킬 트리 Lv3 줄 2번째 칸). 검사는 질풍참이 있어서 없음 */
+  move?: string;
   professor: string;
 }
 
 export const CLASSES: Record<ClassId, ClassDef> = {
   warrior: { name: '검사', hp: 150, mp: 100, regen: 1.5, main: 'str', skills: ['ilseom', 'wolcham', 'jilpung', 'cheonbung'], hints: ['hyeolseom', 'heullyeo'], passives: ['geomgil', 'armor'], professor: '검술과 바르크 교수' },
-  mage: { name: '마법사', hp: 110, mp: 140, regen: 2.5, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], hints: ['ssiat', 'gwedo'], passives: ['gongmyeong', 'maxmp'], professor: '마법학과 엘린 교수' },
-  archer: { name: '궁수', hp: 125, mp: 110, regen: 2, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], hints: ['deot', 'geurimja'], passives: ['jeongryeong', 'crit'], professor: '궁술과 시엘 교수' },
+  mage: { name: '마법사', hp: 110, mp: 140, regen: 2.5, main: 'int', skills: ['madan', 'gidung', 'pado', 'haebang'], hints: ['ssiat', 'gwedo'], passives: ['gongmyeong', 'maxmp'], move: 'teleport', professor: '마법학과 엘린 교수' },
+  archer: { name: '궁수', hp: 125, mp: 110, regen: 2, main: 'dex', skills: ['hwasal', 'sasl', 'soyong', 'hwasalbi'], hints: ['deot', 'geurimja'], passives: ['jeongryeong', 'crit'], move: 'doyak', professor: '궁술과 시엘 교수' },
 };
 
 export interface SkillDef {
@@ -49,6 +51,9 @@ export const SKILLS: Record<string, SkillDef> = {
   sasl: { name: '사슬 화살', cd: 3.5, mp: 3, elements: ['earth', 'water', 'dark'] },
   soyong: { name: '소용돌이 화살', short: '소용돌이', cd: 10, mp: 30, elements: ['earth', 'light', 'dark'] },
   hwasalbi: { name: '화살비', cd: 12, mp: 33, elements: ['fire', 'light'] },
+  // 추가 이동기 (쿨타임·MP 는 질풍참·사슬 화살 수준)
+  teleport: { name: '텔레포트', short: '텔포', cd: 3, mp: 3, elements: [] },
+  doyak: { name: '후방 도약', short: '도약', cd: 3.5, mp: 3, elements: [] },
   // 힌트 스킬 (2라인·3라인 맛보기)
   hyeolseom: { name: '혈섬', cd: 8, mp: 21, elements: ['dark', 'water'] },
   heullyeo: { name: '흘려베기', cd: 10, mp: 24, elements: ['water', 'light'] },
@@ -78,6 +83,7 @@ export function skillTree(cls: ClassId): TreeCell[] {
     { id: c.hints[1], row: 3, col: 2 },
     { id: c.passives[0], row: 1, col: 3 },
     { id: c.passives[1], row: 3, col: 3 },
+    ...(c.move ? [{ id: c.move, row: 1, col: 1 }] : []),
   ];
 }
 /** 직업 스킬 전부 (기본·힌트·패시브) */
@@ -105,6 +111,15 @@ export const WARRIOR_REACH = {
   jilpung: { speed: 1000, time: 0.28 },
   cheonbung: { w: 460, h: 260 },
 };
+/**
+ * 마법사 텔레포트: 바라보는 방향으로 dist(px) 순간이동 (↑ 를 누르고 쓰면 위로 up). time 초 동안 사라졌다가 나타남(그동안 무적), 나타난 뒤 inv 초 더 무적
+ */
+export const TELEPORT = { dist: 220, up: 160, time: 0.12, inv: 0.25 };
+/**
+ * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 포물선으로 time 초 동안 날아감 (무적).
+ * 날아가면서 앞쪽 range(px) 안 가까운 몬스터 n 마리에게 한 발씩 (첫 발 first 초, 간격 gap 초, 계수 coef). 몬스터가 없으면 앞 땅에 쏨
+ */
+export const DOYAK = { back: 260, height: 90, time: 0.5, range: 460, n: 3, coef: 1.2, first: 0.08, gap: 0.09 };
 /** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17) */
 export const SOYONG_PULL_R = 300;
 /** 궁수 기본 공격·마법 화살 사거리: 바로 떼면 min, 최대 충전이면 max */

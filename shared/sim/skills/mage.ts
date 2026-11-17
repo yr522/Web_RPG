@@ -1,7 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, MAGE_SHOT } from '../../data/classes';
+import { HINT, MAGE_SHOT, TELEPORT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -86,6 +86,24 @@ export const MAGE: ClassSkills = {
         w.float(cx(p), p.y - 30, '마력 해방!', '#c8b8ff', 22, 1.0);
         w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: '#c8b8ff', r0: 10, r1: 120, life: 0.5 });
       });
+    },
+
+    /** 텔레포트 (이동기): 사라졌다가 바라보는 방향(↑ 면 위)으로 나타남. 사라진 동안 무적 */
+    teleport(w, p) {
+      const T = TELEPORT, up = p.cmd.up, c = '#c8b8ff';
+      const nx = up ? p.x : Math.max(w.bounds.l, Math.min(w.bounds.r - p.w, p.x + p.face * T.dist));
+      const ny = up ? Math.max(w.bounds.top, p.y - T.up) : p.y;
+      w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 26, r1: 4, life: 0.2 });
+      w.fx({ kind: 'line', x1: cx(p), y1: cy(p), x2: nx + p.w / 2, y2: ny + p.h / 2, color: c, w: 2, life: 0.15 });
+      p.action = {
+        name: 'blink', skill: 'teleport', t: 0, dur: T.time, noGravity: true, inv: true,
+        update: () => { p.vx = 0; p.vy = 0; },
+        end: () => {
+          p.x = nx; p.y = ny; p.vx = 0; p.vy = 0; p.onGround = false;
+          p.invT = Math.max(p.invT, T.inv);
+          w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 4, r1: 34, life: 0.25 });
+        },
+      };
     },
 
     // ---------- 힌트 스킬 ----------

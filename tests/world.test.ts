@@ -158,3 +158,46 @@ describe('훈련장 허수아비', () => {
     expect(d.x).toBe(d.spawnX);
   });
 });
+
+describe('이동기 (텔레포트 · 후방 도약)', () => {
+  const learnAll = (s: ReturnType<typeof newSave>, id: string) => { s.learned[id] = null; s.skillKeys = { Q: id }; };
+  it('마법사 텔레포트: 앞으로 순간이동, 사라진 동안 무적, 쿨타임', async () => {
+    const { TELEPORT, SKILLS } = await import('../shared/data/classes');
+    const w = new World('training', 1);
+    const s = newSave('t', 'mage', 'M');
+    learnAll(s, 'teleport');
+    const p = w.addPlayer('p', s, 300);
+    run(w, 0.5);
+    p.face = 1;
+    const x0 = p.x;
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    expect(p.action?.inv).toBe(true);
+    run(w, 0.5);
+    expect(p.x - x0).toBeCloseTo(TELEPORT.dist, -1);
+    expect(p.cd.teleport).toBeGreaterThan(0);
+    expect(p.cd.teleport).toBeLessThanOrEqual(SKILLS.teleport.cd);
+  });
+  it('궁수 후방 도약: 뒤로 날아가며 앞쪽 3마리까지 한 발씩', async () => {
+    const { DOYAK } = await import('../shared/data/classes');
+    const { MONSTERS } = await import('../shared/data/monsters');
+    const w = new World('training', 1);
+    const s = newSave('t', 'archer', 'M');
+    learnAll(s, 'doyak');
+    const p = w.addPlayer('p', s, 300);
+    run(w, 0.5);
+    p.face = 1;
+    // 허수아비 4개 (앞쪽 가까운 3개만 맞아야 함)
+    const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
+    w.enemies.length = 0;
+    const ds = [420, 500, 580, 660].map(x => inside.spawnEnemy('dummy', x, null));
+    run(w, 0.1);
+    const x0 = p.x;
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    let hits: number[] = [0, 0, 0, 0];
+    for (let i = 0; i < 1.5 / TICK; i++) { w.step(new Map()); ds.forEach((d, j) => { if (d.meter) hits[j] = d.meter.dmg; }); }
+    expect(x0 - p.x).toBeGreaterThan(DOYAK.back * 0.8);
+    expect(hits.slice(0, 3).every(h => h > 0)).toBe(true);
+    expect(hits[3]).toBe(0);
+    expect(MONSTERS.dummy).toBeDefined();
+  });
+});
