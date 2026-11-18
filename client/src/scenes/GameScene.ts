@@ -85,6 +85,9 @@ const COMPANION = { gap: 60, walk: 200, run: 420, runFrom: 220 };
 /** 맵 배경 그림 (assets/img/bg/*.png) */
 const BG_FILES = import.meta.glob('../../../assets/img/bg/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 
+/** 슬라임 그림 배율: 몸 높이 1 당 (높이 30 일 때 1.45배). 몸이 커지면 그림도 같이 커짐 */
+const SLIME_DRAW = 1.45 / 30;
+
 /** 몬스터 그림: 원소 슬라임은 회색 슬라임(원소 색을 입힘), 나머지는 몬스터 id 그대로 */
 function mobTexture(mob: MonsterId, elem: unknown) {
   if (mob === 'slime' || mob === 'slime_elem') return elem ? 'slime_gray' : 'slime';
@@ -619,7 +622,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1) {
     this.mobRemove(id);
-    const root = this.add.sprite(x, GROUND_Y + 1, elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(1.45).setDepth(4);
+    const root = this.add.sprite(x, GROUND_Y + 1, elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(SLIME_DRAW * MONSTERS[elem ? 'slime_elem' : 'slime'].h).setDepth(4);
     if (elem) root.setTint(hex(ELEMENTS[elem].color));
     const label = this.text(elem ? `${ELEMENTS[elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
     this.actors.set(`mob:${id}`, { kind: 'mob', root, label, elem, home: x, x, face, to: null, speed: 0, pose: null, t: 0, jumpT: null });
@@ -776,7 +779,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       const shiver = e.leap === 'crouch' ? Math.sin(this.time.now / 25) * 1.5 : 0;
       // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤 (정예는 몸이 커진 만큼)
       const slime = e.mob === 'slime' || e.mob === 'slime_elem';
-      sp.setScale(slime ? 1.45 * e.h / MONSTERS[e.mob].h : e.h / sp.frame.height);
+      sp.setScale(slime ? SLIME_DRAW * e.h : e.h / sp.frame.height);
       sp.setFrame(frame).setVisible(!rigged).setAlpha(alpha)
         .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
         .setFlipX(e.dir > 0);

@@ -39,7 +39,8 @@ export interface MonsterDef {
 
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
   slime: {
-    name: '슬라임', hp: 140, exp: 10, touch: 8, gold: [5, 9], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7,
+    // 크기 1.2배 (42×30 → 50×36, 2026-11-18)
+    name: '슬라임', hp: 140, exp: 10, touch: 8, gold: [5, 9], w: 50, h: 36, ai: 'slime', speed: [40, 60], chase: 1.7,
     drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   slime_elem: {

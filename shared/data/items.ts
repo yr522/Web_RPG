@@ -57,6 +57,8 @@ export interface ItemDef {
   img?: string;
   /** 매점 가격 (없으면 매점에서 안 팖) */
   price?: number;
+  /** 매점에 팔 때 받는 값 (없으면 가격 × SELL_RATE, 가격도 없으면 못 팖) */
+  sell?: number;
   /** 매점에서 한 번에 살 수 있는 개수 */
   bulk?: number[];
   /** 장비 부위와 능력치 */
@@ -83,7 +85,7 @@ const ITEM_LIST = {
   reset: { name: '스킬트리 초기화 주문서', kind: 'use', icon: '📜', price: 1000, desc: '배운 스킬을 모두 초기화. 교수님께 원소를 다시 골라 배울 수 있어. 스킬 레벨은 유지돼.', bulk: [1] },
   test_letter: { name: '테스트 편지', kind: 'etc', icon: '✉️', desc: '이야기 테스트용 편지' },
   workshop_key: { name: '공방 퀘스트 템', kind: 'etc', icon: '⚙️', desc: '임시' },
-  slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/material/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액' },
+  slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/material/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액', sell: 1 },
   // 테스트용 장비 (매점 모리)
   test_hat: testEquip('테스트 모자', 'hat'),
   test_necklace: testEquip('테스트 목걸이', 'necklace'),
@@ -99,14 +101,24 @@ const ITEM_LIST = {
   grade_legendary: gradeWeapon('legendary', 4),
   grade_mythic: gradeWeapon('mythic', 5),
   // 슬라임류(슬라임·원소 슬라임) 드롭 장비
-  slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 } },
-  slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 } },
+  slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 }, sell: 100 },
+  slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 }, sell: 100 },
   test_ring: { name: '테스트 반지', kind: 'equip', desc: '모든 능력치 +1', icon: '💍', img: ARMOR_IMG, price: 200, bulk: [1], part: 'ring', bonus: { str: 1, dex: 1, int: 1 } },
 } satisfies Record<string, ItemDef>;
 
 export type ItemId = keyof typeof ITEM_LIST;
 export const ITEMS: Record<ItemId, ItemDef> = ITEM_LIST;
 export const itemDef = (id: string): ItemDef | undefined => (ITEMS as Record<string, ItemDef>)[id];
+
+/** 매점에 팔 때: 산 값의 이만큼 (2026-11-18 유저 결정 50%) */
+export const SELL_RATE = 0.5;
+/** 매점에 팔 때 받는 값 (0 = 못 팖: 퀘스트 물건 등). 강화·옵션은 값에 안 들어감 */
+export function sellPrice(id: string) {
+  const d = itemDef(id);
+  if (!d) return 0;
+  if (d.sell !== undefined) return d.sell;
+  return d.price ? Math.floor(d.price * SELL_RATE) : 0;
+}
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [

@@ -2,8 +2,8 @@
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
-import { GRADES, ITEMS, SHOP_ITEMS, itemGrade } from '@shared/data/items';
-import { countItem } from '@shared/rules/inventory';
+import { GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
+import { countItem, equippedSlot } from '@shared/rules/inventory';
 import { QUESTS, questTitle } from '@shared/data/quests';
 import { questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
@@ -150,7 +150,8 @@ export class NpcDialog {
 
   openShop() {
     const box = this.frame('매점 모리', moriPortrait, '🛒');
-    this.refresh = () => this.renderShop();
+    let tab: 'buy' | 'sell' = 'buy';
+    this.refresh = () => this.renderShop(tab, t => { tab = t; this.refresh!(); });
     this.refresh();
     this.host.open(box, () => { this.refresh = null; });
   }
@@ -428,10 +429,18 @@ export class NpcDialog {
   }
 
   // ---------- 매점 ----------
-  private renderShop() {
+  private renderShop(tab: 'buy' | 'sell', go: (t: 'buy' | 'sell') => void) {
     const b = this.body!, s = this.session.save;
     b.innerHTML = '';
+    const tabs = el('div', 'chips');
+    for (const t of [{ id: 'buy', label: '사기' }, { id: 'sell', label: '팔기' }] as const) {
+      const c = el('button', 'chip' + (t.id === tab ? ' sel' : ''), t.label, () => go(t.id));
+      c.style.setProperty('--c', 'var(--c-mint)');
+      tabs.appendChild(c);
+    }
+    if (tab === 'sell') return this.renderSell(tabs);
     b.appendChild(el('p', 'line', `"어서 와~ 필요한 거 있으면 골라봐!" <span class="gold">💰 ${s.gold} G</span>`));
+    b.appendChild(tabs);
     for (const id of SHOP_ITEMS) {
       const it = ITEMS[id], card = el('div', 'card shop'), price = it.price ?? 0;
       card.appendChild(itemIcon(id));
@@ -445,5 +454,28 @@ export class NpcDialog {
       b.appendChild(card);
     }
     b.appendChild(el('p', 'note', '초기화 주문서는 캐릭터 창(C)에서 쓸 수 있어.'));
+  }
+
+  /** 매점 팔기: 가방에서 팔 수 있는 것 (끼고 있는 장비·퀘스트 물건은 빠짐), 가방 칸 순서 */
+  private renderSell(tabs: HTMLElement) {
+    const b = this.body!, s = this.session.save;
+    b.appendChild(el('p', 'line', `<span class="gold">💰 ${s.gold} G</span>`));
+    b.appendChild(tabs);
+    let any = false;
+    s.bag.forEach((e, index) => {
+      const price = e ? sellPrice(e.id) : 0;
+      if (!e || price <= 0 || equippedSlot(s, e.uid)) return;
+      any = true;
+      const d = itemDef(e.id)!, g = itemGrade(d), card = el('div', 'card shop');
+      const icon = el('div', 'inv-cell has sell-ico');
+      icon.appendChild(itemIcon(e.id));
+      if (e.uid !== undefined) decorateGear(icon, e);
+      card.appendChild(icon);
+      card.appendChild(el('div', 'grow', `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${e.enh ? `+${e.enh} ` : ''}${esc(d.name)}</b> <span class="gold">${price} G</span><br><span class="note">${e.n}개</span>`));
+      card.appendChild(el('button', 'sm go', '1개', () => this.act({ type: 'sell', index, n: 1 })));
+      if (e.n > 1) card.appendChild(el('button', 'sm go', `${e.n}개`, () => this.act({ type: 'sell', index, n: e.n })));
+      b.appendChild(card);
+    });
+    if (!any) b.appendChild(el('span', 'note', '-'));
   }
 }
