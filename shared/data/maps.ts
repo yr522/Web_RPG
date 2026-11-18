@@ -145,7 +145,7 @@ export const MAPS: Record<MapId, MapDef> = {
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [
-      { x: 90, to: 'field', toX: 1060, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' },
+      { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
       { x: SCHOOL_TRAINING_X, to: 'training', toX: 120, label: '훈련장' },
@@ -160,15 +160,19 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [],
   },
   field: {
-    name: '학교 뒷숲', width: 1300,
-    platforms: [{ x: 770, y: 370, w: 170 }, { x: 540, y: 290, w: 150 }, { x: 230, y: 360, w: 190 }],
+    // 2026-11-18: 폭 1300 → 975 (3/4), 슬라임 5 → 12마리 (땅 7 · 발판 5). 오른쪽 입구 쪽은 비워 둠
+    name: '학교 뒷숲', width: 975,
+    platforms: [{ x: 578, y: 370, w: 170 }, { x: 405, y: 290, w: 150 }, { x: 173, y: 360, w: 190 }],
     portals: [
-      { x: 1150, to: 'school', toX: 190, label: '마법 학교' },
+      { x: 862, to: 'school', toX: 190, label: '마법 학교' },
       { x: 90, to: 'field2', toX: 1150, label: '원소 슬라임 서식지' },
     ],
     npcs: [],
-    signs: [{ x: 220, text: '← 원소 슬라임 서식지' }],
-    spawns: slimes([[818], [578, 200], [468], [288, 270], [228]]),
+    signs: [{ x: 200, text: '← 원소 슬라임 서식지' }],
+    spawns: slimes([
+      [180], [260], [340], [430], [500], [600], [680],
+      [210, 270], [300, 270], [440, 200], [510, 200], [640, 280],
+    ]),
   },
   field2: {
     name: '원소 슬라임 서식지', width: 1400,
