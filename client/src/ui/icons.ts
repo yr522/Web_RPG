@@ -1,8 +1,9 @@
 // 아이템 아이콘 그림. assets/img/icon/ 아래 png 를 전부 불러 두고, 아이템의 img 경로로 찾는다.
+// 받아 둔 원본 묶음(fantasy-potion-icons-main)은 빼고 읽는다.
 // 그림 파일이 아직 없으면 아이템의 글자 아이콘(이모지)을 대신 보여 준다.
 import { itemDef } from '@shared/data/items';
 
-const files = import.meta.glob('../../../assets/img/icon/**/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+const files = import.meta.glob(['../../../assets/img/icon/**/*.png', '!**/fantasy-potion-icons-main/**'], { eager: true, import: 'default' }) as Record<string, string>;
 const PREFIX = '../../../assets/img/icon/';
 
 /** 'equipment/armor/test_armor_icon' → 그림 주소 */

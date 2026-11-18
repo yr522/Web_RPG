@@ -38,7 +38,7 @@ export interface Session {
   /** 물어보는 포탈에서 "예" */
   takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
-  usePotion(kind: 'hp' | 'mp'): void;
+  usePotion(kind: string): void;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
   spawnStory(x: number, elem: Element | null, tag?: string): void;
   releaseHeld(): void;
@@ -118,7 +118,7 @@ export class LocalSession implements Session {
     this.pending.push({ type: 'mapEnter', playerId: this.playerId, map: to });
   }
 
-  usePotion(kind: 'hp' | 'mp') { this.world.usePotion(this.me(), kind); }
+  usePotion(kind: string) { this.world.usePotion(this.me(), kind); }
   spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
   releaseHeld() { this.world.releaseHeld(); }
 

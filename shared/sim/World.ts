@@ -3,7 +3,7 @@
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
-import { POTION, itemDef } from '../data/items';
+import { POTION, POTIONS, itemDef, potionIds, type PotionKind } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
 import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
@@ -1242,15 +1242,19 @@ export class World implements SkillWorld {
     return mapPortals(p.data, this.mapId, this.cleared).find(o => Math.abs(o.x - cx(p)) < 40 && Math.abs((o.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
   }
 
-  usePotion(p: PlayerState, kind: 'hp' | 'mp') {
-    if (p.potionCd > 0) return;
-    if (countItem(p.data, kind) <= 0) return this.warn(p, `${kind === 'hp' ? 'HP' : 'MP'} 포션이 없어`);
-    if (kind === 'hp' && p.hp >= p.stats.maxHp) return this.warn(p, 'HP가 가득 찼어');
-    if (kind === 'mp' && p.mp >= p.stats.maxMp) return this.warn(p, 'MP가 가득 찼어');
-    removeItem(p.data, kind);
+  /** 포션 쓰기. kind 만 주면 (1·2번 키) 가진 것 중 가장 작은 것, item 을 주면 (가방에서) 그 포션 */
+  usePotion(p: PlayerState, kind: PotionKind | string) {
+    if (p.potionCd > 0 || !POTIONS[kind]) return;
+    const k = POTIONS[kind].kind;
+    const pick = kind === 'hp' || kind === 'mp' ? potionIds(k).find(id => countItem(p.data, id) > 0) : kind;
+    if (!pick || countItem(p.data, pick) <= 0) return this.warn(p, `${k === 'hp' ? 'HP' : 'MP'} 포션이 없어`);
+    if (k === 'hp' && p.hp >= p.stats.maxHp) return this.warn(p, 'HP가 가득 찼어');
+    if (k === 'mp' && p.mp >= p.stats.maxMp) return this.warn(p, 'MP가 가득 찼어');
+    removeItem(p.data, pick);
     p.potionCd = POTION.cooldown;
-    if (kind === 'hp') { p.hp = Math.min(p.stats.maxHp, p.hp + POTION.hp); this.float(cx(p), p.y - 10, `+${POTION.hp} HP`, '#ff8a8a', 16); }
-    else { p.mp = Math.min(p.stats.maxMp, p.mp + POTION.mp); this.float(cx(p), p.y - 10, `+${POTION.mp} MP`, '#8ab0ff', 16); }
+    const n = POTIONS[pick].amount;
+    if (k === 'hp') { p.hp = Math.min(p.stats.maxHp, p.hp + n); this.float(cx(p), p.y - 10, `+${n} HP`, '#ff8a8a', 16); }
+    else { p.mp = Math.min(p.stats.maxMp, p.mp + n); this.float(cx(p), p.y - 10, `+${n} MP`, '#8ab0ff', 16); }
   }
 }
 

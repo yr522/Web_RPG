@@ -255,3 +255,22 @@ describe('검사 회류참 (4식)', () => {
     expect(p.action?.name).toBe('cheonbung');
   });
 });
+
+describe('포션 5단계', () => {
+  it('1번 키는 가진 것 중 가장 작은 것부터, 가방에서 고르면 그 포션', async () => {
+    const { POTIONS, POTION } = await import('../shared/data/items');
+    const { countItem } = await import('../shared/rules/inventory');
+    const { w, s, p } = fieldWithPlayer();
+    s.bag = s.bag.map(() => null);
+    addItem(s, 'hp_m', 1); addItem(s, 'hp_xl', 1);
+    p.hp = 1;
+    w.usePotion(p, 'hp');
+    expect(countItem(s, 'hp_m')).toBe(0);
+    expect(p.hp).toBe(Math.min(p.stats.maxHp, 1 + POTIONS.hp_m.amount));
+    p.potionCd = 0; p.hp = 1;
+    w.usePotion(p, 'hp_xl');
+    expect(countItem(s, 'hp_xl')).toBe(0);
+    expect(p.hp).toBe(Math.min(p.stats.maxHp, 1 + POTIONS.hp_xl.amount));
+    expect(POTION.cooldown).toBeGreaterThan(0);
+  });
+});

@@ -4,6 +4,8 @@ import type { Element } from './elements';
 import type { MonsterId } from './monsters';
 import type { Cond } from './npcs';
 export const GROUND_Y = 470;
+/** 슬라임 숲 배경 (학교 뒷숲·원소 슬라임 서식지). 1672×941, 바닥 풀 윗면이 위에서 768px */
+const FOREST_BG: { imgs: [string, string, string]; groundY: number } = { imgs: ['forest_morning', 'forest_day', 'forest_night'], groundY: 768 };
 
 export interface Platform { x: number; y: number; w: number; h?: number }
 /** when: 이 조건이 맞을 때만 보이고 탈 수 있음 (npcs.ts 의 Cond) */
@@ -160,8 +162,8 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [],
   },
   field: {
-    // 2026-11-18: 폭 1300 → 975 (3/4), 슬라임 5 → 12마리 (땅 7 · 발판 5). 오른쪽 입구 쪽은 비워 둠
-    name: '학교 뒷숲', width: 975,
+    // 2026-11-18: 폭 1300 → 975 (3/4), 슬라임 5 → 10마리 (땅 5 · 발판 5). 오른쪽 입구 쪽은 비워 둠
+    name: '학교 뒷숲', width: 975, bgTime: FOREST_BG,
     platforms: [{ x: 578, y: 370, w: 170 }, { x: 405, y: 290, w: 150 }, { x: 173, y: 360, w: 190 }],
     portals: [
       { x: 862, to: 'school', toX: 190, label: '마법 학교' },
@@ -170,12 +172,12 @@ export const MAPS: Record<MapId, MapDef> = {
     npcs: [],
     signs: [{ x: 200, text: '← 원소 슬라임 서식지' }],
     spawns: slimes([
-      [180], [260], [340], [430], [500], [600], [680],
+      [180], [290], [430], [560], [680],
       [210, 270], [300, 270], [440, 200], [510, 200], [640, 280],
     ]),
   },
   field2: {
-    name: '원소 슬라임 서식지', width: 1400,
+    name: '원소 슬라임 서식지', width: 1400, bgTime: FOREST_BG,
     platforms: [{ x: 840, y: 375, w: 200 }, { x: 570, y: 300, w: 180 }, { x: 230, y: 350, w: 210 }],
     portals: [
       { x: 1250, to: 'field', toX: 160, label: '학교 뒷숲' },
