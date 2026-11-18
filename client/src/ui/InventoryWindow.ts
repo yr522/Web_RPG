@@ -23,6 +23,7 @@ import icoTop from '../../../assets/UI/equipment_icons/top.png';
 import icoGloves from '../../../assets/UI/equipment_icons/gloves.png';
 import icoBottom from '../../../assets/UI/equipment_icons/bottom.png';
 import icoShoes from '../../../assets/UI/equipment_icons/shoes.png';
+import { clampToStage } from './stage';
 
 /** 장비창 빈 칸 아이콘 (반지1·반지2 같은 그림) */
 export const SLOT_ICONS: Record<EquipSlot, string> = {
@@ -155,8 +156,7 @@ export class InventoryWindow {
   /** 창 왼쪽 위를 (x, y) 로. 창이 화면 밖으로 나가지 않게 */
   private moveTo(x: number, y: number) {
     const r = this.root.getBoundingClientRect();
-    x = Math.max(0, Math.min(innerWidth - r.width, x));
-    y = Math.max(0, Math.min(innerHeight - r.height, y));
+    ({ x, y } = clampToStage(x, y, r.width, r.height));
     this.root.classList.add('moved');
     this.root.style.left = `${x}px`;
     this.root.style.top = `${y}px`;

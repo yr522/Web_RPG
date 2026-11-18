@@ -15,14 +15,31 @@ import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
+import { ASPECT, stageRect } from './ui/stage';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 // ?ui=pc / ?ui=mobile 로 강제 가능 (PC에서 모바일 화면 확인용)
 const uiMode: UiMode = params.get('ui') === 'mobile' ? 'mobile' : params.get('ui') === 'pc' ? 'pc' : isTouch ? 'mobile' : 'pc';
 
-/** 월드 화면 폭: 높이 VIEW_H 기준, 화면 비율에 맞춰 720~1280 */
-const viewWidth = () => Math.round(Math.max(720, Math.min(1280, (VIEW_H * innerWidth) / innerHeight)));
+/**
+ * 게임 화면 비율은 16:9 로 고정 (배경 그림 한 화면 = 1920×1080 과 같게).
+ * 창이 더 넓으면 양옆, 더 길면 위아래가 검은 띠. HUD·창도 이 16:9 안에 들어간다
+ */
+/** 월드 화면 폭: 높이 VIEW_H 기준 */
+const viewWidth = () => Math.round(VIEW_H * ASPECT);
+/** NPC 창(대화·상점·대장간 등) 배율: 게임 화면 높이 720 에서 1배, 더 크면 그만큼 키움 (작은 화면은 1배 그대로) */
+const UI_BASE_H = 720;
+
+/** 게임 화면(16:9) 자리를 CSS 변수로: --gx·--gy 왼쪽 위, --gw·--gh 크기, --ui NPC 창 배율 */
+function stageVars() {
+  const r = stageRect(), st = document.documentElement.style;
+  st.setProperty('--gw', `${r.w}px`);
+  st.setProperty('--gh', `${r.h}px`);
+  st.setProperty('--gx', `${r.x}px`);
+  st.setProperty('--gy', `${r.y}px`);
+  st.setProperty('--ui', String(Math.max(1, r.h / UI_BASE_H)));
+}
 /**
  * 캔버스 픽셀 크기를 실제 화면 픽셀(CSS 크기 × devicePixelRatio)과 똑같이 맞춘다.
  * 브라우저가 캔버스를 늘리거나 줄이지 않으므로 게임 안 글자가 뭉개지지 않는다.
@@ -30,12 +47,13 @@ const viewWidth = () => Math.round(Math.max(720, Math.min(1280, (VIEW_H * innerW
  */
 function canvasLayout() {
   const vw = viewWidth();
-  const cssH = Math.min(innerHeight, (innerWidth * VIEW_H) / vw);
+  const cssH = Math.min(innerHeight, innerWidth / ASPECT);
   const zoom = (cssH * Math.min(devicePixelRatio || 1, 3)) / VIEW_H;
   return { width: Math.round(vw * zoom), height: Math.round(VIEW_H * zoom), zoom };
 }
 
 async function boot() {
+  stageVars();
   // 모바일: 가로 + 전체화면 안내 (가로 안내와 같은 기준 = 손가락 터치 기기)
   setupMobileGate(matchMedia('(pointer: coarse)').matches);
   // 폰트가 늦게 뜨면 Phaser 글자가 기본 폰트로 그려지므로 먼저 불러온다
@@ -120,6 +138,7 @@ async function boot() {
   // 창 크기·전체화면·화면 회전이 바뀌면 캔버스를 새 크기에 다시 맞춘다.
   // 브라우저마다 새 크기가 늦게 잡히는 경우가 있어서 조금 뒤에 한 번 더 맞춘다.
   const fit = () => {
+    stageVars();
     const l = canvasLayout();
     if (game.scale.width !== l.width || game.scale.height !== l.height) game.scale.setGameSize(l.width, l.height);
     game.scale.getParentBounds();

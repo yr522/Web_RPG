@@ -5,8 +5,11 @@
 @font-face { font-family: 'Esamanru'; font-weight: 700; font-display: swap; src: url('../../fonts/esamanru Bold.ttf') format('truetype'); }
 
 :root {
+  /* 게임 화면(16:9) 자리: 왼쪽 위 --gx·--gy, 크기 --gw·--gh (main.ts 가 창 크기에 맞춰 넣음, 남는 곳은 검은 띠).
+     --ui = NPC 창(대화·상점·대장간 등) 배율 (게임 화면 높이 720 에서 1배) */
+  --gw: 100vw; --gh: 100vh; --gx: 0px; --gy: 0px; --ui: 1;
   /* 구상도 1px (1670×1040 기준) = 실제 화면에서 몇 px 인지 */
-  --u: min(100vh / 1040, 100vw / 1670);
+  --u: min(var(--gh) / 1040, var(--gw) / 1670);
   --font: 'Pretendard', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --title: 'Esamanru', var(--font);
   --panel: rgba(78, 70, 60, .85);
@@ -25,7 +28,7 @@
   --sar: env(safe-area-inset-right, 0px);
 }
 html, body {
-  margin: 0; height: 100%; background: #07070f; overflow: hidden; color: #eee;
+  margin: 0; height: 100%; background: #000; overflow: hidden; color: #eee;
   font-family: var(--font); font-weight: 500;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
@@ -33,8 +36,8 @@ html, body {
 #game canvas { display: block; }
 
 /* ===== HUD 공통 ===== */
-#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; font-size: max(13px, 18 * var(--u)); }
-#hud.mobile { --u: max(min(100vh / 1040, 100vw / 1670), .45px); }
+#hud { position: fixed; left: var(--gx); top: var(--gy); width: var(--gw); height: var(--gh); pointer-events: none; z-index: 5; font-size: max(13px, 18 * var(--u)); }
+#hud.mobile { --u: max(min(var(--gh) / 1040, var(--gw) / 1670), .45px); }
 /* 모바일: 조이스틱과 겹치지 않게 퀘스트 칸을 작게 */
 #hud.mobile .quests { top: calc(130 * var(--u) + 24px + var(--sat)); gap: 4px; }
 #hud.mobile .quest { --qf: 10px; min-width: 150px; }
@@ -232,23 +235,25 @@ html, body {
 #fsgate button:active { background: var(--c-latte); }
 
 /* ===== 대화창 · 메뉴 창 ===== */
-.dlg-overlay { position: fixed; inset: 0; z-index: 12; background: rgba(30, 24, 18, .45); display: flex; align-items: flex-end; justify-content: center; }
+.dlg-overlay { position: fixed; left: var(--gx); top: var(--gy); width: var(--gw); height: var(--gh); z-index: 12; background: rgba(30, 24, 18, .45); display: flex; align-items: flex-end; justify-content: center; }
 .npc-dlg {
-  position: relative; width: min(1000px, 96vw); margin-bottom: max(10px, 2vh); display: flex; align-items: flex-end;
+  /* 게임 화면 크기에 맞춰 통째로 키움 (zoom). 안의 크기는 높이 720 화면 기준 px */
+  zoom: var(--ui);
+  position: relative; width: min(1000px, calc(var(--gw) * .96 / var(--ui))); margin-bottom: max(10px, calc(var(--gh) * .02 / var(--ui))); display: flex; align-items: flex-end;
   animation: dlgIn .18s ease;
 }
 @keyframes dlgIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
-.npc-portrait { flex: 0 0 auto; width: min(34vw, 340px, 56vh); margin-right: -40px; position: relative; z-index: 1; line-height: 0; }
-.npc-portrait img { width: 100%; height: auto; max-height: 72vh; object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5)); }
+.npc-portrait { flex: 0 0 auto; width: min(calc(var(--gw) * .34 / var(--ui)), 340px, calc(var(--gh) * .56 / var(--ui))); margin-right: -40px; position: relative; z-index: 1; line-height: 0; }
+.npc-portrait img { width: 100%; height: auto; max-height: calc(var(--gh) * .72 / var(--ui)); object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5)); }
 .npc-portrait-ph {
   width: 100%; aspect-ratio: 1; border-radius: 16px; background: linear-gradient(160deg, var(--c-latte), var(--c-brown));
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; line-height: 1.2; border: 2px solid var(--c-brown);
 }
-.npc-portrait-ph span { font-size: min(80px, 12vh); }
+.npc-portrait-ph span { font-size: min(80px, calc(var(--gh) * .12 / var(--ui))); }
 .npc-portrait-ph small { color: var(--c-paper); font-size: 12px; }
 .npc-panel {
   position: relative; flex: 1; min-width: 0; background: linear-gradient(180deg, var(--c-paper-hi), var(--c-paper)); border: 2px solid var(--c-brown); border-radius: 14px; color: var(--c-brown);
-  padding: 14px 18px 14px 56px; max-height: min(62vh, 520px); display: flex; flex-direction: column; box-sizing: border-box;
+  padding: 14px 18px 14px 56px; max-height: min(calc(var(--gh) * .62 / var(--ui)), 520px); display: flex; flex-direction: column; box-sizing: border-box;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
 }
 .npc-name {
@@ -297,15 +302,16 @@ html, body {
 .sm:disabled { opacity: .4; cursor: default; }
 @media (max-height: 500px) {
   .npc-dlg { margin-bottom: 6px; }
-  .npc-portrait { width: min(28vw, 200px); margin-right: -30px; }
-  .npc-panel { max-height: 78vh; padding: 12px 12px 10px 40px; }
+  .npc-portrait { width: min(calc(var(--gw) * .28 / var(--ui)), 200px); margin-right: -30px; }
+  .npc-panel { max-height: calc(var(--gh) * .78 / var(--ui)); padding: 12px 12px 10px 40px; }
   .npc-body { font-size: 13px; }
   .opt { padding: 6px 10px; font-size: 13px; }
 }
 .slot.ready, .mbtn.ready { box-shadow: 0 0 16px 4px var(--ec); }
 .dlg-overlay:has(.win) { align-items: center; }
 .win {
-  position: relative; width: min(600px, 94vw); max-height: 90vh; overflow: auto; box-sizing: border-box;
+  zoom: var(--ui);
+  position: relative; width: min(600px, calc(var(--gw) * .94 / var(--ui))); max-height: calc(var(--gh) * .9 / var(--ui)); overflow: auto; box-sizing: border-box;
   background: linear-gradient(180deg, var(--c-paper-hi), var(--c-paper)); border: 2px solid var(--c-brown); border-radius: 14px; padding: 16px 20px; animation: dlgIn .18s ease; color: var(--c-brown);
 }
 .win h2 { margin: 0 0 4px; font-family: var(--title); font-size: 20px; }
@@ -421,7 +427,7 @@ html, body {
 
 /* 대화 NPC: 대사 넘기기 표시 */
 /* 대화 NPC 대사창: 화면 크기에 따라 정해진 높이 (대사가 길어도 커지지 않음), 스크롤바 숨김 */
-.npc-dlg.talk .npc-panel { cursor: pointer; height: max(170px, 250 * var(--u)); }
+.npc-dlg.talk .npc-panel { cursor: pointer; height: 180px; }
 .npc-dlg.talk .npc-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-bottom: 18px; }
 .npc-dlg.talk .npc-body::-webkit-scrollbar { display: none; }
 /* 다음 대사 ▼ : 창 오른쪽 아래 고정 (글 줄에 끼지 않음) */
@@ -435,7 +441,7 @@ html, body {
 .inv {
   --s: max(calc(var(--u) * 1.445), .75px);
   --cell: calc(48 * var(--s)); --ico: calc(32 * var(--s)); --inv-blue: var(--c-brown); --inv-gray: var(--c-paper-hi);
-  position: fixed; right: calc(4vw + var(--sar)); top: 50%; transform: translateY(-50%); z-index: 11;
+  position: fixed; right: calc(100vw - var(--gx) - var(--gw) + var(--gw) * .04 + var(--sar)); top: 50%; transform: translateY(-50%); z-index: 11;
   display: none; align-items: stretch; filter: drop-shadow(0 6px 16px rgba(0, 0, 0, .45));
 }
 .inv.open { display: flex; }
@@ -773,7 +779,7 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 
 /* 보스 HP 바 (위 가운데): 줄이 여러 겹, 다 깎이면 아래 줄 색 */
 .bossbar {
-  position: absolute; left: 50%; top: calc(24 * var(--u) + max(36px, 56 * var(--u)) + var(--sat, 0px)); transform: translateX(-50%); width: min(56vw, calc(820 * var(--u)));
+  position: absolute; left: 50%; top: calc(24 * var(--u) + max(36px, 56 * var(--u)) + var(--sat, 0px)); transform: translateX(-50%); width: min(calc(var(--gw) * .56), calc(820 * var(--u)));
   display: none; flex-direction: column; gap: 3px; pointer-events: none;
 }
 .bossbar.on { display: flex; }
