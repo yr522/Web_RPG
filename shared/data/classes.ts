@@ -113,7 +113,7 @@ export const WARRIOR_CHAIN = ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbu
  * 검사 회류참 (4식): 땅에서 뒤로 back(px) 물러나며(time 초, 무적) 앞쪽을 넓게 긁어 몬스터를 끌어옴.
  * 판정: 몸 앞 front · 몸 뒤 behind · 발에서 위로 h. 끌려온 몬스터는 내 앞 gather(px) 쪽으로 모임 (보스는 안 끌려옴)
  */
-export const HOERYU = { back: 170, time: 0.32, front: 330, behind: 40, h: 200, coef: 1.4, gather: 46 };
+export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 200, coef: 1.4, gather: 46 };
 export const WARRIOR_REACH = {
   basicW: 72, ilseomW: 136,
   jilpung: { speed: 1000, time: 0.28 },
