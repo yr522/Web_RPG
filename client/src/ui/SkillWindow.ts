@@ -12,6 +12,7 @@ import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
 import { el, esc } from './Dialog';
+import { clampToStage } from './stage';
 
 /** 한 줄 스킬 칸 수 (기본 · 2라인 힌트 · 3라인 힌트), 그 오른쪽에 패시브 1칸 */
 const ROW_CELLS = 3;
@@ -250,8 +251,9 @@ export class SkillWindow {
   private moveTo(x: number, y: number) {
     const r = this.root.getBoundingClientRect();
     this.root.classList.add('moved');
-    this.root.style.left = `${Math.max(0, Math.min(innerWidth - r.width, x))}px`;
-    this.root.style.top = `${Math.max(0, Math.min(innerHeight - r.height, y))}px`;
+    const c = clampToStage(x, y, r.width, r.height);
+    this.root.style.left = `${c.x}px`;
+    this.root.style.top = `${c.y}px`;
   }
 
   private keepInside() {

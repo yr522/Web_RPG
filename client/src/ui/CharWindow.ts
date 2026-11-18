@@ -16,6 +16,7 @@ import { SLOT_ICONS } from './InventoryWindow';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
 import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
+import { clampToStage } from './stage';
 
 const STATS: Record<StatId, { name: string; desc: string }> = {
   str: { name: '근력', desc: '검사 데미지 · 최대 체력' },
@@ -253,8 +254,9 @@ export class CharWindow {
   private moveTo(x: number, y: number) {
     const r = this.root.getBoundingClientRect();
     this.root.classList.add('moved');
-    this.root.style.left = `${Math.max(0, Math.min(innerWidth - r.width, x))}px`;
-    this.root.style.top = `${Math.max(0, Math.min(innerHeight - r.height, y))}px`;
+    const c = clampToStage(x, y, r.width, r.height);
+    this.root.style.left = `${c.x}px`;
+    this.root.style.top = `${c.y}px`;
   }
 
   private keepInside() {
