@@ -266,7 +266,7 @@ describe('포션 5단계', () => {
     p.hp = 1;
     w.usePotion(p, 'hp');
     expect(countItem(s, 'hp_m')).toBe(0);
-    expect(p.hp).toBe(1 + POTIONS.hp_m.amount);
+    expect(p.hp).toBe(Math.min(p.stats.maxHp, 1 + POTIONS.hp_m.amount));
     p.potionCd = 0; p.hp = 1;
     w.usePotion(p, 'hp_xl');
     expect(countItem(s, 'hp_xl')).toBe(0);
