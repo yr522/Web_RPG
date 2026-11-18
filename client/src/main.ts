@@ -15,23 +15,17 @@ import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
-import { ASPECT, stageRect } from './ui/stage';
+import { canvasRect, setFullWindowStage, stageRect, viewWidth } from './ui/stage';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 // ?ui=pc / ?ui=mobile 로 강제 가능 (PC에서 모바일 화면 확인용)
 const uiMode: UiMode = params.get('ui') === 'mobile' ? 'mobile' : params.get('ui') === 'pc' ? 'pc' : isTouch ? 'mobile' : 'pc';
 
-/**
- * 게임 화면 비율은 16:9 로 고정 (배경 그림 한 화면 = 1920×1080 과 같게).
- * 창이 더 넓으면 양옆, 더 길면 위아래가 검은 띠. HUD·창도 이 16:9 안에 들어간다
- */
-/** 월드 화면 폭: 높이 VIEW_H 기준 */
-const viewWidth = () => Math.round(VIEW_H * ASPECT);
 /** NPC 창(대화·상점·대장간 등) 배율: 게임 화면 높이 720 에서 1배, 더 크면 그만큼 키움 (작은 화면은 1배 그대로) */
 const UI_BASE_H = 720;
 
-/** 게임 화면(16:9) 자리를 CSS 변수로: --gx·--gy 왼쪽 위, --gw·--gh 크기, --ui NPC 창 배율 */
+/** 게임 화면(HUD·창) 자리를 CSS 변수로: --gx·--gy 왼쪽 위, --gw·--gh 크기, --ui NPC 창 배율 */
 function stageVars() {
   const r = stageRect(), st = document.documentElement.style;
   st.setProperty('--gw', `${r.w}px`);
@@ -47,12 +41,13 @@ function stageVars() {
  */
 function canvasLayout() {
   const vw = viewWidth();
-  const cssH = Math.min(innerHeight, innerWidth / ASPECT);
+  const cssH = canvasRect().h;
   const zoom = (cssH * Math.min(devicePixelRatio || 1, 3)) / VIEW_H;
   return { width: Math.round(vw * zoom), height: Math.round(VIEW_H * zoom), zoom };
 }
 
 async function boot() {
+  setFullWindowStage(uiMode === 'mobile');
   stageVars();
   // 모바일: 가로 + 전체화면 안내 (가로 안내와 같은 기준 = 손가락 터치 기기)
   setupMobileGate(matchMedia('(pointer: coarse)').matches);
