@@ -163,3 +163,39 @@ describe('저장', () => {
     expect(back.quests.q1.counts).toEqual([3]);
   });
 });
+
+describe('매점 팔기', () => {
+  it('산 값의 50%, 점액 1G, 슬라임 장비 100G, 퀘스트 물건은 못 팖', async () => {
+    const { sellPrice, ITEMS } = await import('../shared/data/items');
+    expect(sellPrice('hp')).toBe(Math.floor(ITEMS.hp.price! * 0.5));
+    expect(sellPrice('slime_gel')).toBe(1);
+    expect(sellPrice('slime_armor')).toBe(100);
+    expect(sellPrice('slime_ring')).toBe(100);
+    expect(sellPrice('workshop_key')).toBe(0);
+  });
+  it('여러 개 중 일부·전부 팔기, 골드 들어옴', () => {
+    const s = fresh();
+    addItem(s, 'slime_gel', 5);
+    const i = s.bag.findIndex(e => e?.id === 'slime_gel');
+    expect(applyAction(s, { type: 'sell', index: i, n: 2 }, 0).ok).toBe(true);
+    expect(countItem(s, 'slime_gel')).toBe(3);
+    expect(s.gold).toBe(2);
+    applyAction(s, { type: 'sell', index: i, n: 99 }, 0);
+    expect(countItem(s, 'slime_gel')).toBe(0);
+    expect(s.bag[i]).toBeNull();
+    expect(s.gold).toBe(5);
+  });
+  it('끼고 있는 장비·퀘스트 물건·빈 칸은 못 팖', () => {
+    const s = fresh();
+    addItem(s, 'slime_armor'); addItem(s, 'workshop_key');
+    const a = s.bag.findIndex(e => e?.id === 'slime_armor'), k = s.bag.findIndex(e => e?.id === 'workshop_key');
+    toggleEquip(s, a);
+    expect(applyAction(s, { type: 'sell', index: a, n: 1 }, 0).ok).toBe(false);
+    expect(applyAction(s, { type: 'sell', index: k, n: 1 }, 0).ok).toBe(false);
+    expect(applyAction(s, { type: 'sell', index: 59, n: 1 }, 0).ok).toBe(false);
+    expect(s.gold).toBe(0);
+    toggleEquip(s, a);
+    expect(applyAction(s, { type: 'sell', index: a, n: 1 }, 0).ok).toBe(true);
+    expect(s.gold).toBe(100);
+  });
+});

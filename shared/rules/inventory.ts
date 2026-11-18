@@ -2,7 +2,7 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { OptionId } from '../data/gear';
 import { itemBonus } from './gear';
@@ -101,6 +101,20 @@ export function unequip(s: SaveData, slot: EquipSlot): string | null {
   if (s.equip[slot] === undefined) return '빈 칸이야';
   delete s.equip[slot];
   return null;
+}
+
+/** 매점에 팔기: 가방 index 칸에서 n 개. 받은 골드를 돌려줌 (못 팔면 이유 글) */
+export function sellItem(s: SaveData, index: number, n: number): { gold: number } | string {
+  const e = Number.isInteger(index) ? s.bag[index] : null;
+  if (!e) return '없는 물건이야';
+  const price = sellPrice(e.id);
+  if (price <= 0) return '팔 수 없는 물건이야';
+  if (equippedSlot(s, e.uid)) return '착용 중인 장비야';
+  const k = Math.max(1, Math.min(e.n, Math.floor(n) || 1));
+  e.n -= k;
+  if (e.n <= 0) s.bag[index] = null;
+  s.gold += price * k;
+  return { gold: price * k };
 }
 
 /** 가방 칸 옮기기: 빈 칸이면 옮기고, 물건이 있으면 서로 자리를 바꾼다 */

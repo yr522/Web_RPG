@@ -288,6 +288,8 @@ html, body {
 .smith-cell .item-ico { --ico: 30px; }
 .smith-cell.sel { outline: 3px solid var(--c-mint); outline-offset: 1px; }
 .card.smith { align-items: stretch; }
+/* 매점 팔기: 아이콘 칸 (+n · 파괴 표시가 붙음) */
+.sell-ico { position: relative; flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; --s: 1px; }
 .card.smith > b span { background: var(--c-brown); padding: 0 6px; border-radius: 4px; }
 .smith-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .smith-opt { display: flex; align-items: center; gap: 8px; }

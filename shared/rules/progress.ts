@@ -3,7 +3,7 @@
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sortBag, toggleEquip, unequip } from './inventory';
+import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip } from './inventory';
 import { QUESTS, questDef } from '../data/quests';
 import { enhance, optionUp, repair, reroll } from './gear';
 import { acceptQuest, questState, reportQuest, togglePin } from './quests';
@@ -14,6 +14,8 @@ import type { SaveData } from '../sim/save';
 
 export type MenuAction =
   | { type: 'buy'; item: ItemId; n: number }
+  /** 매점에 팔기: 가방 index 칸에서 n 개 */
+  | { type: 'sell'; index: number; n: number }
   | { type: 'questAccept'; id: string }
   | { type: 'questReport'; id: string }
   /** 퀘스트 핀 꽂기 / 빼기 */
@@ -158,6 +160,10 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       s.gold -= cost;
       addItem(s, a.item, a.n);
       return { ok: true, msg: `${it.icon} ${it.name} ${a.n}개 구매!` };
+    }
+    case 'sell': {
+      const r = sellItem(s, a.index, a.n);
+      return typeof r === 'string' ? fail(r) : { ok: true, msg: `+${r.gold} G` };
     }
     case 'questAccept': {
       // 메뉴로 받는 건 교수님 퀘스트만 (이야기 퀘스트는 대사로)
