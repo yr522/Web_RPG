@@ -12,6 +12,9 @@ import type { Fx } from '@shared/sim/types';
 import type { Enemy } from '@shared/sim/entities';
 
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
+/** 바닥에 떨어진 물건 그림의 화면 크기 (원본이 16·32·64 여도 이 크기로 맞춤) */
+const DROP_ICON_PX = 32;
+
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
 import { VFX, createVfxAnims, preloadVfx, vfxKey } from './vfx';
@@ -933,7 +936,10 @@ export class GameScene extends Phaser.Scene implements Stage {
       const obj = img && this.textures.exists(key)
         ? this.add.image(0, 0, key).setOrigin(0.5, 1)
         : this.add.text(0, 0, itemDef(item)?.icon ?? '?', { fontSize: '22px' }).setOrigin(0.5, 1).setResolution(this.zoom);
-      if (obj instanceof Phaser.GameObjects.Image) obj.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      if (obj instanceof Phaser.GameObjects.Image) {
+        obj.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        obj.setScale(DROP_ICON_PX / Math.max(obj.width, obj.height)); // 16·32·64 어느 크기든 같은 크기로
+      }
       d = { item, obj: obj.setDepth(4.6) };
       this.dropSprites.set(id, d);
     }
