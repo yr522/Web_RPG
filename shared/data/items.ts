@@ -79,12 +79,39 @@ const gradeWeapon = (grade: Grade, n: number): ItemDef => {
   return { name: `${GRADES[grade].name} 테스트 무기`, kind: 'equip', desc: bonusText(bonus), icon: '🗡️', img: ARMOR_IMG, price: 100, bulk: [1], part: 'weapon', bonus, grade };
 };
 
+/**
+ * 포션 5단계. id 순서 = 작은 것부터 (1·2번 키는 가진 것 중 가장 작은 것부터 씀).
+ * hp·mp 는 예전 포션 id 그대로 (= 소형). 그림: assets/img/icon/item/potion/red_* · blue_*
+ */
+export const POTION_TIERS = [
+  { suffix: '', name: '소형', img: 'small', hp: 50, mp: 40, price: 30 },
+  { suffix: '_ms', name: '중소형', img: 'small_plus', hp: 120, mp: 100, price: 80 },
+  { suffix: '_m', name: '중형', img: 'medium', hp: 250, mp: 200, price: 180 },
+  { suffix: '_l', name: '대형', img: 'medium_plus', hp: 500, mp: 400, price: 400 },
+  { suffix: '_xl', name: '초대형', img: 'large', hp: 1000, mp: 800, price: 900 },
+] as const;
+export type PotionKind = 'hp' | 'mp';
+/** 포션 id → 종류·회복량 */
+export const POTIONS: Record<string, { kind: PotionKind; amount: number }> = {};
+for (const t of POTION_TIERS) for (const k of ['hp', 'mp'] as const) POTIONS[k + t.suffix] = { kind: k, amount: t[k] };
+/** 종류별 포션 id (작은 것부터) */
+export const potionIds = (k: PotionKind) => POTION_TIERS.map(t => k + t.suffix);
+
+function potionItems() {
+  const out: Record<string, ItemDef> = {};
+  for (const t of POTION_TIERS) {
+    out['hp' + t.suffix] = { name: `${t.name} HP 포션`, kind: 'use', icon: '🧪', img: `item/potion/red_${t.img}`, price: t.price, desc: `HP ${t.hp} 회복 (1번 키)`, bulk: [1, 10] };
+    out['mp' + t.suffix] = { name: `${t.name} MP 포션`, kind: 'use', icon: '💧', img: `item/potion/blue_${t.img}`, price: t.price, desc: `MP ${t.mp} 회복 (2번 키)`, bulk: [1, 10] };
+  }
+  return out as Record<'hp' | 'mp' | 'hp_ms' | 'mp_ms' | 'hp_m' | 'mp_m' | 'hp_l' | 'mp_l' | 'hp_xl' | 'mp_xl', ItemDef>;
+}
+
 const ITEM_LIST = {
-  hp: { name: 'HP 포션', kind: 'use', icon: '🧪', price: 30, desc: 'HP 50 회복 (1번 키)', bulk: [1, 10] },
-  mp: { name: 'MP 포션', kind: 'use', icon: '💧', price: 30, desc: 'MP 40 회복 (2번 키)', bulk: [1, 10] },
+  // 포션 5단계 (소형 → 초대형). 회복량·가격은 POTIONS 표에서
+  ...potionItems(),
   reset: { name: '스킬트리 초기화 주문서', kind: 'use', icon: '📜', price: 1000, desc: '배운 스킬을 모두 초기화. 교수님께 원소를 다시 골라 배울 수 있어. 스킬 레벨은 유지돼.', bulk: [1] },
   test_letter: { name: '테스트 편지', kind: 'etc', icon: '✉️', desc: '이야기 테스트용 편지' },
-  workshop_key: { name: '공방 퀘스트 템', kind: 'etc', icon: '⚙️', desc: '임시' },
+  workshop_key: { name: '공방 퀘스트 템', kind: 'etc', icon: '⚙️', img: 'item/quest/workshop_key', desc: '임시' },
   slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/material/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액', sell: 1 },
   // 테스트용 장비 (매점 모리)
   test_hat: testEquip('테스트 모자', 'hat'),
@@ -122,7 +149,7 @@ export function sellPrice(id: string) {
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [
-  'hp', 'mp', 'reset',
+  'hp', 'hp_ms', 'hp_m', 'hp_l', 'hp_xl', 'mp', 'mp_ms', 'mp_m', 'mp_l', 'mp_xl', 'reset',
   'test_hat', 'test_necklace', 'test_weapon', 'test_top', 'test_gloves', 'test_bottom', 'test_shoes', 'test_ring',
   'grade_common', 'grade_rare', 'grade_epic', 'grade_legendary', 'grade_mythic',
 ];
@@ -133,4 +160,4 @@ export const START_ITEMS: { id: ItemId; n: number }[] = [{ id: 'hp', n: 3 }, { i
 /** 가방 칸 수 (4칸 × 15줄). 장비는 1칸에 1개, 나머지는 같은 것끼리 1칸 */
 export const BAG_SIZE = 60;
 
-export const POTION = { hp: 50, mp: 40, cooldown: 0.8 };
+export const POTION = { cooldown: 0.8 };

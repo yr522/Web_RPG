@@ -46,7 +46,7 @@ const COIN_URLS = { bronze: coinBronze, iron: coinIron, silver: coinSilver, gold
 /** 화면 높이 (월드 좌표). 땅(470)이 화면 76% 높이에 오도록 해서 아래쪽 HUD에 캐릭터가 가리지 않게 한다. 폭은 화면 비율에 따라 720~1280 */
 /** 맵 밖으로 더 그리는 땅 폭 (화면이 맵보다 넓을 때용) */
 const EDGE = 400;
-import { VIEW_H } from '../ui/stage';
+import { VIEW_H, VIEW_MAX_W } from '../ui/stage';
 export { VIEW_H };
 /** 세로로 긴 맵에서 카메라가 안 따라가는 범위: 발이 화면 위에서 이 비율 사이에 있으면 그대로 (벗어나면 따라감) */
 const CAM_BAND = { top: 0.42, bottom: 0.8 };
@@ -253,8 +253,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const o of this.vfxSprites) o.sp.destroy();
     this.vfxSprites = [];
     const { world, save } = this.deps.session, map = world.map;
-    // 배경 그림이 없는 맵: 맵 밖(화면보다 짧은 맵의 양옆)은 검정
-    if (!map.bg && !map.bgTime) {
+    // 배경 그림이 없는 맵, 시간대 배경이 있어도 화면보다 짧은 맵: 맵 밖(양옆)은 검정
+    if (!map.bg && (!map.bgTime || map.width < VIEW_MAX_W)) {
       const top = (map.top ?? 0) - 3000;
       const mask = this.add.graphics().fillStyle(0x000000).fillRect(-4000, top, 4000, 8000).fillRect(map.width, top, 4000, 8000);
       mask.setDepth(8);

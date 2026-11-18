@@ -3,7 +3,7 @@
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
 // 가방 칸은 끌어다 놓아 옮길 수 있다 (빈 칸이면 옮기고, 물건이 있으면 자리 바꿈). 아래 정렬 버튼으로 자동 정렬.
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
-import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, POTIONS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
 import { equippedEntry, equippedSlot, type BagEntry } from '@shared/rules/inventory';
 import { compareGear } from '@shared/rules/gear';
 import type { ActionResult } from '@shared/rules/progress';
@@ -390,7 +390,7 @@ export class InventoryWindow {
     const d = itemDef(id);
     if (!d) return;
     if (d.kind === 'equip') return this.result(this.session.act({ type: 'equip', index }));
-    if (id === 'hp' || id === 'mp') return this.session.usePotion(id);
+    if (POTIONS[id]) return this.session.usePotion(id);
     if (id === 'reset') {
       // 한 번 더 눌러야 사용 (캐릭터 창과 같은 방식)
       const now = performance.now();

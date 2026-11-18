@@ -6,6 +6,7 @@ import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
 import { hudQuests, questLines } from '@shared/rules/quests';
 import { countItem } from '@shared/rules/inventory';
+import { potionIds } from '@shared/data/items';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import { BOSS_BAR } from '@shared/data/bosses';
 import { comboColor } from '@shared/data/combo';
@@ -358,8 +359,8 @@ export class Hud {
     this.set('expT', this.els.exp.querySelector('span')!, 'text', `EXP ${(100 * save.exp / need).toFixed(2)}%`);
     this.set('expW', this.els.exp.querySelector('i')!, 'width', `${(100 * save.exp / need).toFixed(2)}%`);
 
-    this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(countItem(save, 'hp')));
-    this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(countItem(save, 'mp')));
+    this.set('potHp', this.els.potHp.querySelector('b')!, 'text', String(potionIds('hp').reduce((n, id) => n + countItem(save, id), 0)));
+    this.set('potMp', this.els.potMp.querySelector('b')!, 'text', String(potionIds('mp').reduce((n, id) => n + countItem(save, id), 0)));
 
     // 버프·디버프: 없으면 아무것도 없음, 새로 걸리면 뒤에 붙음, 끝나면 빠짐
     const buffs = playerBuffs(p);
