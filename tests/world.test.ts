@@ -213,10 +213,10 @@ describe('검사 회류참 (4식)', () => {
     p.face = 1;
     const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
     w.enemies.length = 0;
-    const far = inside.spawnEnemy('guard_a', p.x + p.w + 260, null);
+    const far = inside.spawnEnemy('guard_a', p.x + p.w + 110, null);
     const behind = inside.spawnEnemy('guard_a', p.x - 30, null);
     const out = inside.spawnEnemy('guard_a', p.x + p.w + HOERYU.front + 120, null);
-    const boss = inside.spawnEnemy('guard_boss', p.x + p.w + 150, null);
+    const boss = inside.spawnEnemy('guard_boss', p.x + p.w + 70, null);
     for (const e of [far, behind, out, boss]) { e.maxHp = e.hp = 1e6; }
     const bossX = boss.x, x0 = p.x;
     w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
