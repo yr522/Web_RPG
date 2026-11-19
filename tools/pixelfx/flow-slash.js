@@ -25,37 +25,50 @@ export const meta = {
 
 // 게임 수치: 뒤로 280px → 140 칸, 0.32초
 const BACK = -140, SLIDE = 0.32, END = 0.46;
-const START = 10;                 // 검기 시작 (몸 앞 칼끝)
-const STOP = BACK * 0.86;         // 여기쯤에서 두께 0
-const MID = -24;                  // 검기 가운데 높이 (발 위)
-const MAXW = 5.5;                 // 가장 두꺼운 곳 반두께
-const AGE = 0.2;                  // 그어진 뒤 사라지기까지
+const HAND = 5, HAND_Y = -11;      // 칼끝 = 손: 몸 중심보다 앞, 키의 절반쯤 높이
+const START = HAND;
+const SPAN = 0.8;                  // 미끄러진 길이의 이 비율에서 두께 0 (도착 직전 사라짐)
+const MAXW = 5;                    // 가장 두꺼운 곳 반두께
+const AGE = 0.13;                  // 그어진 뒤 사라지기까지 (짧을수록 검기가 짧음)
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
 const bodyX = (t) => BACK * clamp(t / SLIDE, 0, 1);
-// 칼끝 = 몸보다 조금 앞. 처음엔 빨리 나가 몸을 따라감
-const headX = (t) => START + (STOP - START) * ease.outQuad(clamp(t / (SLIDE * 0.92), 0, 1));
-// headX 의 역: 이 x 가 언제 그어졌나
-const drawnAt = (x) => { const u = clamp((x - START) / (STOP - START), 0, 1); return SLIDE * 0.92 * (1 - Math.sqrt(1 - u)); };
-// 출렁임: 고르지 않은 파도 (큰 물결 + 작은 물결)
-const waveY = (x) => { const s = (START - x) / (START - STOP); const ph = s * 6.4 + 0.4; return MID + 10 * (Math.sin(ph) + 0.4 * Math.sin(2 * ph + 0.8)) * (1 - 0.45 * s) + 2 * Math.sin(s * 17 + 1.3) - 5 * (1 - s) * (1 - s); };
-// 두께: 시작 근처 가장 두껍고 끝으로 가늘어짐, 불규칙하게 굵어졌다 가늘어졌다
-const widthAt = (x) => { const s = clamp((START - x) / (START - STOP), 0, 1); const shape = Math.pow(Math.sin(Math.PI / 2 * Math.min(1, s * 6)), 0.6) * (s < 1 / 6 ? 1 : Math.pow(1 - (s - 1 / 6) / (5 / 6), 1.4)); return MAXW * shape * (0.75 + 0.25 * Math.sin(s * 23) * Math.sin(s * 9 + 2)); };
+// 칼끝은 손에 붙어 몸과 같이 움직임
+const headX = (t) => bodyX(t) + HAND;
+const sOf = (x) => clamp((START - x) / -BACK, 0, 1);
+const drawnAt = (x) => SLIDE * sOf(x);
+// 손은 살짝 오르내림. 그어진 뒤엔 크게 출렁이며 펼쳐짐 (나이가 들수록 파도가 커짐, 아래로는 덜)
+const waveY = (x, age) => {
+  const s = sOf(x), hand = HAND_Y + 2.5 * Math.sin(s * 11 + 0.3);
+  const grow = ease.outCubic(clamp(age / 0.09, 0, 1));
+  let off = 14 * (1 - 0.35 * s) * (Math.sin(s * 15 + 0.4) + 0.3 * Math.sin(s * 31 + 1.7)) - 5;
+  if (off > 0) off *= 0.45;
+  return hand + grow * off;
+};
+// 두께: 뒤로 갈수록 가늘어짐 + 불규칙
+const widthAt = (x) => { const s = sOf(x); if (s >= SPAN) return 0; return MAXW * Math.pow(1 - s / SPAN, 0.8) * (0.7 + 0.3 * Math.sin(s * 31) * Math.sin(s * 13 + 2)); };
 
-export function draw(p, t, o) {
+// 게임에서 그림이 캐릭터보다 한 프레임 늦게 시작해서, 그림 쪽 시간을 한 프레임 앞당김
+const LEAD = 1 / 30;
+
+export function draw(p, t0, o) {
+  const t = t0 + LEAD;
   if (t >= END) return;
   const C = fit(o.palette, 5);
   const color = o.layer !== "core", core = o.layer !== "color";
   const head = headX(t);
 
+  let prevY = null;
   for (let x = Math.ceil(head); x <= START; x++) {
     const age = t - drawnAt(x);
     const life = 1 - clamp(age / AGE, 0, 1);
-    const th = widthAt(x) * ease.outQuad(life);
+    const th = widthAt(x) * Math.min(1, 0.4 + age / 0.025) * ease.outQuad(life);
+    const yc = waveY(x, age);
+    const py = prevY ?? yc; prevY = yc;
     if (th < 0.4) continue;
-    const yc = waveY(x);
     // 위아래 가장자리를 줄마다 조금씩 들쭉날쭉
-    const top = yc - th * (0.85 + 0.3 * hash(x, 11)), bot = yc + th * (0.6 + 0.3 * hash(x, 12));
+    // 가파른 곳은 앞 칸과 이어지게 세로로 채움
+    const top = Math.min(yc, py) - th * (0.85 + 0.3 * hash(x, 11)), bot = Math.max(yc, py) + th * (0.6 + 0.3 * hash(x, 12));
     const hot = x - head < 3;
     if (color) {
       for (let y = Math.round(top); y <= Math.round(bot); y++) {
@@ -72,11 +85,11 @@ export function draw(p, t, o) {
     }
     if (core) {
       const cth = th * 0.38;
-      if (cth >= 0.35) for (let y = Math.round(yc - cth - 0.5); y <= Math.round(yc + cth - 0.5); y++) p.px(x, y, WHITE);
+      if (cth >= 0.35) for (let y = Math.round(Math.min(yc, py) - cth - 0.5); y <= Math.round(Math.max(yc, py) + cth - 0.5); y++) p.px(x, y, WHITE);
     }
   }
   // 칼끝 반짝임
-  if (core && t < SLIDE * 0.7) { const y = Math.round(waveY(head)); p.px(Math.ceil(head), y, WHITE); p.px(Math.ceil(head) - 1, y, WHITE); }
+  if (core && t < SLIDE * SPAN * 0.9) { const y = Math.round(waveY(head, 0)); p.px(Math.ceil(head), y, WHITE); p.px(Math.ceil(head) - 1, y, WHITE); }
 
   // 발밑 먼지: 몸이 지나간 자리에서 불규칙하게 튀어 오름
   for (let i = 0; i < 46; i++) {
