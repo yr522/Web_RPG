@@ -165,7 +165,7 @@ export const HINT = {
   /** 덫: 앞 dist 거리 바닥에 설치, arm 초 뒤부터 작동, life 초 유지, 동시에 max 개. 불 = 폭발, 땅 = 묶기(rootTime 초, 보스는 안 묶임) */
   deot: { dist: 40, arm: 0.3, life: 12, max: 2, boomCoef: 2.4, boomW: 150, rootCoef: 1.2, rootTime: 2.5 },
   /** 그림자 화살: 관통 coef + 적의 잃은 HP × lostPct 추가 피해 (최대 공격력 × capCoef) */
-  geurimja: { coef: 1.6, range: 520, lostPct: 0.12, capCoef: 3 },
+  geurimja: { coef: 1.6, range: 520, lostPct: 0.12, capCoef: 3, windup: 0.5, speed: 2600, trailLife: 0.8 },
 };
 
 export const PASSIVE = {
