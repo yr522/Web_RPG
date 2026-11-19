@@ -54,7 +54,8 @@ export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
   | { kind: 'ring'; x: number; y: number; color: string; r0: number; r1: number; life: number }
-  | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number }
+  /** 잔상. owner 가 있으면 그 플레이어의 지금 모습을 본뜬 그림 (없으면 네모) */
+  | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number; owner?: string }
   /** 원소 기둥: x = 가운데, by = 바닥 */
   | { kind: 'pillar'; x: number; by: number; w: number; h: number; color: string; life: number }
   /** 원소 파도 한 칸: x = 왼쪽, y = 바닥 */

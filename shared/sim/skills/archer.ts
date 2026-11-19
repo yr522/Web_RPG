@@ -85,7 +85,7 @@ function aimAction(w: SkillWorld, p: PlayerState, name: string, maxAng: number, 
 export function startGrapple(w: SkillWorld, p: PlayerState) {
   const a = p.chainArrow;
   if (!a || a.dead) return;
-  const tx = a.x, ty = a.y;
+  const tx = a.x, ty = a.y, c = color(a.elem ?? null);
   a.dead = true; p.chainArrow = null; p.lockT = 0;
   p.ropeTo = { x: tx, y: ty };
   const act: PlayerAction = {
@@ -94,7 +94,7 @@ export function startGrapple(w: SkillWorld, p: PlayerState) {
       const dx = tx - cx(p), dy = ty - cy(p), d = Math.hypot(dx, dy);
       if (d < 22) { act.dur = act.t; return; }
       p.vx = dx / d * 1400; p.vy = dy / d * 1400;
-      w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: '#ccffee', life: 0.15 });
+      w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: c, life: 0.22, owner: p.id });
     },
     end: () => { p.vx *= 0.3; p.vy = Math.min(p.vy * 0.3, -200); },
   };

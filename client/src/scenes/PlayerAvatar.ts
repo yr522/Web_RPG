@@ -182,4 +182,13 @@ export class PlayerAvatar {
   }
 
   setVisible(v: boolean) { this.root.setVisible(v); }
+
+  /** 잔상: 지금 모습을 그대로 본뜬 그림이 한 색으로 칠해져 제자리에 남았다가 서서히 사라짐 */
+  ghost(color: number, life: number, alpha = 0.55) {
+    if (!this.root.visible) return;
+    const scene = this.root.scene;
+    const parts = this.parts.map(sp => scene.add.sprite(0, 0, sp.texture.key, sp.frame.name).setOrigin(sp.originX, sp.originY).setTintFill(color));
+    const c = scene.add.container(this.root.x, this.root.y, parts).setScale(this.root.scaleX, this.root.scaleY).setDepth(this.root.depth - 0.1).setAlpha(alpha);
+    scene.tweens.add({ targets: c, alpha: 0, duration: life * 1000, onComplete: () => c.destroy() });
+  }
 }
