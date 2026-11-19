@@ -19,11 +19,12 @@ import { ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPT_MAX_TIER, OPT_UP_COST, REROL
 import { baseBonus, optionValue } from '@shared/rules/gear';
 import { bonusLine, itemDef, type BonusId } from '@shared/data/items';
 import type { BagEntry } from '@shared/rules/inventory';
-import profMagePortrait from '../../../assets/temp/magician_professer_portrait.png';
+import teacherMagic from '../../../assets/img/portrait/teacher_magic.png';
+import teacherBow from '../../../assets/img/portrait/teacher_bow.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 
-/** 교수님 포트레이트 (임시로 모든 학과 교수님이 같은 그림). 학과별 그림이 생기면 여기만 바꾸면 된다 */
-const PROF_PORTRAIT: Record<string, string | null> = { warrior: profMagePortrait, mage: profMagePortrait, archer: profMagePortrait };
+/** 교수님 포트레이트 (assets/img/portrait). 검술과는 그림이 아직 없어서 빈 칸 */
+const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teacherMagic, archer: teacherBow };
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
@@ -55,7 +56,8 @@ export class NpcDialog {
 
   /** 대화창 틀: 왼쪽 포트레이트, 오른쪽 이름·대사·선택지 */
   private frame(name: string, portrait: string | null, icon: string) {
-    const box = el('div', 'npc-dlg');
+    // 포트레이트가 들어가는 대화창: 왼쪽에 포트레이트 자리를 비우고, 대사창은 그 오른쪽 (대사창 폭은 그대로)
+    const box = el('div', 'npc-dlg pic');
     const pic = el('div', 'npc-portrait');
     if (portrait) { const img = el('img'); img.src = portrait; img.alt = name; pic.appendChild(img); }
     else pic.appendChild(el('div', 'npc-portrait-ph', `<span>${icon}</span><small>그림 준비 중</small>`));
