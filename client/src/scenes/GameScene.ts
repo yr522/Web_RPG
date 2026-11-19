@@ -981,9 +981,27 @@ export class GameScene extends Phaser.Scene implements Stage {
           if (i === 0) sp.setTint(hex(v.color));
           return sp.play(vfxKey(n));
         }));
+        // 뒷배경 (유저 그림): 커지고 → 도는 동안 반복
+        const b = VFX.soyong_bg;
+        const back = ['soyong_bg', b.core!].map((n, i) => {
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(i === 0 ? 5.4 : 5.45).setScale(b.scale * v.r / 300).setData('bg', true);
+          if (i === 0) sp.setTint(hex(v.color));
+          sp.play(vfxKey(n) + ':in').chain(vfxKey(n) + ':loop');
+          return sp;
+        });
+        this.vortexSprites.get(v)!.push(...back);
       }
     }
-    for (const [v, l] of this.vortexSprites) if (!world.vortices.includes(v as never)) { l.forEach(sp => sp.destroy()); this.vortexSprites.delete(v); }
+    // 소용돌이가 끝나면: 앞 그림은 바로 지우고, 뒷배경은 줄어드는 칸을 재생하고 지움
+    for (const [v, l] of this.vortexSprites) if (!world.vortices.includes(v as never)) {
+      for (const sp of l) {
+        if (!sp.getData('bg')) { sp.destroy(); continue; }
+        sp.chain(); // 이어 붙인 반복 칸 취소
+        sp.play(sp.anims.currentAnim!.key.replace(/:(in|loop)$/, ':out'));
+        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sp.destroy());
+      }
+      this.vortexSprites.delete(v);
+    }
 
     // 궁수 덫: 바닥 위 톱니 모양 (작동 전엔 흐리게)
     for (const tr of world.traps) {
@@ -1038,7 +1056,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (me.ropeTo) {
       const h = VFX.harpoon, el = me.data.learned.sasl;
       if (!this.ropeHarpoon) {
-        this.ropeHarpoon = this.add.sprite(0, 0, vfxKey('harpoon'), 0).setDepth(5.6).setOrigin(h.origin![0] / h.frame, h.origin![1] / h.frameH!).setScale(h.scale);
+        this.ropeHarpoon = this.add.sprite(0, 0, vfxKey('harpoon'), 0).setDepth(6.6).setOrigin(h.origin![0] / h.frame, h.origin![1] / h.frameH!).setScale(h.scale);
         if (el) this.ropeHarpoon.setTint(hex(ELEMENTS[el].color));
       }
       const ang = Math.atan2(me.ropeTo.y - (y + me.h / 2), me.ropeTo.x - (x + me.w / 2));
@@ -1279,7 +1297,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       });
       // 사슬 화살: 끝에 작살 그림 (화살은 작살 뒤에 꽂힌 자루처럼)
       if (chain) {
-        const hs = this.add.sprite(o.x, o.y, vfxKey('harpoon'), 0).setDepth(5.6).setOrigin(hd.origin![0] / hd.frame, hd.origin![1] / hd.frameH!);
+        const hs = this.add.sprite(o.x, o.y, vfxKey('harpoon'), 0).setDepth(6.6).setOrigin(hd.origin![0] / hd.frame, hd.origin![1] / hd.frameH!);
         if (tint !== null) hs.setTint(tint);
         l.push(hs);
       }
