@@ -123,16 +123,13 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     const el = w.elemOf(p, 'cheonbung'), c = color(el);
     p.cbWindow = 0;
     w.float(cx(p), p.y - 30, '오의 · 천붕!', c, 20, 0.9);
+    // 연속 베기 그림 (모으기 1칸 + 베기 5칸, 몸 중심)
+    w.fx({ kind: 'anim', anim: 'cheonbung', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, life: 0.67 });
     const events = [];
     for (let i = 0; i < 5; i++) {
       events.push({
         at: 0.06 + i * 0.11, fn: () => {
           w.addHB(p, { center: true, dx: 0, dy: 0, w: R.cheonbung.w, h: R.cheonbung.h, coef: 1.1, elem: el, order: 4, chain, kb: i === 4 ? 260 : 60, launch: i === 4 ? -380 : -90, life: 0.05, skill: 'cheonbung' });
-          for (let j = 0; j < 3; j++) {
-            const ang = w.rng() * Math.PI, len = 130 + w.rng() * 80;
-            const mx = cx(p) + (w.rng() - 0.5) * R.cheonbung.w * 0.6, my = cy(p) + (w.rng() - 0.5) * R.cheonbung.h * 0.5;
-            w.fx({ kind: 'line', x1: mx - Math.cos(ang) * len / 2, y1: my - Math.sin(ang) * len / 2, x2: mx + Math.cos(ang) * len / 2, y2: my + Math.sin(ang) * len / 2, color: c, w: 5, life: 0.16 });
-          }
           if (i === 4) w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 20, r1: R.cheonbung.w * 0.55, life: 0.4 });
         },
       });
