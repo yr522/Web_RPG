@@ -409,6 +409,11 @@ export class World implements SkillWorld {
     return o;
   }
   addVortex(_p: PlayerState, v: Vortex) { this.vortices.push(v); }
+  surfaceBelow(x: number, y: number) {
+    let best = Infinity;
+    for (const s of this.solids) if (x >= s.x && x <= s.x + s.w && s.y >= y && s.y < best) best = s.y;
+    return best === Infinity ? GROUND_Y : best;
+  }
   hitRadius(p: PlayerState, x: number, y: number, r: number, coef: number, skill: string) {
     const atk: Attack = { owner: p, face: p.face, coef, elem: null, order: 0, chain: false, kb: 0, sm: this.skillMult(p, skill), skill };
     for (const e of this.enemies) if (!e.dead && Math.hypot(cx(e) - x, cy(e) - y) <= r) this.hitEnemy(e, atk);

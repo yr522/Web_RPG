@@ -1286,23 +1286,23 @@ export class GameScene extends Phaser.Scene implements Stage {
     if (d.core) this.playVfx({ ...f, anim: d.core, color: undefined });
   }
 
-  /** 후방 도약 화살: 공중 사선에 서서히 나타남 → 잠깐 멈춤 → 점점 빨라지며 땅에 박힘 → 박힌 채 남았다가 서서히 사라짐 */
+  /** 후방 도약 화살: 플레이어 몸에서 서서히 나타남 → 잠깐 멈춤 → 점점 빨라지며 박힐 자리(발판·바닥)로 날아가 박힘 → 박힌 채 남았다가 서서히 사라짐 */
   private dropArrow(f: Extract<Fx, { kind: 'droparrow' }>) {
-    const A = DOYAK.arrow, tint = f.color ? hex(f.color) : null, left = Math.cos(f.ang) < 0;
+    const A = DOYAK.arrow, tint = f.color ? hex(f.color) : null, ang = Math.atan2(f.y - f.sy, f.x - f.sx), left = Math.cos(ang) < 0;
     const make = (name: string) => {
       const d = VFX[name], sc = A.len / d.len!;
       return [name, d.core!].map((n, i) => {
         const sp = this.add.sprite(f.x, f.y, vfxKey(n), 0).setDepth(5.5).setOrigin(d.origin![0] / d.frame, d.origin![1] / (d.frameH ?? d.frame))
-          .setScale(sc * d.scale).setRotation(f.ang).setFlipY(left);
+          .setScale(sc * d.scale).setRotation(ang).setFlipY(left);
         if (i === 0 && tint !== null) sp.setTint(tint);
         return sp;
       });
     };
     const fly = make('arrow_big');
-    fly.forEach(sp => sp.play(sp.texture.key).setPosition(f.x - Math.cos(f.ang) * A.dist, f.y - Math.sin(f.ang) * A.dist).setAlpha(0));
+    fly.forEach(sp => sp.play(sp.texture.key).setPosition(f.sx, f.sy).setAlpha(0));
     this.tweens.add({ targets: fly, alpha: 1, duration: A.appear * 1000 });
     this.tweens.add({
-      targets: fly, x: f.x, y: f.y, delay: (A.appear + A.hold) * 1000, duration: A.drop * 1000, ease: 'Cubic.easeIn',
+      targets: fly, x: f.x, y: f.y, delay: (A.appear + A.hold) * 1000, duration: f.fly * 1000, ease: 'Quad.easeIn',
       onComplete: () => {
         fly.forEach(sp => sp.destroy());
         const stuck = make('arrow_still');
@@ -1356,10 +1356,22 @@ export class GameScene extends Phaser.Scene implements Stage {
       } else if (f.kind === 'line') {
         g.lineStyle(f.w, hex(f.color), al).lineBetween(f.x1, f.y1, f.x2, f.y2);
       } else if (f.kind === 'streak') {
-        // 궤적: 처음엔 굵게, 서서히 가늘어지고 옅어짐 (흰 심은 더 빨리 사라짐)
-        const a = al * al;
-        g.lineStyle(f.w * (1 - p * 0.8), hex(f.color), a * 0.8).lineBetween(f.x1, f.y1, f.x2, f.y2);
-        g.lineStyle(Math.max(1, f.w * 0.35 * (1 - p)), 0xffffff, al * al * al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+        // 화살이 날아가는 동안은 깃 끝까지 선을 늘림 (사라지기 시작 안 함). 맞히거나 화살이 없어지면 멈추고 서서히 사라짐
+        if (f.proj) {
+          const a = this.deps.session.world.projectiles.find(q => q.id === f.proj);
+          if (a && !a.dead && a.hit.size === 0) {
+            const tail = a.len ?? 40;
+            const tx = a.x - Math.cos(a.ang) * tail, ty = a.y - Math.sin(a.ang) * tail;
+            // 깃 끝이 아직 쏜 자리 뒤에 있으면 선 없음
+            if ((tx - f.x1) * Math.cos(a.ang) + (ty - f.y1) * Math.sin(a.ang) > 0) { f.x2 = tx; f.y2 = ty; }
+            o.t = 0;
+          } else f.proj = undefined;
+        }
+        const q = Math.min(1, o.t / f.life), qa = 1 - q, a2 = qa * qa;
+        if (f.x2 !== f.x1 || f.y2 !== f.y1) {
+          g.lineStyle(f.w * (1 - q * 0.8), hex(f.color), a2 * 0.8).lineBetween(f.x1, f.y1, f.x2, f.y2);
+          g.lineStyle(Math.max(1, f.w * 0.35 * (1 - q)), 0xffffff, a2 * qa).lineBetween(f.x1, f.y1, f.x2, f.y2);
+        }
       } else if (f.kind === 'charge') {
         // 큰 원이 가운데로 줄어듦 (점점 또렷해짐), 끝나면 사라짐
         const r = f.r0 + (f.r1 - f.r0) * p, a = 0.35 + 0.55 * p;

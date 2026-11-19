@@ -148,8 +148,6 @@ export const ARCHER: ClassSkills = {
     /** 후방 도약 (이동기): 뒤로 포물선을 그리며 날아가면서(무적) 앞쪽 가까운 몬스터 3마리에게 한 발씩 */
     doyak(w, p) {
       const D = DOYAK, A = D.arrow, face = p.face, x0 = cx(p), el = w.elemOf(p, 'doyak'), c = el ? color(el) : undefined;
-      // 박히는 땅: 땅에서 뛰면 발밑 높이, 공중이면 바닥
-      const ground = p.onGround ? p.y + p.h : GROUND_Y;
       // 포물선을 따라가되 가장 높은 곳 근처(slow 구간)는 슬로우 모션으로 느리게 지나감
       const [s0, s1] = D.slow, T = D.path - (s1 - s0) + (s1 - s0) / D.slowRate;
       let tau = 0;
@@ -165,17 +163,18 @@ export const ARCHER: ClassSkills = {
         end: () => { p.vx = -face * 60; },
       };
       p.action = act;
-      // 화살: 공중 사선에서 나타나 땅에 차례로 박힘 (다다다, 두 번째가 서 있던 자리)
-      const ang = Math.atan2(Math.sin(A.ang), face * Math.cos(A.ang));
-      const land = A.appear + A.hold + A.drop;
+      // 화살: 그때 플레이어 몸에서 나와 박힐 자리(발판이 있으면 발판, 없으면 바닥)로 날아가 차례로 박힘 (다다다, 두 번째가 서 있던 자리)
+      const land0 = A.appear + A.hold;
       for (let i = 0; i < D.n; i++) {
         const ix = x0 + face * D.spots[i];
         w.later(p, D.start + D.beats[i], () => {
-          w.fx({ kind: 'droparrow', x: ix, y: ground + A.sink, ang, color: c, life: land + A.stay + A.fade });
-        });
-        w.later(p, D.start + D.beats[i] + land, () => {
-          w.addHB(p, { abs: { x: ix - D.hitW / 2, y: ground - D.hitH, w: D.hitW, h: D.hitH + 10 }, coef: D.coef, elem: el, kb: 120, life: 0.05, face, skill: 'doyak' });
-          w.fx({ kind: 'anim', anim: 'ground_pop', x: ix, y: ground, face, color: c, life: 0.47 });
+          const sx = cx(p) + face * 10, sy = cy(p) - 4, gy = w.surfaceBelow(ix, sy);
+          const fly = Math.max(A.drop, Math.hypot(ix - sx, gy - sy) / A.speed);
+          w.fx({ kind: 'droparrow', x: ix, y: gy + A.sink, sx, sy, fly, color: c, life: land0 + fly + A.stay + A.fade });
+          w.later(p, land0 + fly, () => {
+            w.addHB(p, { abs: { x: ix - D.hitW / 2, y: gy - D.hitH, w: D.hitW, h: D.hitH + 10 }, coef: D.coef, elem: el, kb: 120, life: 0.05, face, skill: 'doyak' });
+            w.fx({ kind: 'anim', anim: 'ground_pop', x: ix, y: gy, face, color: c, life: 0.47 });
+          });
         });
       }
     },
@@ -229,11 +228,11 @@ ARCHER.start.geurimja = (w, p) => {
     end: () => {
       const sx = cx(p) + p.face * 18, sy = cy(p) - 6;
       // 2. 아주 빠른 화살  3. 날아간 길 전체에 궤적이 한 번에 그려졌다가 서서히 사라짐
-      w.addProj(p, {
+      const arrow = w.addProj(p, {
         kind: 'arrow', x: sx, y: sy, vx: p.face * H.speed, vy: 0, range: H.range, size: 16, len: 40,
         coef: H.coef, elem: el, kb: 160, pierce: true, skill: 'geurimja', exec: { pct: H.lostPct, cap: H.capCoef },
       });
-      w.fx({ kind: 'streak', x1: sx, y1: sy, x2: sx + p.face * H.range, y2: sy, color: c, w: H.trailW, life: H.trailLife });
+      w.fx({ kind: 'streak', x1: sx, y1: sy, x2: sx, y2: sy, color: c, w: H.trailW, life: H.trailLife, proj: arrow.id });
       w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: c, life: 0.2 });
       p.action = { name: 'recover', t: 0, dur: 0.08 };
       p.lockT = 0.22;
