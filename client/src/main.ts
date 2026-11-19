@@ -15,6 +15,7 @@ import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
+import { showLoading } from './ui/Loading';
 import { canvasRect, setFullWindowStage, stageRect, viewWidth } from './ui/stage';
 
 const params = new URLSearchParams(location.search);
@@ -71,6 +72,7 @@ async function boot() {
   // 캐릭터 선택 화면 → 고른 캐릭터로 시작 (진행 상황은 슬롯마다 따로 저장)
   const { store, save } = await showSelectScreen();
   await store.save(save);
+  const loading = showLoading();
 
   const session = new LocalSession(save, store);
   if (import.meta.env.DEV) Object.assign(window, { __session: session });
@@ -129,7 +131,7 @@ async function boot() {
     banner: false,
   });
   if (import.meta.env.DEV) Object.assign(window, { __game: game });
-  game.scene.add('game', GameScene, true, { session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
+  game.scene.add('game', GameScene, true, { loading, session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
   // 대사 안의 컷신 → 게임 화면에서 재생
   npcDialog.onCutscene = id => (game.scene.getScene('game') as GameScene).playCutscene(id);
   if (import.meta.env.DEV) Object.assign(window, { __cutscene: (id: string) => (game.scene.getScene('game') as GameScene).playCutscene(id) });
