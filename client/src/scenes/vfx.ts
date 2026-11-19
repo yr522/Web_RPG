@@ -7,6 +7,10 @@ import galeDash from '../../../assets/img/vfx/pixelfx/gale_dash.png';
 import galeDashCore from '../../../assets/img/vfx/pixelfx/gale_dash_core.png';
 import flowSlash from '../../../assets/img/vfx/pixelfx/flow_slash.png';
 import flowSlashCore from '../../../assets/img/vfx/pixelfx/flow_slash_core.png';
+import vortexImg from '../../../assets/img/vfx/pixelfx/vortex.png';
+import vortexCore from '../../../assets/img/vfx/pixelfx/vortex_core.png';
+import vortexBurst from '../../../assets/img/vfx/pixelfx/vortex_burst.png';
+import vortexBurstCore from '../../../assets/img/vfx/pixelfx/vortex_burst_core.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -55,6 +59,12 @@ export const VFX: Record<string, VfxDef> = {
   /** 검사 회류참: 뒤로 미끄러지며 시작점에서 몸을 따라 파도처럼 그어지는 검기 하나 (도착 직전 사라짐) + 발밑 먼지 (pixelfx). 땅에 고정, 칸 176×56, 시작점 몸 중심·발은 칸의 (154, 50) */
   flow_slash: { url: flowSlash, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, core: 'flow_slash_core', depth: 6.5 },
   flow_slash_core: { url: flowSlashCore, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, depth: 6.5 },
+  /** 궁수 소용돌이 (pixelfx, 반복): 범위 안은 나선 팔로 중심에 빨려 들고, 범위 밖은 알갱이가 천천히 퍼짐. 칸 360×360 (4칸씩 여러 줄), 가운데가 중심, 배율 2 = 반지름 300 */
+  soyong_vortex: { url: vortexImg, frame: 360, frames: 12, fps: 20, scale: 2, loop: true, core: 'soyong_vortex_core' },
+  soyong_vortex_core: { url: vortexCore, frame: 360, frames: 12, fps: 20, scale: 2, loop: true },
+  /** 소용돌이 터짐 (한 번): 화살이 중심에 닿으면 줄어들며 사라지고 충격파 + 파편 */
+  soyong_burst: { url: vortexBurst, frame: 360, frames: 17, fps: 30, scale: 2, core: 'soyong_burst_core' },
+  soyong_burst_core: { url: vortexBurstCore, frame: 360, frames: 17, fps: 30, scale: 2 },
   /** 검사 오의 천붕: 연속 베기 (유저 그림, 무채색이라 원소 색을 입힘). 칸 256×256 6칸: 0 = 모으기, 1~5 = 다섯 번 베기. 초당 18칸으로 모으기 1번(0.06초) + 베기 칸마다 2번(0.11초) = 판정 5번 박자 */
   cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5], keepWhite: 0.72 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤

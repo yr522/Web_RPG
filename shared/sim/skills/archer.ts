@@ -126,8 +126,15 @@ export const ARCHER: ClassSkills = {
         name: 'draw', skill: 'soyong', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
           const vx = cx(p) + p.face * 270, vy = cy(p) - 6;
-          w.addVortex(p, { x: vx, y: vy, t: 0, life: 1.0, r: SOYONG_PULL_R, color: c });
+          const vortex = { x: vx, y: vy, t: 0, life: 1.0, r: SOYONG_PULL_R, color: c };
+          w.addVortex(p, vortex);
           p.lockT = 0.4 + 0.25;
+          // 화살이 중심에 닿는 순간: 소용돌이가 줄어들며 터지고 끝남 (잡혀 있는 동안 몸이 안 움직여서 거리는 지금 재도 같음)
+          const reach = Math.hypot(vx - cx(p), vy - (cy(p) - 6)) / 1300;
+          w.later(p, 0.4 + reach, () => {
+            vortex.life = vortex.t;
+            w.fx({ kind: 'anim', anim: 'soyong_burst', x: vx, y: vy, face: 1, color: c, life: 0.57 });
+          });
           w.later(p, 0.4, () => {
             const sx = cx(p), sy = cy(p) - 6, dx = vx - sx, dy = vy - sy, d = Math.hypot(dx, dy) || 1;
             w.addProj(p, { kind: 'big', x: sx, y: sy, vx: dx / d * 1300, vy: dy / d * 1300, range: d + 200, size: 40, len: 54, coef: 3.2, elem: el, kb: 300, pierce: true, skill: 'soyong' });
