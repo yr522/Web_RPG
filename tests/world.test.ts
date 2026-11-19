@@ -177,7 +177,7 @@ describe('이동기 (텔레포트 · 후방 도약)', () => {
     expect(p.cd.teleport).toBeGreaterThan(0);
     expect(p.cd.teleport).toBeLessThanOrEqual(SKILLS.teleport.cd);
   });
-  it('궁수 후방 도약: 뒤로 날아가며 앞쪽 3마리까지 한 발씩', async () => {
+  it('궁수 후방 도약: 뒤로 날아가며 정해진 세 자리(서 있던 자리 앞뒤)에 한 발씩, 먼 곳은 안 맞음', async () => {
     const { DOYAK } = await import('../shared/data/classes');
     const { MONSTERS } = await import('../shared/data/monsters');
     const w = new World('training', 1);
@@ -186,10 +186,11 @@ describe('이동기 (텔레포트 · 후방 도약)', () => {
     const p = w.addPlayer('p', s, 300);
     run(w, 0.5);
     p.face = 1;
-    // 허수아비 4개 (앞쪽 가까운 3개만 맞아야 함)
+    // 허수아비 4개: 화살 박히는 세 자리 + 멀리 하나 (먼 것은 안 맞아야 함)
     const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
     w.enemies.length = 0;
-    const ds = [420, 500, 580, 660].map(x => inside.spawnEnemy('dummy', x, null));
+    const cx0 = p.x + p.w / 2;
+    const ds = [...DOYAK.spots, 400].map(dx => inside.spawnEnemy('dummy', cx0 + dx - MONSTERS.dummy.w / 2, null));
     run(w, 0.1);
     const x0 = p.x;
     w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));

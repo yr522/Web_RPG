@@ -124,16 +124,17 @@ export const WARRIOR_REACH = {
  */
 export const TELEPORT = { dist: 220, up: 160, time: 0.12, inv: 0.25 };
 /**
- * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 까지 rise 초 동안 떠오르고, 가장 높은 곳에서 hover 초 떠 있다가, fall 초 동안 내려옴 (내내 무적).
- * 떠 있는 동안 화살 n 발이 앞 땅 spots(px, 뛴 자리에서 앞으로)에 차례로 박힘. beats = 가장 높은 곳에서 각 화살이 나타나는 시각 (뒤로 갈수록 간격이 짧음)
+ * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 포물선 (보통 속도면 path 초). 내내 무적.
+ * 포물선의 slow 구간(path 기준 초, 가장 높은 곳 근처)은 slowRate 배 속도로 느리게 지나감 (슬로우 모션) → 실제 걸리는 시간이 늘어남
+ * 화살 n 발이 땅 spots(px, 뛴 자리 기준 앞쪽 +, 0 = 서 있던 자리)에 차례로 박힘. start 초에 첫 화살이 나타나고, beats = 그로부터 각 화살이 나타나는 시각 (뒤로 갈수록 간격이 짧음)
  * 화살 하나: 박힐 자리에서 사선(ang, 수평에서 아래로 라디안)으로 dist(px) 떨어진 공중에 appear 초 동안 나타나고, hold 초 멈췄다가, drop 초 동안 점점 빨라지며 박힘.
  * 박힌 뒤 stay 초 남았다가 fade 초 동안 사라짐. 그림 길이 len(px), 땅속으로 sink(px) 들어감
  * 판정: 박힌 자리 가운데로 가로 hitW, 높이 hitH (그림보다 넉넉), 한 발 계수 coef
  */
 export const DOYAK = {
-  back: 260, height: 90, rise: 0.25, hover: 0.42, fall: 0.25,
-  n: 3, coef: 1.2, spots: [150, 215, 280], beats: [0, 0.17, 0.3],
-  arrow: { ang: 0.95, dist: 120, appear: 0.08, hold: 0.07, drop: 0.12, stay: 0.55, fade: 0.35, len: 72, sink: 6 },
+  back: 260, height: 90, path: 0.5, slow: [0.25, 0.4], slowRate: 0.4,
+  n: 3, coef: 1.2, spots: [-65, 0, 65], start: 0.14, beats: [0, 0.08, 0.14],
+  arrow: { ang: 0.95, dist: 120, appear: 0.05, hold: 0.03, drop: 0.1, stay: 0.45, fade: 0.3, len: 72, sink: 6 },
   hitW: 100, hitH: 120,
 };
 /** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17, 그 뒤 0.8배 → 240, 2026-11-19) */
