@@ -130,7 +130,7 @@ export const ARCHER: ClassSkills = {
           w.addVortex(p, vortex);
           p.lockT = 0.4 + 0.25;
           // 소용돌이 안 잔 피해 (무속성)
-          for (let i = 0; i < SOYONG_TICK.n; i++) w.later(p, SOYONG_TICK.first + i * SOYONG_TICK.gap, () => w.hitRadius(p, vx, vy, vortex.r, SOYONG_TICK.coef, 'soyong'));
+          for (let i = 0; i < SOYONG_TICK.n; i++) w.later(p, SOYONG_TICK.first + i * SOYONG_TICK.gap, () => w.hitRadius(p, vx, vy, SOYONG_TICK.r, SOYONG_TICK.coef, 'soyong'));
           // 화살이 중심에 닿는 순간: 소용돌이가 줄어들며 터지고 끝남 (잡혀 있는 동안 몸이 안 움직여서 거리는 지금 재도 같음)
           const reach = Math.hypot(vx - cx(p), vy - (cy(p) - 6)) / 1300;
           w.later(p, 0.4 + reach, () => {
