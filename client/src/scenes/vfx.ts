@@ -36,6 +36,8 @@ export interface VfxDef {
   smooth?: boolean;
   /** 그리는 층 (기본 5.5 = 캐릭터 위·잔상 아래). 잔상 위로 올리려면 6.5 */
   depth?: number;
+  /** 하얀 부분은 원소 색을 안 입히고 흰색 그대로 (밝기 기준 0~1, 이보다 밝은 곳). 불러올 때 흰 부분만 뽑아 위층으로 겹침 */
+  keepWhite?: number;
   /** 같이 재생할 위층 이펙트 이름 (원소 색을 안 입힘, 흰 심 등) */
   core?: string;
   /** 계속 반복 (버프 오버레이) */
@@ -54,7 +56,7 @@ export const VFX: Record<string, VfxDef> = {
   flow_slash: { url: flowSlash, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, core: 'flow_slash_core', depth: 6.5 },
   flow_slash_core: { url: flowSlashCore, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, depth: 6.5 },
   /** 검사 오의 천붕: 연속 베기 (유저 그림, 무채색이라 원소 색을 입힘). 칸 256×256 6칸: 0 = 모으기, 1~5 = 다섯 번 베기. 초당 18칸으로 모으기 1번(0.06초) + 베기 칸마다 2번(0.11초) = 판정 5번 박자 */
-  cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] },
+  cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5], keepWhite: 0.72 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤
   buff_blessed_loop: { url: buff_blessed_loop, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1, loop: true },
   buff_buff_applied: { url: buff_buff_applied, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1 },
@@ -72,10 +74,39 @@ export const VFX: Record<string, VfxDef> = {
 export const vfxKey = (name: string) => `vfx:${name}`;
 
 export function preloadVfx(scene: Phaser.Scene) {
-  for (const [name, d] of Object.entries(VFX)) scene.load.spritesheet(vfxKey(name), d.url, { frameWidth: d.frame, frameHeight: d.frameH ?? d.frame });
+  for (const [name, d] of Object.entries(VFX)) if (d.url) scene.load.spritesheet(vfxKey(name), d.url, { frameWidth: d.frame, frameHeight: d.frameH ?? d.frame });
+}
+
+/** keepWhite: 그림에서 밝은 부분만 흰색으로 뽑은 시트를 만들어 위층(core)으로 붙임 */
+function buildWhiteLayers(scene: Phaser.Scene) {
+  for (const [name, d] of Object.entries(VFX)) {
+    if (d.keepWhite === undefined) continue;
+    const wName = `${name}_white`, key = vfxKey(wName);
+    if (!scene.textures.exists(key)) {
+      const img = scene.textures.get(vfxKey(name)).getSourceImage() as HTMLImageElement;
+      const cv = document.createElement('canvas');
+      cv.width = img.width; cv.height = img.height;
+      const ctx = cv.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, cv.width, cv.height), px = data.data;
+      const lo = d.keepWhite, hi = Math.min(1, lo + 0.15);
+      for (let i = 0; i < px.length; i += 4) {
+        const l = (px[i] + px[i + 1] + px[i + 2]) / 765;
+        const k = Math.max(0, Math.min(1, (l - lo) / (hi - lo)));
+        const e = k * k * (3 - 2 * k);
+        px[i] = px[i + 1] = px[i + 2] = 255;
+        px[i + 3] = Math.round(px[i + 3] * e);
+      }
+      ctx.putImageData(data, 0, 0);
+      scene.textures.addSpriteSheet(key, cv as unknown as HTMLImageElement, { frameWidth: d.frame, frameHeight: d.frameH ?? d.frame });
+    }
+    VFX[wName] = { ...d, url: '', keepWhite: undefined, core: undefined };
+    d.core = wName;
+  }
 }
 
 export function createVfxAnims(scene: Phaser.Scene) {
+  buildWhiteLayers(scene);
   for (const [name, d] of Object.entries(VFX)) {
     scene.textures.get(vfxKey(name)).setFilter(d.smooth ? Phaser.Textures.FilterMode.LINEAR : Phaser.Textures.FilterMode.NEAREST);
     if (!scene.anims.exists(vfxKey(name))) {
