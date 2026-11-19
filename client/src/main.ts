@@ -28,10 +28,13 @@ const UI_BASE_H = 720;
 /** 게임 화면(HUD·창) 자리를 CSS 변수로: --gx·--gy 왼쪽 위, --gw·--gh 크기, --ui NPC 창 배율 */
 function stageVars() {
   const r = stageRect(), st = document.documentElement.style;
-  st.setProperty('--gw', `${r.w}px`);
-  st.setProperty('--gh', `${r.h}px`);
-  st.setProperty('--gx', `${r.x}px`);
-  st.setProperty('--gy', `${r.y}px`);
+  // 모바일은 자리·크기를 CSS 가 직접 (창 전체, 전체화면·주소창 때문에 창 크기가 바뀌어도 바로 따라감). style.css 의 html.mobile
+  if (uiMode !== 'mobile') {
+    st.setProperty('--gw', `${r.w}px`);
+    st.setProperty('--gh', `${r.h}px`);
+    st.setProperty('--gx', `${r.x}px`);
+    st.setProperty('--gy', `${r.y}px`);
+  }
   st.setProperty('--ui', String(Math.max(1, r.h / UI_BASE_H)));
 }
 /**
@@ -48,6 +51,7 @@ function canvasLayout() {
 
 async function boot() {
   setFullWindowStage(uiMode === 'mobile');
+  document.documentElement.classList.toggle('mobile', uiMode === 'mobile');
   stageVars();
   // 모바일: 가로 + 전체화면 안내 (가로 안내와 같은 기준 = 손가락 터치 기기)
   setupMobileGate(matchMedia('(pointer: coarse)').matches);

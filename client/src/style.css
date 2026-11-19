@@ -37,6 +37,9 @@ html, body {
 
 /* ===== HUD 공통 ===== */
 #hud { position: fixed; left: var(--gx); top: var(--gy); width: var(--gw); height: var(--gh); pointer-events: none; z-index: 5; font-size: max(13px, 18 * var(--u)); }
+/* 모바일: HUD·창 자리 = 보이는 창 전체 (JS 가 잰 값이 아니라 브라우저 단위로 바로) */
+html.mobile { --gx: 0px; --gy: 0px; --gw: 100vw; --gh: 100vh; }
+@supports (height: 100dvh) { html.mobile { --gh: 100dvh; } }
 #hud.mobile { --u: max(min(var(--gh) / 1040, var(--gw) / 1670), .45px); }
 /* 모바일: 조이스틱과 겹치지 않게 퀘스트 칸을 작게 */
 #hud.mobile .quests { top: calc(130 * var(--u) + 24px + var(--sat)); gap: 4px; }
