@@ -128,8 +128,10 @@ export const TELEPORT = { dist: 220, up: 160, time: 0.12, inv: 0.25 };
  * 날아가면서 앞쪽 range(px) 안 가까운 몬스터 n 마리에게 한 발씩 (첫 발 first 초, 간격 gap 초, 계수 coef). 몬스터가 없으면 앞 땅에 쏨
  */
 export const DOYAK = { back: 260, height: 90, time: 0.5, range: 460, n: 3, coef: 1.2, first: 0.08, gap: 0.09 };
-/** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17) */
-export const SOYONG_PULL_R = 300;
+/** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17, 그 뒤 0.8배 → 240, 2026-11-19) */
+export const SOYONG_PULL_R = 240;
+/** 소용돌이 안 잔 피해 (무속성): n번, first 초 뒤부터 gap 초마다, 한 번에 계수 coef. 큰 한 방(화살)은 따로 3.2 */
+export const SOYONG_TICK = { n: 4, first: 0.1, gap: 0.12, coef: 0.35 };
 /** 궁수 기본 공격·마법 화살 사거리: 바로 떼면 min, 최대 충전이면 max */
 export const ARROW_RANGE = { min: 200, max: 800 };
 /** 사슬 화살 조준 각도 바뀌는 속도 (라디안/초) */

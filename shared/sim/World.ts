@@ -409,6 +409,10 @@ export class World implements SkillWorld {
     return o;
   }
   addVortex(_p: PlayerState, v: Vortex) { this.vortices.push(v); }
+  hitRadius(p: PlayerState, x: number, y: number, r: number, coef: number, skill: string) {
+    const atk: Attack = { owner: p, face: p.face, coef, elem: null, order: 0, chain: false, kb: 0, sm: this.skillMult(p, skill), skill };
+    for (const e of this.enemies) if (!e.dead && Math.hypot(cx(e) - x, cy(e) - y) <= r) this.hitEnemy(e, atk);
+  }
   addTrap(p: PlayerState, x: number) {
     const H = HINT.deot, mine = this.traps.filter(o => o.owner === p);
     if (mine.length >= H.max) this.traps = this.traps.filter(o => o !== mine[0]);

@@ -274,3 +274,28 @@ describe('포션 5단계', () => {
     expect(POTION.cooldown).toBeGreaterThan(0);
   });
 });
+
+describe('궁수 소용돌이 화살', () => {
+  it('소용돌이 안 잔 피해 4번 + 큰 화살, 반지름 밖은 안 맞음', async () => {
+    const { SOYONG_PULL_R, SOYONG_TICK } = await import('../shared/data/classes');
+    const w = new World('training', 1);
+    const s = newSave('t', 'archer', 'M');
+    s.learned.soyong = 'earth'; s.skillKeys = { Q: 'soyong' };
+    const p = w.addPlayer('p', s, 300);
+    run(w, 0.5);
+    p.face = 1;
+    const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
+    w.enemies.length = 0;
+    const inn = inside.spawnEnemy('dummy', p.x + p.w / 2 + 270, null);
+    const out = inside.spawnEnemy('dummy', p.x + p.w / 2 + 270 + SOYONG_PULL_R + 60, null);
+    run(w, 0.1);
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    // 큰 화살(0.24 + 0.4 초) 전까지는 잔 피해만
+    run(w, 0.24 + SOYONG_TICK.first + SOYONG_TICK.gap * (SOYONG_TICK.n - 1) + 0.05);
+    const small = inn.meter?.dmg ?? 0;
+    expect(small).toBeGreaterThan(0);
+    run(w, 1);
+    expect(inn.meter?.dmg ?? 0).toBeGreaterThan(small * 3);
+    expect(out.meter?.dmg ?? 0).toBe(0);
+  });
+});

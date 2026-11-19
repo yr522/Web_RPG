@@ -2,7 +2,7 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
-import { AIM_TURN, ARROW_RANGE, DOYAK, HINT, MOVE_SKILL, PASSIVE, SOYONG_PULL_R } from '../../data/classes';
+import { AIM_TURN, ARROW_RANGE, DOYAK, HINT, MOVE_SKILL, PASSIVE, SOYONG_PULL_R, SOYONG_TICK } from '../../data/classes';
 import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -129,6 +129,8 @@ export const ARCHER: ClassSkills = {
           const vortex = { x: vx, y: vy, t: 0, life: 1.0, r: SOYONG_PULL_R, color: c };
           w.addVortex(p, vortex);
           p.lockT = 0.4 + 0.25;
+          // 소용돌이 안 잔 피해 (무속성)
+          for (let i = 0; i < SOYONG_TICK.n; i++) w.later(p, SOYONG_TICK.first + i * SOYONG_TICK.gap, () => w.hitRadius(p, vx, vy, vortex.r, SOYONG_TICK.coef, 'soyong'));
           // 화살이 중심에 닿는 순간: 소용돌이가 줄어들며 터지고 끝남 (잡혀 있는 동안 몸이 안 움직여서 거리는 지금 재도 같음)
           const reach = Math.hypot(vx - cx(p), vy - (cy(p) - 6)) / 1300;
           w.later(p, 0.4 + reach, () => {

@@ -29,6 +29,8 @@ export interface SkillWorld {
   addHB(p: PlayerState, h: HitboxSpec): void;
   addProj(p: PlayerState, s: ProjSpec): Projectile;
   addVortex(p: PlayerState, v: Vortex): void;
+  /** 중심에서 반지름 안 몬스터 모두에게 무속성 피해 한 번 */
+  hitRadius(p: PlayerState, x: number, y: number, r: number, coef: number, skill: string): void;
   /** t 초 뒤에 실행 */
   later(p: PlayerState, t: number, fn: () => void): void;
   /** 바라보는 쪽에서 가장 가까운 몬스터 */
