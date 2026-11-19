@@ -1,6 +1,6 @@
 // 게임 화면 자리 (HUD·NPC 창이 들어가는 곳).
 // 게임 화면은 창 비율에 맞춰 넓어지고 좁아짐 (월드 폭 720 ~ 1280, 높이 620). 이 범위를 넘는 아주 넓거나 긴 창만 남는 곳이 검은 띠.
-// 모바일은 HUD 가 창 전체를 씀 (조작 버튼이 화면 끝에 붙어야 해서).
+// 모바일은 HUD 가 창 전체를 씀 (조작 버튼이 화면 끝에 붙어야 해서). 모바일 HUD 자리·크기는 JS 가 아니라 CSS(style.css 의 html.mobile)가 창 크기 단위로 바로 정함.
 export const VIEW_H = 620;
 export const VIEW_MIN_W = 720;
 export const VIEW_MAX_W = 1280;
