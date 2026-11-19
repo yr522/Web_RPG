@@ -53,6 +53,8 @@ export type GameEvent =
 export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
+  /** 궤적: 한 번에 그려졌다가 서서히 가늘어지며 사라짐 (그림자 화살) */
+  | { kind: 'streak'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
   | { kind: 'ring'; x: number; y: number; color: string; r0: number; r1: number; life: number }
   /** 잔상. owner 가 있으면 그 플레이어의 지금 모습을 본뜬 그림 (없으면 네모) */
   | { kind: 'ghost'; x: number; y: number; w: number; h: number; color: string; life: number; owner?: string }

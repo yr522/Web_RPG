@@ -1355,6 +1355,11 @@ export class GameScene extends Phaser.Scene implements Stage {
         g.lineStyle(2, 0xffffff, al).beginPath().arc(f.x, f.y, f.r - 3, s0, s1).strokePath();
       } else if (f.kind === 'line') {
         g.lineStyle(f.w, hex(f.color), al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+      } else if (f.kind === 'streak') {
+        // 궤적: 처음엔 굵게, 서서히 가늘어지고 옅어짐 (흰 심은 더 빨리 사라짐)
+        const a = al * al;
+        g.lineStyle(f.w * (1 - p * 0.8), hex(f.color), a * 0.8).lineBetween(f.x1, f.y1, f.x2, f.y2);
+        g.lineStyle(Math.max(1, f.w * 0.35 * (1 - p)), 0xffffff, al * al * al).lineBetween(f.x1, f.y1, f.x2, f.y2);
       } else if (f.kind === 'ring') {
         g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
       } else if (f.kind === 'ghost') {
