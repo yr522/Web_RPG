@@ -139,6 +139,8 @@ export const DOYAK = {
 };
 /** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17 → 0.8배 240 → 다시 넓혀 360, 2026-11-19). 피해 범위(SOYONG_TICK.r)와 따로 */
 export const SOYONG_PULL_R = 360;
+/** 소용돌이 그림 크기 기준 반지름 (끌어당기는 범위와 따로, 240 = 0.8배 때 크기) */
+export const SOYONG_VISUAL_R = 240;
 /** 소용돌이 안 잔 피해 (무속성, 가운데에서 반지름 r 안): n번, first 초 뒤부터 gap 초마다, 한 번에 계수 coef. 큰 한 방(화살)은 따로 3.2 */
 export const SOYONG_TICK = { n: 4, first: 0.1, gap: 0.12, coef: 0.35, r: 200 };
 /** 궁수 기본 공격·마법 화살 사거리: 바로 떼면 min, 최대 충전이면 max */
@@ -165,7 +167,7 @@ export const HINT = {
   /** 덫: 앞 dist 거리 바닥에 설치, arm 초 뒤부터 작동, life 초 유지, 동시에 max 개. 불 = 폭발, 땅 = 묶기(rootTime 초, 보스는 안 묶임) */
   deot: { dist: 40, arm: 0.3, life: 12, max: 2, boomCoef: 2.4, boomW: 150, rootCoef: 1.2, rootTime: 2.5 },
   /** 그림자 화살: 관통 coef + 적의 잃은 HP × lostPct 추가 피해 (최대 공격력 × capCoef) */
-  geurimja: { coef: 1.6, range: 520, lostPct: 0.12, capCoef: 3, windup: 0.5, speed: 2600, trailLife: 0.8 },
+  geurimja: { coef: 1.6, range: 520, lostPct: 0.12, capCoef: 3, windup: 0.5, speed: 1600, trailLife: 0.8, trailW: 7, chargeR: 150 },
 };
 
 export const PASSIVE = {

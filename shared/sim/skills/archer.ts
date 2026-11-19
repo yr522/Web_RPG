@@ -222,8 +222,8 @@ ARCHER.start.deot = (w, p) => {
 /** 그림자 화살 (3라인 일식 사수 힌트): 관통 화살 + 적의 잃은 HP 비례 추가 피해 */
 ARCHER.start.geurimja = (w, p) => {
   const H = HINT.geurimja, el = w.elemOf(p, 'geurimja'), c = color(el);
-  // 1. 선딜: 활시위를 세게 당기는 동안 몸으로 빛이 모임
-  for (const at of [0, 0.17, 0.34]) w.later(p, at, () => w.fx({ kind: 'ring', x: cx(p) + p.face * 18, y: cy(p) - 6, color: c, r0: 64, r1: 8, life: 0.2 }));
+  // 1. 선딜: 큰 원이 몸 중심으로 점점 줄어들어, 발사할 때쯤 다 줄어듦
+  w.fx({ kind: 'charge', x: cx(p), y: cy(p), color: c, r0: H.chargeR, r1: 4, life: H.windup });
   p.action = {
     name: 'draw', skill: 'geurimja', elem: el, t: 0, dur: H.windup, update: () => { p.vx = 0; },
     end: () => {
@@ -233,7 +233,7 @@ ARCHER.start.geurimja = (w, p) => {
         kind: 'arrow', x: sx, y: sy, vx: p.face * H.speed, vy: 0, range: H.range, size: 16, len: 40,
         coef: H.coef, elem: el, kb: 160, pierce: true, skill: 'geurimja', exec: { pct: H.lostPct, cap: H.capCoef },
       });
-      w.fx({ kind: 'streak', x1: sx, y1: sy, x2: sx + p.face * H.range, y2: sy, color: c, w: 14, life: H.trailLife });
+      w.fx({ kind: 'streak', x1: sx, y1: sy, x2: sx + p.face * H.range, y2: sy, color: c, w: H.trailW, life: H.trailLife });
       w.fx({ kind: 'ghost', x: p.x, y: p.y, w: p.w, h: p.h, color: c, life: 0.2 });
       p.action = { name: 'recover', t: 0, dur: 0.08 };
       p.lockT = 0.22;

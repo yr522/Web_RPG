@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES, DOYAK, HINT } from '@shared/data/classes';
+import { CLASSES, DOYAK, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -978,14 +978,14 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (!this.vortexSprites.has(v)) {
         const d = VFX.soyong_vortex;
         this.vortexSprites.set(v, ['soyong_vortex', d.core!].map((n, i) => {
-          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * v.r / 300);
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * SOYONG_VISUAL_R / 300);
           if (i === 0) sp.setTint(hex(v.color));
           return sp.play(vfxKey(n));
         }));
         // 뒷배경 (유저 그림): 커지고 → 도는 동안 반복
         const b = VFX.soyong_bg;
         const back = ['soyong_bg', b.core!].map((n, i) => {
-          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(i === 0 ? 5.4 : 5.45).setScale(b.scale * v.r / 300).setData('bg', true);
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(i === 0 ? 5.4 : 5.45).setScale(b.scale * SOYONG_VISUAL_R / 300).setData('bg', true);
           if (i === 0) sp.setTint(hex(v.color));
           sp.play(vfxKey(n) + ':in').chain(vfxKey(n) + ':loop');
           return sp;
@@ -1360,6 +1360,11 @@ export class GameScene extends Phaser.Scene implements Stage {
         const a = al * al;
         g.lineStyle(f.w * (1 - p * 0.8), hex(f.color), a * 0.8).lineBetween(f.x1, f.y1, f.x2, f.y2);
         g.lineStyle(Math.max(1, f.w * 0.35 * (1 - p)), 0xffffff, al * al * al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+      } else if (f.kind === 'charge') {
+        // 큰 원이 가운데로 줄어듦 (점점 또렷해짐), 끝나면 사라짐
+        const r = f.r0 + (f.r1 - f.r0) * p, a = 0.35 + 0.55 * p;
+        g.lineStyle(5, hex(f.color), a).strokeCircle(f.x, f.y, r);
+        g.lineStyle(2, 0xffffff, a * 0.8).strokeCircle(f.x, f.y, Math.max(1, r - 4));
       } else if (f.kind === 'ring') {
         g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
       } else if (f.kind === 'ghost') {
