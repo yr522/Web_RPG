@@ -139,6 +139,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
   /** 날아가는 화살 그림 (화살 id → 색 입힌 몸 + 흰 심) */
   private arrowSprites = new Map<string, Phaser.GameObjects.Sprite[]>();
+  /** 사슬 화살로 끌려가는 동안 박혀 있는 작살 */
+  private ropeHarpoon: Phaser.GameObjects.Sprite | null = null;
   /** 소용돌이 그림 (소용돌이 → 색 입힌 층 + 흰 심) */
   private vortexSprites = new Map<object, Phaser.GameObjects.Sprite[]>();
   /** 정예몹 특성 오버레이 (몬스터 id + 특성 → 계속 도는 그림) */
@@ -260,6 +262,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.vfxSprites = [];
     for (const l of this.arrowSprites.values()) l.forEach(sp => sp.destroy());
     this.arrowSprites.clear();
+    this.ropeHarpoon?.destroy(); this.ropeHarpoon = null;
     for (const l of this.vortexSprites.values()) l.forEach(sp => sp.destroy());
     this.vortexSprites.clear();
     const { world, save } = this.deps.session, map = world.map;
@@ -504,7 +507,12 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
       if (ev.type === 'float') this.addFloat(ev.x, ev.y, ev.text, ev.color, ev.size, ev.life);
       if (ev.type === 'banner') hud.showBanner(ev.text, ev.color);
-      if (ev.type === 'fx') { if (ev.fx.kind === 'anim') this.playVfx(ev.fx); else this.fxList.push({ f: ev.fx, t: 0 }); }
+      if (ev.type === 'fx') {
+        if (ev.fx.kind === 'anim') this.playVfx(ev.fx);
+        // 내 캐릭터 잔상: 지금 모습을 본뜬 그림
+        else if (ev.fx.kind === 'ghost' && ev.fx.owner && ev.fx.owner === this.deps.session.me().id) this.player.ghost(hex(ev.fx.color), ev.fx.life);
+        else this.fxList.push({ f: ev.fx, t: 0 });
+      }
       if (ev.type === 'hit') {
         this.flash.set(ev.enemyId, 0.1);
         this.hitstop = Math.max(this.hitstop, ev.reaction ? 0.08 : ev.heavy ? 0.045 : 0.02);
@@ -1026,6 +1034,17 @@ export class GameScene extends Phaser.Scene implements Stage {
     // 사슬 화살: 날아가는 화살 / 끌려가는 지점까지 밧줄
     const to = me.ropeTo ?? (me.chainArrow && !me.chainArrow.dead ? me.chainArrow : null);
     if (to) g.lineStyle(2, 0xe8dcb0).lineBetween(x + me.w / 2, y + me.h / 2, to.x, to.y);
+    // 끌려가는 동안: 작살이 그 자리에 박혀 있음
+    if (me.ropeTo) {
+      const h = VFX.harpoon, el = me.data.learned.sasl;
+      if (!this.ropeHarpoon) {
+        this.ropeHarpoon = this.add.sprite(0, 0, vfxKey('harpoon'), 0).setDepth(5.6).setOrigin(h.origin![0] / h.frame, h.origin![1] / h.frameH!).setScale(h.scale);
+        if (el) this.ropeHarpoon.setTint(hex(ELEMENTS[el].color));
+      }
+      const ang = Math.atan2(me.ropeTo.y - (y + me.h / 2), me.ropeTo.x - (x + me.w / 2));
+      if (this.ropeHarpoon.getData('ang') === undefined) this.ropeHarpoon.setData('ang', ang).setRotation(ang).setFlipY(Math.cos(ang) < 0);
+      this.ropeHarpoon.setPosition(me.ropeTo.x, me.ropeTo.y);
+    } else if (this.ropeHarpoon) { this.ropeHarpoon.destroy(); this.ropeHarpoon = null; }
     // 마력 해방 중: 몸 주위 원
     if (me.buffT > 0) g.lineStyle(2, 0xc8b8ff, 0.5 + 0.3 * Math.sin(t * 10)).strokeCircle(x + me.w / 2, y + me.h / 2, 32);
     if (!a) return;
@@ -1249,7 +1268,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   /** 날아가는 화살 하나: 촉 끝이 화살 위치, 날아가는 방향으로 돌림. 길이(len)에 맞춰 크기 조절. 원소 없으면 색 안 입힘 */
   private drawArrow(o: { id: string; kind: string; x: number; y: number; ang: number; len?: number }, tint: number | null) {
-    const name = o.kind === 'big' ? 'arrow_big' : 'arrow', d = VFX[name];
+    const name = o.kind === 'big' ? 'arrow_big' : 'arrow', d = VFX[name], chain = o.kind === 'chain', hd = VFX.harpoon;
     let l = this.arrowSprites.get(o.id);
     if (!l) {
       l = [name, d.core].filter((n): n is string => !!n).map((n, i) => {
@@ -1258,10 +1277,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         sp.play(vfxKey(n));
         return sp;
       });
+      // 사슬 화살: 끝에 작살 그림 (화살은 작살 뒤에 꽂힌 자루처럼)
+      if (chain) {
+        const hs = this.add.sprite(o.x, o.y, vfxKey('harpoon'), 0).setDepth(5.6).setOrigin(hd.origin![0] / hd.frame, hd.origin![1] / hd.frameH!);
+        if (tint !== null) hs.setTint(tint);
+        l.push(hs);
+      }
       this.arrowSprites.set(o.id, l);
     }
     const sc = (o.len ?? d.len!) / d.len!, left = Math.cos(o.ang) < 0;
-    for (const sp of l) sp.setPosition(o.x, o.y).setRotation(o.ang).setScale(sc * d.scale).setFlipY(left);
+    // 작살이 있으면 화살 촉은 작살 뒤쪽 (작살 길이의 대략 4/5 뒤)
+    const back = chain ? 15 * hd.scale : 0, ax = o.x - Math.cos(o.ang) * back, ay = o.y - Math.sin(o.ang) * back;
+    l.forEach((sp, i) => {
+      if (chain && i === l!.length - 1) sp.setPosition(o.x, o.y).setRotation(o.ang).setScale(hd.scale).setFlipY(left);
+      else sp.setPosition(ax, ay).setRotation(o.ang).setScale(sc * d.scale).setFlipY(left);
+    });
   }
 
   /** 검기·원 퍼짐·잔상 */

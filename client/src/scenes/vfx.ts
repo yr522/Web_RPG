@@ -15,6 +15,7 @@ import arrowImg from '../../../assets/img/vfx/pixelfx/arrow.png';
 import arrowCore from '../../../assets/img/vfx/pixelfx/arrow_core.png';
 import arrowBig from '../../../assets/img/vfx/pixelfx/arrow_big.png';
 import arrowBigCore from '../../../assets/img/vfx/pixelfx/arrow_big_core.png';
+import harpoonImg from '../../../assets/img/vfx/bow/harpoon.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -79,6 +80,8 @@ export const VFX: Record<string, VfxDef> = {
   /** 큰 화살: 더 굵고, 촉에서 나온 알갱이가 몸통을 따라 흐르다 깃에서 퍼짐. 그림 속 길이 36 */
   arrow_big: { url: arrowBig, frame: 80, frameH: 28, frames: 12, fps: 30, scale: 1, loop: true, origin: [72, 14], len: 36, core: 'arrow_big_core' },
   arrow_big_core: { url: arrowBigCore, frame: 80, frameH: 28, frames: 12, fps: 30, scale: 1, loop: true },
+  /** 사슬 화살 끝 작살 (유저 그림, 무채색이라 원소 색을 입힘). 19×12 한 칸, 오른쪽을 봄, 촉 끝 (18, 6) */
+  harpoon: { url: harpoonImg, frame: 19, frameH: 12, frames: 1, fps: 1, scale: 1.5, origin: [18, 6] },
   /** 검사 오의 천붕: 연속 베기 (유저 그림, 무채색이라 원소 색을 입힘). 칸 256×256 6칸: 0 = 모으기, 1~5 = 다섯 번 베기. 초당 18칸으로 모으기 1번(0.06초) + 베기 칸마다 2번(0.11초) = 판정 5번 박자 */
   cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5], keepWhite: 0.72 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤
