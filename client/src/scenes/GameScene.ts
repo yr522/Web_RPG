@@ -1212,7 +1212,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   private playVfx(f: Extract<Fx, { kind: 'anim' }>) {
     const d = VFX[f.anim];
     if (!d) return;
-    const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
+    const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(d.depth ?? 5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
     if (f.color) sp.setTint(hex(f.color));
     if (f.flipY) sp.setFlipY(true);
     const follow = () => {

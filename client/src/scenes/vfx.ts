@@ -29,6 +29,8 @@ export interface VfxDef {
   fps: number;
   /** 화면 배율 */
   scale: number;
+  /** 그리는 층 (기본 5.5 = 캐릭터 위·잔상 아래). 잔상 위로 올리려면 6.5 */
+  depth?: number;
   /** 같이 재생할 위층 이펙트 이름 (원소 색을 안 입힘, 흰 심 등) */
   core?: string;
   /** 계속 반복 (버프 오버레이) */
@@ -44,8 +46,8 @@ export const VFX: Record<string, VfxDef> = {
   gale_dash: { url: galeDash, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3, core: 'gale_dash_core' },
   gale_dash_core: { url: galeDashCore, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3 },
   /** 검사 회류참: 뒤로 미끄러지며 시작점에서 몸을 따라 파도처럼 그어지는 검기 하나 (도착 직전 사라짐) + 발밑 먼지 (pixelfx). 땅에 고정, 칸 176×56, 시작점 몸 중심·발은 칸의 (154, 50) */
-  flow_slash: { url: flowSlash, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, core: 'flow_slash_core' },
-  flow_slash_core: { url: flowSlashCore, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2 },
+  flow_slash: { url: flowSlash, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, core: 'flow_slash_core', depth: 6.5 },
+  flow_slash_core: { url: flowSlashCore, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, depth: 6.5 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤
   buff_blessed_loop: { url: buff_blessed_loop, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1, loop: true },
   buff_buff_applied: { url: buff_buff_applied, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1 },
