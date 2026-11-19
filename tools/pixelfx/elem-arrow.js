@@ -1,10 +1,11 @@
 // pixelfx 원본 (https://github.com/patch-gg/pixelfx 의 src/fx/projectiles/ 에 넣고 node tools/render.mjs projectiles/elem-arrow 로 그림)
-// 게임용 PNG (가로 한 줄 12프레임 반복): arrow.png {"layer":"color"} · arrow_core.png {"layer":"core"} · arrow_big.png {"layer":"color","big":true} · arrow_big_core.png {"layer":"core","big":true}
+// 게임용 PNG (가로 한 줄 12프레임 반복): arrow.png {"layer":"color"} · arrow_core.png {"layer":"core"} · arrow_big.png {"layer":"color","big":true} · arrow_big_core.png {"layer":"core","big":true} · 박힌 화살 (1칸): arrow_still.png {"layer":"color","big":true,"still":true} · arrow_still_core.png {"layer":"core","big":true,"still":true}
 import { fit, WHITE } from "../../core/index.js";
 
 // 궁수 화살 (날아가는 동안 반복). 무채색: 게임에서 원소 색을 곱해 입힘.
 // 두 겹: layer "color" = 화살 몸·깃·바람 줄 (밝은 무채색), layer "core" = 흰 심 (색 안 입힘)
 // big: 더 큰 화살. 화살촉에서 나온 작은 알갱이가 몸통을 따라 흐르다 깃에서 퍼짐
+// still: 박혀서 멈춘 화살 (바람 줄·알갱이·펄럭임 없음)
 // 원점 = 화살촉 끝, 오른쪽을 향함
 export const meta = {
   name: "Element Arrow",
@@ -20,6 +21,7 @@ export const meta = {
     palette: ["#7a7a7a", "#a8a8a8", "#cfcfcf", "#ececec", "#ffffff"],
     layer: "both",
     big: false,
+    still: false,
     seed: 3,
   },
 };
@@ -28,7 +30,7 @@ const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.i
 const frac = (v) => v - Math.floor(v);
 
 export function draw(p, t, o) {
-  const C = fit(o.palette, 5), big = !!o.big, D = meta.duration;
+  const C = fit(o.palette, 5), big = !!o.big, still = !!o.still, D = meta.duration;
   const color = o.layer !== "core", core = o.layer !== "color";
   const ph = t / D, fr = Math.floor(t * 30 + 1e-6);
   const LEN = big ? 36 : 24;        // 촉 끝에서 깃 끝까지
@@ -37,7 +39,7 @@ export function draw(p, t, o) {
   const left = -meta.origin[0] + 1;
 
   // 바람 줄: 촉과 깃에서 뒤로 흘러감 (반복 이음매 없게 정수 바퀴)
-  if (color) {
+  if (color && !still) {
     const n = big ? 7 : 5;
     for (let i = 0; i < n; i++) {
       const u = frac(ph * 2 + i / n + hash(i, 1) * 0.3);
@@ -57,7 +59,7 @@ export function draw(p, t, o) {
   }
 
   // 깃: 위아래로 펄럭 (세 자세)
-  const flap = Math.floor(hash(fr, 7) * 3) - 1;
+  const flap = still ? 0 : Math.floor(hash(fr, 7) * 3) - 1;
   const fl = big ? 9 : 6, fh = big ? 4 : 3;
   for (const s of [-1, 1]) {
     for (let i = 0; i < fl; i++) {
@@ -78,10 +80,10 @@ export function draw(p, t, o) {
   if (core) p.px(1, 0, WHITE);
   // 촉을 따라 지나가는 반짝임
   const g = frac(ph * 2);
-  if (core && g < 0.3) { const gx = -Math.round((g / 0.3) * HL); p.px(gx, -1, WHITE); if (big) p.px(gx, -2, WHITE); }
+  if (core && !still && g < 0.3) { const gx = -Math.round((g / 0.3) * HL); p.px(gx, -1, WHITE); if (big) p.px(gx, -2, WHITE); }
 
   // 큰 화살: 촉에서 나온 알갱이가 몸통을 따라 흐르다가 깃을 지나며 퍼짐
-  if (big) {
+  if (big && !still) {
     const N = 14;
     for (let i = 0; i < N; i++) {
       const u = frac(ph * 2 + i / N + hash(i, 11) * 0.05);     // 0 = 촉, 1 = 퍼져 사라짐
