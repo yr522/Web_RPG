@@ -242,18 +242,25 @@ html.mobile { --gx: 0px; --gy: 0px; --gw: 100vw; --gh: 100vh; }
 .npc-dlg {
   /* 게임 화면 크기에 맞춰 통째로 키움 (zoom). 안의 크기는 높이 720 화면 기준 px */
   zoom: var(--ui);
-  /* 대사창은 게임 화면 가운데, 캐릭터 사진은 대사창 뒤 (왼쪽 위로 솟아 있음) */
-  position: relative; width: min(760px, calc(var(--gw) * .9 / var(--ui))); margin-bottom: max(10px, calc(var(--gh) * .02 / var(--ui)));
+  /* 대사창 폭은 늘 같음 (760, 화면이 아주 좁을 때만 줄어듦) */
+  --pic: min(320px, calc(var(--gw) / var(--ui) * .26));
+  position: relative; width: min(760px, calc(var(--gw) / var(--ui) * .95)); margin-bottom: max(10px, calc(var(--gh) * .02 / var(--ui)));
   animation: dlgIn .18s ease;
 }
+/* 포트레이트가 있는 창: 왼쪽에 포트레이트 자리(--pic)를 비우고 대사창은 오른쪽. 포트레이트는 그 자리에, 대사창보다 앞에 */
+.npc-dlg.pic { width: min(760px, calc(var(--gw) / var(--ui) * .95 - var(--pic))); margin-left: var(--pic); }
+.npc-dlg.pic .npc-name { left: 48px; }
 @keyframes dlgIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .npc-portrait {
-  position: absolute; left: 10px; bottom: calc(100% - 64px); z-index: 0; line-height: 0;
-  width: min(400px, calc(var(--gh) * .6 / var(--ui)));
+  position: absolute; right: calc(100% - 36px); bottom: 0; z-index: 2; line-height: 0; pointer-events: none;
+  display: flex; align-items: flex-end; justify-content: center;
 }
-.npc-portrait img { width: 100%; height: auto; max-height: calc(var(--gh) * .72 / var(--ui)); object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5)); }
+.npc-portrait img {
+  display: block; width: auto; height: min(440px, calc(var(--gh) * .66 / var(--ui))); max-width: calc(var(--pic) + 90px);
+  object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .5));
+}
 .npc-portrait-ph {
-  width: 100%; aspect-ratio: 1; border-radius: 16px; background: linear-gradient(160deg, var(--c-latte), var(--c-brown));
+  width: min(200px, calc(var(--pic) - 40px)); aspect-ratio: 1; margin: 0 52px 0 0; border-radius: 16px; background: linear-gradient(160deg, var(--c-latte), var(--c-brown));
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; line-height: 1.2; border: 2px solid var(--c-brown);
 }
 .npc-portrait-ph span { font-size: min(80px, calc(var(--gh) * .12 / var(--ui))); }
@@ -311,7 +318,7 @@ html.mobile { --gx: 0px; --gy: 0px; --gw: 100vw; --gh: 100vh; }
 .sm:disabled { opacity: .4; cursor: default; }
 @media (max-height: 500px) {
   .npc-dlg { margin-bottom: 6px; }
-  .npc-portrait { width: min(220px, calc(var(--gh) * .5 / var(--ui))); bottom: calc(100% - 40px); }
+  .npc-portrait img { height: calc(var(--gh) * .62 / var(--ui)); }
   .npc-panel { max-height: calc(var(--gh) * .7 / var(--ui)); padding: 22px 12px 10px 18px; }
   .npc-name { font-size: 18px; top: -18px; padding: 4px 14px; }
   .npc-body { font-size: 13px; }
