@@ -1360,6 +1360,11 @@ export class GameScene extends Phaser.Scene implements Stage {
         const a = al * al;
         g.lineStyle(f.w * (1 - p * 0.8), hex(f.color), a * 0.8).lineBetween(f.x1, f.y1, f.x2, f.y2);
         g.lineStyle(Math.max(1, f.w * 0.35 * (1 - p)), 0xffffff, al * al * al).lineBetween(f.x1, f.y1, f.x2, f.y2);
+      } else if (f.kind === 'charge') {
+        // 큰 원이 가운데로 줄어듦 (점점 또렷해짐), 끝나면 사라짐
+        const r = f.r0 + (f.r1 - f.r0) * p, a = 0.35 + 0.55 * p;
+        g.lineStyle(5, hex(f.color), a).strokeCircle(f.x, f.y, r);
+        g.lineStyle(2, 0xffffff, a * 0.8).strokeCircle(f.x, f.y, Math.max(1, r - 4));
       } else if (f.kind === 'ring') {
         g.lineStyle(5, hex(f.color), al).strokeCircle(f.x, f.y, f.r0 + (f.r1 - f.r0) * p);
       } else if (f.kind === 'ghost') {
