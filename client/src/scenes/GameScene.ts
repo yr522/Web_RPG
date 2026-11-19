@@ -137,6 +137,10 @@ export class GameScene extends Phaser.Scene implements Stage {
   private fxList: { f: Fx; t: number }[] = [];
   /** 재생 중인 그림 이펙트 */
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
+  /** 날아가는 화살 그림 (화살 id → 색 입힌 몸 + 흰 심) */
+  private arrowSprites = new Map<string, Phaser.GameObjects.Sprite[]>();
+  /** 소용돌이 그림 (소용돌이 → 색 입힌 층 + 흰 심) */
+  private vortexSprites = new Map<object, Phaser.GameObjects.Sprite[]>();
   /** 정예몹 특성 오버레이 (몬스터 id + 특성 → 계속 도는 그림) */
   private eliteFx = new Map<string, Phaser.GameObjects.Sprite>();
   private combat!: Phaser.GameObjects.Graphics;
@@ -254,6 +258,10 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.fxList = [];
     for (const o of this.vfxSprites) o.sp.destroy();
     this.vfxSprites = [];
+    for (const l of this.arrowSprites.values()) l.forEach(sp => sp.destroy());
+    this.arrowSprites.clear();
+    for (const l of this.vortexSprites.values()) l.forEach(sp => sp.destroy());
+    this.vortexSprites.clear();
     const { world, save } = this.deps.session, map = world.map;
     // 배경 그림이 없는 맵, 시간대 배경이 있어도 화면보다 짧은 맵: 맵 밖(양옆)은 검정
     if (!map.bg && (!map.bgTime || map.width < VIEW_MAX_W)) {
@@ -956,15 +964,18 @@ export class GameScene extends Phaser.Scene implements Stage {
     g.clear(); u.clear();
     const elCol = (e: import('@shared/data/elements').Element | null | undefined) => (e ? hex(ELEMENTS[e].color) : 0xdddddd);
 
+    // 소용돌이 그림 (색 입힌 층 + 흰 심). 소용돌이가 끝나면 지움 (터짐은 따로 재생)
     for (const v of world.vortices) {
-      const p = v.t / v.life, al = Math.min(1, (1 - p) * 2), c = hex(v.color);
-      g.fillStyle(0x140a28, 0.55 * al).fillCircle(v.x, v.y, 30 + 10 * Math.sin(v.t * 20));
-      for (let i = 0; i < 3; i++) {
-        const a0 = v.t * 9 + i * 2.1;
-        g.lineStyle(3, c, al).beginPath().arc(v.x, v.y, 45 + i * 22, a0, a0 + 1.8).strokePath();
+      if (!this.vortexSprites.has(v)) {
+        const d = VFX.soyong_vortex;
+        this.vortexSprites.set(v, ['soyong_vortex', d.core!].map((n, i) => {
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * v.r / 300);
+          if (i === 0) sp.setTint(hex(v.color));
+          return sp.play(vfxKey(n));
+        }));
       }
-      g.lineStyle(3, c, 0.15 * al).strokeCircle(v.x, v.y, v.r);
     }
+    for (const [v, l] of this.vortexSprites) if (!world.vortices.includes(v as never)) { l.forEach(sp => sp.destroy()); this.vortexSprites.delete(v); }
 
     // 궁수 덫: 바닥 위 톱니 모양 (작동 전엔 흐리게)
     for (const tr of world.traps) {
@@ -983,8 +994,15 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
     }
 
+    const seenArrows = new Set<string>();
     for (const o of world.projectiles) {
       const c = elCol(o.elem);
+      // 화살 그림 (기본 화살·사슬 화살 = arrow, 큰 화살 = arrow_big)
+      if (o.kind === 'arrow' || o.kind === 'chain' || o.kind === 'big') {
+        this.drawArrow(o, o.elem ? hex(ELEMENTS[o.elem].color) : null);
+        seenArrows.add(o.id);
+        continue;
+      }
       if (o.kind === 'orb') {
         g.fillStyle(c, 0.33).fillCircle(o.x, o.y, 13);
         g.fillStyle(c).fillCircle(o.x, o.y, 8);
@@ -1002,6 +1020,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       quad(-L, -th / 2, 0, th / 2, c, 1);
       g.fillStyle(c).fillPoints([pt(4, 0), pt(-6, -th - 3), pt(-6, th + 3)], true);
     }
+    for (const [id, l] of this.arrowSprites) if (!seenArrows.has(id)) { l.forEach(sp => sp.destroy()); this.arrowSprites.delete(id); }
 
     const x = px, y = py, a = me.action;
     // 사슬 화살: 날아가는 화살 / 끌려가는 지점까지 밧줄
@@ -1226,6 +1245,23 @@ export class GameScene extends Phaser.Scene implements Stage {
     sp.play(vfxKey(f.anim));
     // 위층 (색 안 입힘): 같은 자리·같은 박자로 위에 겹침
     if (d.core) this.playVfx({ ...f, anim: d.core, color: undefined });
+  }
+
+  /** 날아가는 화살 하나: 촉 끝이 화살 위치, 날아가는 방향으로 돌림. 길이(len)에 맞춰 크기 조절. 원소 없으면 색 안 입힘 */
+  private drawArrow(o: { id: string; kind: string; x: number; y: number; ang: number; len?: number }, tint: number | null) {
+    const name = o.kind === 'big' ? 'arrow_big' : 'arrow', d = VFX[name];
+    let l = this.arrowSprites.get(o.id);
+    if (!l) {
+      l = [name, d.core].filter((n): n is string => !!n).map((n, i) => {
+        const sp = this.add.sprite(o.x, o.y, vfxKey(n), 0).setDepth(5.5).setOrigin(d.origin![0] / d.frame, d.origin![1] / (d.frameH ?? d.frame));
+        if (i === 0 && tint !== null) sp.setTint(tint);
+        sp.play(vfxKey(n));
+        return sp;
+      });
+      this.arrowSprites.set(o.id, l);
+    }
+    const sc = (o.len ?? d.len!) / d.len!, left = Math.cos(o.ang) < 0;
+    for (const sp of l) sp.setPosition(o.x, o.y).setRotation(o.ang).setScale(sc * d.scale).setFlipY(left);
   }
 
   /** 검기·원 퍼짐·잔상 */
