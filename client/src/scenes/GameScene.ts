@@ -1224,6 +1224,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.vfxSprites.push({ sp, follow });
     sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); });
     sp.play(vfxKey(f.anim));
+    // 위층 (색 안 입힘): 같은 자리·같은 박자로 위에 겹침
+    if (d.core) this.playVfx({ ...f, anim: d.core, color: undefined });
   }
 
   /** 검기·원 퍼짐·잔상 */
