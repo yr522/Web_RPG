@@ -55,6 +55,7 @@ const ROBE: Record<string, number> = { warrior: 0x8a3a3a, mage: 0x4a3a8a, archer
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: (i * 977) % 2600, y: (i * 389) % 300, s: (i % 3) + 1 }));
 
 export interface SceneDeps {
+  loading?: import('../ui/Loading').Loading;
   session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
   /** 예 / 아니오 묻기 */
   confirm: (text: string, yes: () => void) => void;
@@ -167,6 +168,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   init(deps: SceneDeps) { this.deps = deps; }
 
   preload() {
+    this.load.on('progress', (p: number) => this.deps.loading?.set(p));
     preloadAvatar(this);
     preloadVfx(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
@@ -474,6 +476,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   update() {
     const { session, input, hud } = this.deps;
+    if (this.deps.loading) { this.deps.loading.done(); this.deps.loading = undefined; } // 첫 화면이 그려졌으니 로딩 화면을 지움
     // Phaser 의 delta 는 튀는 값을 깎아서 느린 기기에서 게임이 느려진다 → 실제 경과 시간을 직접 잰다
     const nowMs = performance.now();
     const dt = Math.min(0.25, (nowMs - this.lastFrame) / 1000);

@@ -873,3 +873,13 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .cw-stat .plus { margin-left: auto; width: calc(22 * var(--s)); height: calc(22 * var(--s)); min-width: 20px; min-height: 20px; border-radius: calc(6 * var(--s)); font-size: max(12px, 14 * var(--s)); padding: 0; line-height: 1; }
 .cw-desc { font-size: max(9px, 9.5 * var(--s)); color: #8a7563; margin: calc(1 * var(--s)) 0 calc(4 * var(--s)); }
 .cw-derived { margin-top: calc(8 * var(--s)); }
+
+/* 로딩 화면 (캐릭터 선택 뒤 ~ 게임 첫 화면) */
+#loading { position: fixed; inset: 0; z-index: 50; background: var(--c-brown); color: var(--c-cream); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; transition: opacity .35s; }
+#loading.out { opacity: 0; pointer-events: none; }
+#loading .ld-text { font-size: 22px; font-weight: 700; }
+#loading .ld-dots::after { content: ''; animation: ld-dots 1.2s steps(4) infinite; }
+@keyframes ld-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+#loading .ld-bar { width: min(320px, 60vw); height: 10px; border-radius: 5px; background: rgba(0, 0, 0, .3); border: 1px solid var(--c-latte); overflow: hidden; }
+#loading .ld-bar i { display: block; height: 100%; width: 0; background: var(--c-mint); }
+#loading .ld-pct { font-size: 13px; opacity: .8; }
