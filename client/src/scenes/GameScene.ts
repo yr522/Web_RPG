@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES, DOYAK, HINT } from '@shared/data/classes';
+import { CLASSES, DOYAK, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -978,14 +978,14 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (!this.vortexSprites.has(v)) {
         const d = VFX.soyong_vortex;
         this.vortexSprites.set(v, ['soyong_vortex', d.core!].map((n, i) => {
-          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * v.r / 300);
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * SOYONG_VISUAL_R / 300);
           if (i === 0) sp.setTint(hex(v.color));
           return sp.play(vfxKey(n));
         }));
         // 뒷배경 (유저 그림): 커지고 → 도는 동안 반복
         const b = VFX.soyong_bg;
         const back = ['soyong_bg', b.core!].map((n, i) => {
-          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(i === 0 ? 5.4 : 5.45).setScale(b.scale * v.r / 300).setData('bg', true);
+          const sp = this.add.sprite(v.x, v.y, vfxKey(n), 0).setDepth(i === 0 ? 5.4 : 5.45).setScale(b.scale * SOYONG_VISUAL_R / 300).setData('bg', true);
           if (i === 0) sp.setTint(hex(v.color));
           sp.play(vfxKey(n) + ':in').chain(vfxKey(n) + ':loop');
           return sp;
