@@ -54,7 +54,7 @@ export const SKILLS: Record<string, SkillDef> = {
   // 추가 이동기 (쿨타임·MP 는 질풍참·사슬 화살 수준). 회류참은 검사 연계 4식
   hoeryu: { name: '회류참', cd: 3.5, mp: 5, elements: ['water', 'earth', 'dark'] },
   teleport: { name: '텔레포트', short: '텔포', cd: 3, mp: 3, elements: [] },
-  doyak: { name: '후방 도약', short: '도약', cd: 3.5, mp: 3, elements: [] },
+  doyak: { name: '후방 도약', short: '도약', cd: 3.5, mp: 3, elements: ['fire', 'water', 'light'] },
   // 힌트 스킬 (2라인·3라인 맛보기)
   hyeolseom: { name: '혈섬', cd: 8, mp: 21, elements: ['dark', 'water'] },
   heullyeo: { name: '흘려베기', cd: 10, mp: 24, elements: ['water', 'light'] },

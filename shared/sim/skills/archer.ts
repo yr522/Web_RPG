@@ -145,7 +145,7 @@ export const ARCHER: ClassSkills = {
 
     /** 후방 도약 (이동기): 뒤로 포물선을 그리며 날아가면서(무적) 앞쪽 가까운 몬스터 3마리에게 한 발씩 */
     doyak(w, p) {
-      const D = DOYAK, face = p.face, x0 = cx(p), y0 = cy(p);
+      const D = DOYAK, face = p.face, x0 = cx(p), y0 = cy(p), el = w.elemOf(p, 'doyak');
       const targets = w.enemies
         .filter(e => !e.dead && !e.held && Math.abs(e.y + e.h / 2 - y0) < 180)
         .map(e => ({ e, dx: (e.x + e.w / 2 - x0) * face }))
@@ -169,7 +169,7 @@ export const ARCHER: ClassSkills = {
           // 몬스터가 없으면 앞 땅에 꽂음 (아무도 안 맞음)
           const tx = e && !e.dead ? e.x + e.w / 2 : x0 + face * (120 + i * 70), ty = e && !e.dead ? e.y + e.h / 2 : y0 + 30;
           const dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy) || 1;
-          w.addProj(p, { kind: 'arrow', x: sx, y: sy, vx: dx / d * 1500, vy: dy / d * 1500, range: e && !e.dead ? d + 60 : d, size: 14, len: 28, coef: D.coef, elem: null, kb: 120, skill: 'doyak', only: e && !e.dead ? e.id : '-' });
+          w.addProj(p, { kind: 'arrow', x: sx, y: sy, vx: dx / d * 1500, vy: dy / d * 1500, range: e && !e.dead ? d + 60 : d, size: 14, len: 28, coef: D.coef, elem: el, kb: 120, skill: 'doyak', only: e && !e.dead ? e.id : '-' });
         });
       }
     },
