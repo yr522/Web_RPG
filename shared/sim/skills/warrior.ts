@@ -64,8 +64,8 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     // 바라보는 방향으로 곧장 돌진 (각도 조절 없음 — 궁수 사슬 화살과 차별화)
     const el = w.elemOf(p, 'jilpung'), sp = R.jilpung.speed;
     w.chainText(p, 'jilpung', chain);
-    // 돌진 앞 바람 쐐기 (칸 가운데 50 과 몸 중심 27 의 차이 23 × 배율 3 만큼 앞으로)
-    w.fx({ kind: 'anim', anim: 'gale_dash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 69, dy: 0, color: color(el), life: 0.3 });
+    // 돌진 앞 바람 쐐기 (칸 가운데 50 과 몸 중심 27 의 차이 23 × 배율 3 = 69 에서 캐릭터 쪽으로 당김)
+    w.fx({ kind: 'anim', anim: 'gale_dash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 48, dy: 0, color: color(el), life: 0.3 });
     p.action = {
       name: 'dash', skill: 'jilpung', t: 0, dur: R.jilpung.time, noGravity: true, inv: true,
       update: () => {
