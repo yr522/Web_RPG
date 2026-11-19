@@ -3,6 +3,7 @@
 import Phaser from 'phaser';
 import smearH1 from '../../../assets/img/vfx/Smear VFX 01/Smear 01 Horizontal 1.png';
 import swordSlash from '../../../assets/img/vfx/slash_temp/pixel_art_sword_slash_sprites.png';
+import galeDash from '../../../assets/img/vfx/pixelfx/gale_dash.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
 import buff_haste_loop from '../../../assets/img/vfx/buff_overlay/haste_loop.png';
@@ -34,6 +35,8 @@ export const VFX: Record<string, VfxDef> = {
   smear_h1: { url: smearH1, frame: 48, frames: 5, fps: 25, scale: 2 },
   /** 임시: 위에서 앞으로 내려 베기, 거의 회색이라 원소 색을 입힘 (검사 일섬) */
   sword_slash: { url: swordSlash, frame: 64, frameH: 47, frames: 5, fps: 40, scale: 1.5 },
+  /** 검사 질풍참: 돌진 앞 뾰족한 바람 쐐기 (pixelfx 로 그림, 무채색이라 원소 색을 입힘). 칸 100×32, 몸 중심은 칸의 x 27 */
+  gale_dash: { url: galeDash, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤
   buff_blessed_loop: { url: buff_blessed_loop, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1, loop: true },
   buff_buff_applied: { url: buff_buff_applied, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1 },
