@@ -124,10 +124,18 @@ export const WARRIOR_REACH = {
  */
 export const TELEPORT = { dist: 220, up: 160, time: 0.12, inv: 0.25 };
 /**
- * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 포물선으로 time 초 동안 날아감 (무적).
- * 날아가면서 앞쪽 range(px) 안 가까운 몬스터 n 마리에게 한 발씩 (첫 발 first 초, 간격 gap 초, 계수 coef). 몬스터가 없으면 앞 땅에 쏨
+ * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 까지 rise 초 동안 떠오르고, 가장 높은 곳에서 hover 초 떠 있다가, fall 초 동안 내려옴 (내내 무적).
+ * 떠 있는 동안 화살 n 발이 앞 땅 spots(px, 뛴 자리에서 앞으로)에 차례로 박힘. beats = 가장 높은 곳에서 각 화살이 나타나는 시각 (뒤로 갈수록 간격이 짧음)
+ * 화살 하나: 박힐 자리에서 사선(ang, 수평에서 아래로 라디안)으로 dist(px) 떨어진 공중에 appear 초 동안 나타나고, hold 초 멈췄다가, drop 초 동안 점점 빨라지며 박힘.
+ * 박힌 뒤 stay 초 남았다가 fade 초 동안 사라짐. 그림 길이 len(px), 땅속으로 sink(px) 들어감
+ * 판정: 박힌 자리 가운데로 가로 hitW, 높이 hitH (그림보다 넉넉), 한 발 계수 coef
  */
-export const DOYAK = { back: 260, height: 90, time: 0.5, range: 460, n: 3, coef: 1.2, first: 0.08, gap: 0.09 };
+export const DOYAK = {
+  back: 260, height: 90, rise: 0.25, hover: 0.42, fall: 0.25,
+  n: 3, coef: 1.2, spots: [150, 215, 280], beats: [0, 0.17, 0.3],
+  arrow: { ang: 0.95, dist: 120, appear: 0.08, hold: 0.07, drop: 0.12, stay: 0.55, fade: 0.35, len: 72, sink: 6 },
+  hitW: 100, hitH: 120,
+};
 /** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17, 그 뒤 0.8배 → 240, 2026-11-19) */
 export const SOYONG_PULL_R = 240;
 /** 소용돌이 안 잔 피해 (무속성): n번, first 초 뒤부터 gap 초마다, 한 번에 계수 coef. 큰 한 방(화살)은 따로 3.2 */

@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES, HINT } from '@shared/data/classes';
+import { CLASSES, DOYAK, HINT } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -510,6 +510,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (ev.type === 'fx') {
         if (ev.fx.kind === 'anim') this.playVfx(ev.fx);
         // 내 캐릭터 잔상: 지금 모습을 본뜬 그림
+        else if (ev.fx.kind === 'droparrow') this.dropArrow(ev.fx);
         else if (ev.fx.kind === 'ghost' && ev.fx.owner && ev.fx.owner === this.deps.session.me().id) this.player.ghost(hex(ev.fx.color), ev.fx.life);
         else this.fxList.push({ f: ev.fx, t: 0 });
       }
@@ -1269,6 +1270,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const d = VFX[f.anim];
     if (!d) return;
     const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(d.depth ?? 5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
+    if (d.origin) sp.setOrigin(d.origin[0] / d.frame, d.origin[1] / (d.frameH ?? d.frame));
     if (f.color) sp.setTint(hex(f.color));
     if (f.flipY) sp.setFlipY(true);
     const follow = () => {
@@ -1282,6 +1284,31 @@ export class GameScene extends Phaser.Scene implements Stage {
     sp.play(vfxKey(f.anim));
     // 위층 (색 안 입힘): 같은 자리·같은 박자로 위에 겹침
     if (d.core) this.playVfx({ ...f, anim: d.core, color: undefined });
+  }
+
+  /** 후방 도약 화살: 공중 사선에 서서히 나타남 → 잠깐 멈춤 → 점점 빨라지며 땅에 박힘 → 박힌 채 남았다가 서서히 사라짐 */
+  private dropArrow(f: Extract<Fx, { kind: 'droparrow' }>) {
+    const A = DOYAK.arrow, tint = f.color ? hex(f.color) : null, left = Math.cos(f.ang) < 0;
+    const make = (name: string) => {
+      const d = VFX[name], sc = A.len / d.len!;
+      return [name, d.core!].map((n, i) => {
+        const sp = this.add.sprite(f.x, f.y, vfxKey(n), 0).setDepth(5.5).setOrigin(d.origin![0] / d.frame, d.origin![1] / (d.frameH ?? d.frame))
+          .setScale(sc * d.scale).setRotation(f.ang).setFlipY(left);
+        if (i === 0 && tint !== null) sp.setTint(tint);
+        return sp;
+      });
+    };
+    const fly = make('arrow_big');
+    fly.forEach(sp => sp.play(sp.texture.key).setPosition(f.x - Math.cos(f.ang) * A.dist, f.y - Math.sin(f.ang) * A.dist).setAlpha(0));
+    this.tweens.add({ targets: fly, alpha: 1, duration: A.appear * 1000 });
+    this.tweens.add({
+      targets: fly, x: f.x, y: f.y, delay: (A.appear + A.hold) * 1000, duration: A.drop * 1000, ease: 'Cubic.easeIn',
+      onComplete: () => {
+        fly.forEach(sp => sp.destroy());
+        const stuck = make('arrow_still');
+        this.tweens.add({ targets: stuck, alpha: 0, delay: A.stay * 1000, duration: A.fade * 1000, onComplete: () => stuck.forEach(sp => sp.destroy()) });
+      },
+    });
   }
 
   /** 날아가는 화살 하나: 촉 끝이 화살 위치, 날아가는 방향으로 돌림. 길이(len)에 맞춰 크기 조절. 원소 없으면 색 안 입힘 */

@@ -17,6 +17,10 @@ import arrowBig from '../../../assets/img/vfx/pixelfx/arrow_big.png';
 import arrowBigCore from '../../../assets/img/vfx/pixelfx/arrow_big_core.png';
 import vortexBg from '../../../assets/img/vfx/bow/vortex.png';
 import harpoonImg from '../../../assets/img/vfx/bow/harpoon.png';
+import arrowStill from '../../../assets/img/vfx/pixelfx/arrow_still.png';
+import arrowStillCore from '../../../assets/img/vfx/pixelfx/arrow_still_core.png';
+import groundPop from '../../../assets/img/vfx/pixelfx/ground_pop.png';
+import groundPopCore from '../../../assets/img/vfx/pixelfx/ground_pop_core.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -88,6 +92,12 @@ export const VFX: Record<string, VfxDef> = {
   soyong_bg: { url: vortexBg, frame: 256, frames: 11, fps: 14, scale: 2.3, smooth: true, keepWhite: 0.72, depth: 5.4,
     parts: { in: { frames: [0, 1, 2, 3] }, loop: { frames: [4, 5, 6, 7, 8], loop: true }, out: { frames: [9, 10] } } },
   harpoon: { url: harpoonImg, frame: 19, frameH: 12, frames: 1, fps: 1, scale: 1.5, origin: [18, 6] },
+  /** 박혀서 멈춘 큰 화살 (후방 도약). 바람 줄·알갱이 없음, 1칸 */
+  arrow_still: { url: arrowStill, frame: 80, frameH: 28, frames: 1, fps: 1, scale: 1, origin: [72, 14], len: 36, core: 'arrow_still_core' },
+  arrow_still_core: { url: arrowStillCore, frame: 80, frameH: 28, frames: 1, fps: 1, scale: 1 },
+  /** 화살이 땅에 박힐 때 (pixelfx, 한 번, 작게): 땅이 뾰족하게 솟았다 가라앉음 + 납작한 충격파 + 흙 조각. 칸 72×44, 기준점 (36, 34) = 박힌 자리 땅 줄 */
+  ground_pop: { url: groundPop, frame: 72, frameH: 44, frames: 14, fps: 30, scale: 1.5, origin: [36, 34], depth: 5.6, core: 'ground_pop_core' },
+  ground_pop_core: { url: groundPopCore, frame: 72, frameH: 44, frames: 14, fps: 30, scale: 1.5, origin: [36, 34], depth: 5.6 },
   /** 검사 오의 천붕: 연속 베기 (유저 그림, 무채색이라 원소 색을 입힘). 칸 256×256 6칸: 0 = 모으기, 1~5 = 다섯 번 베기. 초당 18칸으로 모으기 1번(0.06초) + 베기 칸마다 2번(0.11초) = 판정 5번 박자 */
   cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5], keepWhite: 0.72 },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤

@@ -147,31 +147,34 @@ export const ARCHER: ClassSkills = {
 
     /** 후방 도약 (이동기): 뒤로 포물선을 그리며 날아가면서(무적) 앞쪽 가까운 몬스터 3마리에게 한 발씩 */
     doyak(w, p) {
-      const D = DOYAK, face = p.face, x0 = cx(p), y0 = cy(p), el = w.elemOf(p, 'doyak');
-      const targets = w.enemies
-        .filter(e => !e.dead && !e.held && Math.abs(e.y + e.h / 2 - y0) < 180)
-        .map(e => ({ e, dx: (e.x + e.w / 2 - x0) * face }))
-        .filter(o => o.dx > -40 && o.dx < D.range)
-        .sort((a, b) => Math.abs(a.dx) - Math.abs(b.dx))
-        .slice(0, D.n).map(o => o.e);
+      const D = DOYAK, A = D.arrow, face = p.face, x0 = cx(p), el = w.elemOf(p, 'doyak'), c = el ? color(el) : undefined;
+      // 박히는 땅: 땅에서 뛰면 발밑 높이, 공중이면 바닥
+      const ground = p.onGround ? p.y + p.h : GROUND_Y;
+      const T = D.rise + D.hover + D.fall;
+      // 떠오름(감속) → 가장 높은 곳에서 떠 있음 → 내려옴(가속). 뒤로 가는 건 떠오를 때·내려올 때만
       const act: PlayerAction = {
-        name: 'leap', skill: 'doyak', t: 0, dur: D.time, noGravity: true, inv: true,
+        name: 'leap', skill: 'doyak', t: 0, dur: T, noGravity: true, inv: true,
         update: () => {
-          const k = Math.min(1, act.t / D.time);
           p.face = face;
-          p.vx = -face * D.back / D.time;
-          p.vy = -4 * D.height / D.time * (1 - 2 * k);
+          const t = act.t, side = -face * D.back / (D.rise + D.fall);
+          if (t < D.rise) { p.vx = side; p.vy = -2 * D.height / D.rise * (1 - t / D.rise); }
+          else if (t < D.rise + D.hover) { p.vx = 0; p.vy = 0; }
+          else { p.vx = side; p.vy = 2 * D.height / D.fall * ((t - D.rise - D.hover) / D.fall); }
         },
-        end: () => { p.vx = -face * 60; p.vy = 0; },
+        end: () => { p.vx = -face * 60; },
       };
       p.action = act;
+      // 화살: 공중 사선에서 나타나 앞 땅에 차례로 박힘 (다.다.다)
+      const ang = Math.atan2(Math.sin(A.ang), face * Math.cos(A.ang));
+      const land = A.appear + A.hold + A.drop;
       for (let i = 0; i < D.n; i++) {
-        w.later(p, D.first + i * D.gap, () => {
-          const e = targets[i], sx = cx(p) + face * 10, sy = cy(p) - 4;
-          // 몬스터가 없으면 앞 땅에 꽂음 (아무도 안 맞음)
-          const tx = e && !e.dead ? e.x + e.w / 2 : x0 + face * (120 + i * 70), ty = e && !e.dead ? e.y + e.h / 2 : y0 + 30;
-          const dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy) || 1;
-          w.addProj(p, { kind: 'arrow', x: sx, y: sy, vx: dx / d * 1500, vy: dy / d * 1500, range: e && !e.dead ? d + 60 : d, size: 14, len: 28, coef: D.coef, elem: el, kb: 120, skill: 'doyak', only: e && !e.dead ? e.id : '-' });
+        const ix = x0 + face * D.spots[i];
+        w.later(p, D.rise + D.beats[i], () => {
+          w.fx({ kind: 'droparrow', x: ix, y: ground + A.sink, ang, color: c, life: land + A.stay + A.fade });
+        });
+        w.later(p, D.rise + D.beats[i] + land, () => {
+          w.addHB(p, { abs: { x: ix - D.hitW / 2, y: ground - D.hitH, w: D.hitW, h: D.hitH + 10 }, coef: D.coef, elem: el, kb: 120, life: 0.05, face, skill: 'doyak' });
+          w.fx({ kind: 'anim', anim: 'ground_pop', x: ix, y: ground, face, color: c, life: 0.47 });
         });
       }
     },
