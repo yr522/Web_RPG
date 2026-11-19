@@ -93,8 +93,8 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
       .filter(e => !e.dead && !e.held && !MONSTERS[e.mob].boss && MONSTERS[e.mob].ai !== 'dummy' && inRect(e))
       .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x));
     w.addHB(p, { abs: rect, coef: H.coef, elem: el, order: 3, chain, kb: 0, launch: -90, life: 0.05, face, skill: 'hoeryu' });
-    // 물결 검기 + 발밑 긁힌 줄 (땅에 고정, 시작점에서 도착점까지 그어짐). 칸 가운데 (80, 24) 와 기준점 (98, 36) 의 차이 × 배율 3
-    w.fx({ kind: 'anim', anim: 'flow_slash', x: p.x + p.w / 2, y: feet, face, dx: -54, dy: -36, color: c, life: 0.5 });
+    // 파도 검기 + 발밑 먼지 (땅에 고정, 시작점에서 몸을 따라 그어짐). 칸 가운데 (88, 28) 와 기준점 (154, 50) 의 차이 × 배율 2
+    w.fx({ kind: 'anim', anim: 'flow_slash', x: p.x + p.w / 2, y: feet, face, dx: -132, dy: -44, color: c, life: 0.47 });
     const act: PlayerAction = {
       name: 'hoeryu', t: 0, dur: H.time, inv: true,
       events: [{ at: 0.02, fn: () => {} }],
