@@ -54,7 +54,7 @@ export const VFX: Record<string, VfxDef> = {
   flow_slash: { url: flowSlash, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, core: 'flow_slash_core', depth: 6.5 },
   flow_slash_core: { url: flowSlashCore, frame: 176, frameH: 56, frames: 14, fps: 30, scale: 2, depth: 6.5 },
   /** 검사 오의 천붕: 연속 베기 (유저 그림, 무채색이라 원소 색을 입힘). 칸 256×256 6칸: 0 = 모으기, 1~5 = 다섯 번 베기. 초당 18칸으로 모으기 1번(0.06초) + 베기 칸마다 2번(0.11초) = 판정 5번 박자 */
-  cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] },
+  cheonbung: { url: cheonbungVfx, frame: 256, frames: 6, fps: 18, scale: 1.5, smooth: true, seq: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] },
   // 버프 오버레이 (무료 에셋, 캐릭터·몬스터 위에 얹음). 여러 줄 시트: 왼→오, 위→아래 순서. 배율은 얹는 쪽에서 몸 크기에 맞춤
   buff_blessed_loop: { url: buff_blessed_loop, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1, loop: true },
   buff_buff_applied: { url: buff_buff_applied, frame: 32, frameH: 48, frames: 8, fps: 10, scale: 1 },
