@@ -150,29 +150,30 @@ export const ARCHER: ClassSkills = {
       const D = DOYAK, A = D.arrow, face = p.face, x0 = cx(p), el = w.elemOf(p, 'doyak'), c = el ? color(el) : undefined;
       // 박히는 땅: 땅에서 뛰면 발밑 높이, 공중이면 바닥
       const ground = p.onGround ? p.y + p.h : GROUND_Y;
-      const T = D.rise + D.hover + D.fall;
-      // 떠오름(감속) → 가장 높은 곳에서 떠 있음 → 내려옴(가속). 뒤로 가는 건 떠오를 때·내려올 때만
+      // 포물선을 따라가되 가장 높은 곳 근처(slow 구간)는 슬로우 모션으로 느리게 지나감
+      const [s0, s1] = D.slow, T = D.path - (s1 - s0) + (s1 - s0) / D.slowRate;
+      let tau = 0;
       const act: PlayerAction = {
         name: 'leap', skill: 'doyak', t: 0, dur: T, noGravity: true, inv: true,
-        update: () => {
+        update: dt => {
           p.face = face;
-          const t = act.t, side = -face * D.back / (D.rise + D.fall);
-          if (t < D.rise) { p.vx = side; p.vy = -2 * D.height / D.rise * (1 - t / D.rise); }
-          else if (t < D.rise + D.hover) { p.vx = 0; p.vy = 0; }
-          else { p.vx = side; p.vy = 2 * D.height / D.fall * ((t - D.rise - D.hover) / D.fall); }
+          const rate = tau >= s0 && tau < s1 ? D.slowRate : 1;
+          p.vx = -face * D.back / D.path * rate;
+          p.vy = -4 * D.height / D.path * (1 - 2 * Math.min(1, tau / D.path)) * rate;
+          tau += dt * rate;
         },
         end: () => { p.vx = -face * 60; },
       };
       p.action = act;
-      // 화살: 공중 사선에서 나타나 앞 땅에 차례로 박힘 (다.다.다)
+      // 화살: 공중 사선에서 나타나 땅에 차례로 박힘 (다다다, 두 번째가 서 있던 자리)
       const ang = Math.atan2(Math.sin(A.ang), face * Math.cos(A.ang));
       const land = A.appear + A.hold + A.drop;
       for (let i = 0; i < D.n; i++) {
         const ix = x0 + face * D.spots[i];
-        w.later(p, D.rise + D.beats[i], () => {
+        w.later(p, D.start + D.beats[i], () => {
           w.fx({ kind: 'droparrow', x: ix, y: ground + A.sink, ang, color: c, life: land + A.stay + A.fade });
         });
-        w.later(p, D.rise + D.beats[i] + land, () => {
+        w.later(p, D.start + D.beats[i] + land, () => {
           w.addHB(p, { abs: { x: ix - D.hitW / 2, y: ground - D.hitH, w: D.hitW, h: D.hitH + 10 }, coef: D.coef, elem: el, kb: 120, life: 0.05, face, skill: 'doyak' });
           w.fx({ kind: 'anim', anim: 'ground_pop', x: ix, y: ground, face, color: c, life: 0.47 });
         });
