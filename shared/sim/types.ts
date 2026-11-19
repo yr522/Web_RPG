@@ -54,7 +54,8 @@ export type Fx =
   | { kind: 'arc'; x: number; y: number; face: number; r: number; a0: number; a1: number; color: string; w: number; life: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
   /** 궤적: 한 번에 그려졌다가 서서히 가늘어지며 사라짐 (그림자 화살) */
-  | { kind: 'streak'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number }
+  /** proj 가 있으면 그 화살의 깃 끝을 따라 선이 늘어나다가, 화살이 맞히거나 사라지면 멈추고 서서히 사라짐 */
+  | { kind: 'streak'; x1: number; y1: number; x2: number; y2: number; color: string; w: number; life: number; proj?: string }
   /** 모으기: 큰 원이 점점 줄어들어 끝날 때 가운데(x, y)로 모임 (그림자 화살 선딜) */
   | { kind: 'charge'; x: number; y: number; color: string; r0: number; r1: number; life: number }
   | { kind: 'ring'; x: number; y: number; color: string; r0: number; r1: number; life: number }
@@ -70,6 +71,6 @@ export type Fx =
    * 그림 이펙트 (client/src/scenes/vfx.ts 의 이름). owner 가 있으면 그 플레이어를 따라감: (x, y) 대신 몸 가운데 + (dx × 바라보는 방향, dy).
    * color 가 있으면 그 색을 입힘 (원소 색). flipY = 위아래 뒤집기. life 는 쓰지 않음 (그림이 끝나면 사라짐)
    */
-  /** 후방 도약 화살: (x, y) = 박히는 촉 끝, ang = 날아가는 방향. 나타나기·떨어지기·사라지기 박자는 DOYAK.arrow */
-  | { kind: 'droparrow'; x: number; y: number; ang: number; color?: string; life: number }
+  /** 후방 도약 화살: (sx, sy) 에서 나타나 (x, y) = 박히는 촉 끝으로 fly 초 동안 날아감. 나타나기·사라지기 박자는 DOYAK.arrow */
+  | { kind: 'droparrow'; x: number; y: number; sx: number; sy: number; fly: number; color?: string; life: number }
   | { kind: 'anim'; anim: string; x: number; y: number; face: number; owner?: string; dx?: number; dy?: number; color?: string; flipY?: boolean; life: number };

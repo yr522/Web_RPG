@@ -127,14 +127,15 @@ export const TELEPORT = { dist: 220, up: 160, time: 0.12, inv: 0.25 };
  * 궁수 후방 도약: 바라보는 반대쪽으로 back(px), 높이 height 포물선 (보통 속도면 path 초). 내내 무적.
  * 포물선의 slow 구간(path 기준 초, 가장 높은 곳 근처)은 slowRate 배 속도로 느리게 지나감 (슬로우 모션) → 실제 걸리는 시간이 늘어남
  * 화살 n 발이 땅 spots(px, 뛴 자리 기준 앞쪽 +, 0 = 서 있던 자리)에 차례로 박힘. start 초에 첫 화살이 나타나고, beats = 그로부터 각 화살이 나타나는 시각 (뒤로 갈수록 간격이 짧음)
- * 화살 하나: 박힐 자리에서 사선(ang, 수평에서 아래로 라디안)으로 dist(px) 떨어진 공중에 appear 초 동안 나타나고, hold 초 멈췄다가, drop 초 동안 점점 빨라지며 박힘.
+ * 화살 하나: 그때 플레이어 몸에서 appear 초 동안 나타나고, hold 초 멈췄다가, 박힐 자리로 점점 빨라지며 날아가 박힘 (거리 ÷ speed 초, 최소 drop 초).
+ * 박힐 자리 = 그 x 에서 화살이 나오는 높이 아래로 처음 만나는 발판·땅 윗면 (발판이 없으면 바닥까지 끝까지 날아감). 화살마다 따로 셈.
  * 박힌 뒤 stay 초 남았다가 fade 초 동안 사라짐. 그림 길이 len(px), 땅속으로 sink(px) 들어감
  * 판정: 박힌 자리 가운데로 가로 hitW, 높이 hitH (그림보다 넉넉), 한 발 계수 coef
  */
 export const DOYAK = {
   back: 260, height: 90, path: 0.5, slow: [0.25, 0.4], slowRate: 0.4,
   n: 3, coef: 1.2, spots: [-65, 0, 65], start: 0.14, beats: [0, 0.08, 0.14],
-  arrow: { ang: 0.95, dist: 120, appear: 0.05, hold: 0.03, drop: 0.1, stay: 0.45, fade: 0.3, len: 72, sink: 6 },
+  arrow: { appear: 0.05, hold: 0.03, drop: 0.1, speed: 1400, stay: 0.45, fade: 0.3, len: 72, sink: 6 },
   hitW: 100, hitH: 120,
 };
 /** 궁수 소용돌이 화살: 끌어당기는 반지름(px) (테스터 의견으로 210 → 300, 2026-11-17 → 0.8배 240 → 다시 넓혀 360, 2026-11-19). 피해 범위(SOYONG_TICK.r)와 따로 */

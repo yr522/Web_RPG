@@ -300,3 +300,15 @@ describe('궁수 소용돌이 화살', () => {
     expect(out.meter?.dmg ?? 0).toBe(0);
   });
 });
+
+describe('후방 도약 화살이 박히는 자리', () => {
+  it('발판 위에서 쓰면 발판에, 발판 밖은 바닥까지', async () => {
+    const { GROUND_Y, MAPS } = await import('../shared/data/maps');
+    const w = new World('field', 1);
+    const pl = MAPS.field.platforms[0];
+    expect(w.surfaceBelow(pl.x + 20, pl.y - 50)).toBe(pl.y);
+    expect(w.surfaceBelow(pl.x - 30, pl.y - 50)).toBe(GROUND_Y);
+    // 발판보다 아래에서 쏘면 발판은 무시
+    expect(w.surfaceBelow(pl.x + 20, pl.y + 5)).toBe(GROUND_Y);
+  });
+});
