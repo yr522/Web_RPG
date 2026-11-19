@@ -17,6 +17,7 @@ export const meta = {
   bg: "dark",
   options: {
     palette: ["#6a6a6a", "#969696", "#c0c0c0", "#e4e4e4", "#ffffff"],
+    back: ["#262626", "#383838", "#4a4a4a", "#5c5c5c"],
     layer: "both",
     seed: 1,
   },
@@ -26,21 +27,25 @@ export const R = 150;
 const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const frac = (v) => v - Math.floor(v);
 
-/** 범위 안 안개: 반투명 덩어리가 소용돌이와 같이 천천히 돔. 범위 원 밖으로는 안 나감. k = 크기 배율 */
-export function drawFog(p, ph, C, k = 1, alpha = 1) {
-  const RY = R * 0.92 * k;
-  // 바탕: 범위 전체를 옅게, 가장자리는 부드럽게
-  p.disc(0, 0, RY, C[1], (d) => 0.3 * alpha * (d < 0.8 ? 1 : (1 - d) / 0.2));
-  // 덩어리: 자리마다 크기가 정해져 있어서 한 칸씩 돌면 반복 이음매 없음
-  const N = 16;
-  for (let i = 0; i < N; i++) {
-    const th = ((i + ph) / N) * Math.PI * 2 + 0.3;
-    const rr = (0.3 + 0.38 * (0.5 + 0.5 * Math.sin(th * 3 + 1))) * RY;
-    const size = (24 + 14 * (0.5 + 0.5 * Math.sin(th * 2))) * k;
-    const x = Math.cos(th) * rr, y = Math.sin(th) * rr;
-    const lim = Math.min(size, RY - Math.hypot(x, y));
-    if (lim < 3) continue;
-    p.disc(Math.round(x), Math.round(y), lim, (d) => (d < 0.4 ? C[2] : C[1]), (d) => 0.24 * alpha * (1 - d * d));
+/** 뒤쪽 궤도: 앞 팔과 같은 나선을 더 많이·촘촘하게·두껍게, 어두운 색 여러 단계로 깔아 범위를 채움. k = 크기 배율 */
+export function drawBackSwirl(p, ph, D, k = 1, spin = 0, alpha = 1) {
+  const ARMS = 9, PER = 64;
+  const rot = ph * Math.PI * 2 * (1 / 3) + spin; // 앞 팔과 같은 속도 (9팔이라 1/3 바퀴마다 같은 모양)
+  for (let a = 0; a < ARMS; a++) {
+    for (let i = 0; i < PER; i++) {
+      const id = 500 + a * PER + i;
+      const u = frac(ph + i / PER + hash(id, 1) * 0.05);
+      const r = R * k * Math.pow(1 - u, 0.8) * (0.9 + hash(id, 2) * 0.2);
+      if (r < 6 * k) continue;
+      const th = rot + ((a + 0.5) / ARMS) * Math.PI * 2 + 3.4 * Math.log(R / Math.max(r / k, 4)) * 0.55 + (hash(id, 3) - 0.5) * 0.5;
+      const x = Math.cos(th) * r, y = Math.sin(th) * r * 0.92;
+      const tl = 4 + Math.round((1 - u) * 8 * k);
+      const tx = Math.cos(th - 0.4) * (r + tl), ty = Math.sin(th - 0.4) * (r + tl) * 0.92;
+      const c = D[Math.floor(hash(id, 5) * D.length)];
+      const al = Math.min(1, u * 5) * (u > 0.85 ? (1 - u) / 0.15 : 1) * alpha;
+      const w = r > R * k * 0.35 ? 1 : 0; // 바깥쪽은 3줄 두께, 중심 가까이는 2줄
+      for (let o = -1; o <= w; o++) p.line(Math.round(x), Math.round(y) + o, Math.round(tx), Math.round(ty) + o, c, (q) => (1 - q * 0.7) * al);
+    }
   }
 }
 
@@ -72,7 +77,7 @@ export function draw(p, t, o) {
   const C = fit(o.palette, 5), ph = t / meta.duration;
   const color = o.layer !== "core", core = o.layer !== "color";
 
-  if (color) drawFog(p, ph, C);
+  if (color) drawBackSwirl(p, ph, fit(o.back, 4));
 
   // 범위 테두리: 끊긴 점선 원이 천천히 돔
   if (color) for (let i = 0; i < 90; i++) {

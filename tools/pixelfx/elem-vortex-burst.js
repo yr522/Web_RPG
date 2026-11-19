@@ -1,7 +1,7 @@
 // pixelfx 원본 (https://github.com/patch-gg/pixelfx 의 src/fx/arcane/ 에 elem-vortex.js 와 함께 넣고 node tools/render.mjs arcane/elem-vortex-burst 로 그림)
 // 게임용 PNG (4칸씩 여러 줄): vortex_burst.png {"layer":"color"} · vortex_burst_core.png {"layer":"core"}
 import { fit, clamp, ease, WHITE } from "../../core/index.js";
-import { drawSwirl, drawFog, R } from "./elem-vortex.js";
+import { drawSwirl, drawBackSwirl, R } from "./elem-vortex.js";
 
 // 궁수 소용돌이 터짐 (한 번): 화살이 중심에 닿으면 소용돌이가 빠르게 줄어들며 사라지고,
 // 충격파 고리가 퍼지고 파편이 튀어 나가다 느려지며 살짝 떨어짐. 원점 = 중심. 1 칸 = 화면 2px
@@ -17,6 +17,7 @@ export const meta = {
   bg: "dark",
   options: {
     palette: ["#6a6a6a", "#969696", "#c0c0c0", "#e4e4e4", "#ffffff"],
+    back: ["#262626", "#383838", "#4a4a4a", "#5c5c5c"],
     layer: "both",
     seed: 1,
   },
@@ -33,7 +34,7 @@ export function draw(p, t, o) {
   // 소용돌이가 빠르게 감기며 줄어듦
   if (t < SHRINK) {
     const k = 1 - ease.inQuad(t / SHRINK);
-    if (color) drawFog(p, t / 0.6, C, k, 1 - t / SHRINK * 0.5);
+    if (color) drawBackSwirl(p, t / 0.6, fit(o.back, 4), k, t * 40, 1 - t / SHRINK * 0.5);
     drawSwirl(p, t / 0.6, C, color, core, k, t * 40, 1);
   }
 
