@@ -1314,8 +1314,21 @@ export class GameScene extends Phaser.Scene implements Stage {
     };
     follow();
     this.vfxSprites.push({ sp, follow });
-    sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); });
-    sp.play(vfxKey(f.anim));
+    const remove = () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); };
+    const key = vfxKey(f.anim);
+    if (f.hold && d.parts?.in && d.parts.loop && d.parts.out) {
+      // 오래 있는 그림 (설치기): 생기는 칸 → hold 초 동안 반복 칸 → 사라지는 칸 재생 후 지움
+      sp.play(key + ':in').chain(key + ':loop');
+      this.time.delayedCall(f.hold * 1000, () => {
+        if (!sp.active) return;
+        sp.chain();
+        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
+        sp.play(key + ':out');
+      });
+    } else {
+      sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
+      sp.play(key);
+    }
     // 위층 (색 안 입힘): 같은 자리·같은 박자로 위에 겹침
     if (d.core) this.playVfx({ ...f, anim: d.core, color: undefined });
   }

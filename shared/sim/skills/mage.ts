@@ -1,7 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, MADAN_COEF, MAGE_SHOT, TELEPORT } from '../../data/classes';
+import { GIDUNG, HINT, MADAN_COEF, MAGE_SHOT, TELEPORT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -19,11 +19,9 @@ function castAction(p: PlayerState, name: string, time: number, onCast: () => vo
   p.action = { name: 'cast', skill: name, t: 0, dur: time * castMult(p), superArmor: true, cast: true, update: () => { p.vx = 0; }, end: onCast };
 }
 
-const GIDUNG_RANGE = 460;
 
 export const MAGE: ClassSkills = {
   can: {
-    gidung: (w, p) => !!w.nearestFront(p, GIDUNG_RANGE) || '범위 안에 몬스터가 없어',
     haebang: (_w, p) => p.buffT <= 0 || '이미 해방 중',
     ssiat: (w, p) => !!w.nearestFront(p, HINT.ssiat.range) || '범위 안에 몬스터가 없어',
   },
@@ -49,16 +47,16 @@ export const MAGE: ClassSkills = {
       };
     },
 
+    /** 원소 기둥 = 마력 토네이도 (설치기): 내 앞 발밑에 생겨 잠시 머물며 범위 안 적을 연달아 때림 */
     gidung(w, p) {
-      const el = w.elemOf(p, 'gidung'), t = w.nearestFront(p, GIDUNG_RANGE)!;
-      let tx = t.x + t.w / 2, by = t.y + t.h;
-      castAction(p, 'gidung', 0.5, () => {
-        // 캐스팅 동안 몬스터가 움직였으면 따라간다 (죽었으면 처음 자리)
-        if (!t.dead) { tx = t.x + t.w / 2; by = t.y + t.h; }
-        const rect = { x: tx - 38, y: by - 220, w: 76, h: 220 };
-        w.fx({ kind: 'pillar', x: tx, by, w: 76, h: 220, color: color(el), life: 0.55 });
-        for (let i = 0; i < 3; i++) {
-          w.later(p, i * 0.12, () => w.addHB(p, { abs: rect, coef: 1.3, elem: el, kb: 0, launch: i === 2 ? -460 : -160, life: 0.05, light: i < 2, skill: 'gidung' }));
+      const G = GIDUNG, el = w.elemOf(p, 'gidung');
+      castAction(p, 'gidung', G.cast, () => {
+        const tx = Math.max(w.bounds.l + G.w / 2, Math.min(w.bounds.r - G.w / 2, cx(p) + p.face * G.dist)), by = p.y + p.h;
+        const rect = { x: tx - G.w / 2, y: by - G.h, w: G.w, h: G.h };
+        const n = Math.floor((G.time - G.first) / G.tick) + 1;
+        w.fx({ kind: 'anim', anim: 'gidung_tornado', x: tx, y: by, face: p.face, color: color(el), hold: G.time, life: G.time });
+        for (let i = 0; i < n; i++) {
+          w.later(p, G.first + i * G.tick, () => w.addHB(p, { abs: rect, coef: G.coef, elem: el, kb: 0, launch: G.launch, life: 0.05, light: true, skill: 'gidung' }));
         }
         p.lockT = 0.3;
       });
