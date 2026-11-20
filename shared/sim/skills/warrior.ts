@@ -1,6 +1,6 @@
 // 검사(검사) 스킬 — 프로토타입 v0.4.7 그대로 이식
 import { ELEMENTS, type Element } from '../../data/elements';
-import { HINT, HOERYU, MOVE_SKILL, WARRIOR_REACH as R } from '../../data/classes';
+import { HINT, HOERYU, ILSEOM, MOVE_SKILL, WARRIOR_REACH as R } from '../../data/classes';
 import { MONSTERS } from '../../data/monsters';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -28,12 +28,12 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
 
   ilseom(w, p, chain) {
     const el = w.elemOf(p, 'ilseom'), c = color(el);
-    const hit = () => w.addHB(p, { dx: -6, dy: -46, w: R.ilseomW, h: 78, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
-    // 베기 그림 (임시 sword_slash, 원소 색): 첫 번째는 위→아래, 두 번째는 위아래 뒤집어 아래→위
-    const slash = (i: number) => w.fx({ kind: 'anim', anim: 'sword_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 48, dy: -8, color: c, flipY: i === 1, life: 0.13 });
+    const hit = () => w.addHB(p, { dx: -6, dy: -46, w: R.ilseomW, h: 78, coef: ILSEOM.coef, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
+    // 베기 그림 (ilseom_slash, 원소 색): 위→아래 한 번
+    const slash = () => w.fx({ kind: 'anim', anim: 'ilseom_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, life: 0.27 });
     p.action = {
       name: 'ilseom', t: 0, dur: 0.24,
-      events: [{ at: 0, fn: () => slash(0) }, { at: 0.02, fn: hit }, { at: 0.13, fn: () => slash(1) }, { at: 0.15, fn: hit }],
+      events: [{ at: 0, fn: slash }, { at: 0.02, fn: hit }],
       end: () => { p.lockT = 0.18; },
       update: () => { p.vx = p.onGround ? p.face * 40 : p.cmd.move * 130; },
     };

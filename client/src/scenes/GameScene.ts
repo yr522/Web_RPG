@@ -1270,7 +1270,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     const d = VFX[f.anim];
     if (!d) return;
     const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(d.depth ?? 5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
-    if (d.origin) sp.setOrigin(d.origin[0] / d.frame, d.origin[1] / (d.frameH ?? d.frame));
+    // 위아래 뒤집으면 기준점도 같이 뒤집음 (그림 속 같은 점이 기준점에 오게)
+    if (d.origin) { const fh = d.frameH ?? d.frame; sp.setOrigin(d.origin[0] / d.frame, (f.flipY ? fh - d.origin[1] : d.origin[1]) / fh); }
     if (f.color) sp.setTint(hex(f.color));
     if (f.flipY) sp.setFlipY(true);
     const follow = () => {

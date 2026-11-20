@@ -21,6 +21,8 @@ import arrowStill from '../../../assets/img/vfx/pixelfx/arrow_still.png';
 import arrowStillCore from '../../../assets/img/vfx/pixelfx/arrow_still_core.png';
 import groundPop from '../../../assets/img/vfx/pixelfx/ground_pop.png';
 import groundPopCore from '../../../assets/img/vfx/pixelfx/ground_pop_core.png';
+import ilseomSlash from '../../../assets/img/vfx/pixelfx/ilseom_slash.png';
+import ilseomSlashCore from '../../../assets/img/vfx/pixelfx/ilseom_slash_core.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -69,6 +71,9 @@ export const VFX: Record<string, VfxDef> = {
   smear_h1: { url: smearH1, frame: 48, frames: 5, fps: 25, scale: 2 },
   /** 임시: 위에서 앞으로 내려 베기, 거의 회색이라 원소 색을 입힘 (검사 일섬) */
   sword_slash: { url: swordSlash, frame: 64, frameH: 47, frames: 5, fps: 40, scale: 1.5 },
+  /** 검사 일섬: 눈높이에서 본 납작한 초승달, 납작 크레용 붓으로 그은 두꺼운 베기 (pixelfx). 바깥은 무채색이라 원소 색, 흰 심은 위층. 칸 128×52, 기준점 (44, 33) = 몸 중심 */
+  ilseom_slash: { url: ilseomSlash, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33], core: 'ilseom_slash_core' },
+  ilseom_slash_core: { url: ilseomSlashCore, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33] },
   /** 검사 질풍참: 돌진 앞 뾰족한 바람 쐐기 (pixelfx 로 그림). 바깥은 밝은 무채색이라 원소 색이 입혀지고, 가운데 흰 심은 위층(gale_dash_core)으로 색 없이 겹침. 칸 100×32, 몸 중심은 칸의 x 27 */
   gale_dash: { url: galeDash, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3, core: 'gale_dash_core' },
   gale_dash_core: { url: galeDashCore, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3 },
