@@ -137,6 +137,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private fxList: { f: Fx; t: number }[] = [];
   /** 재생 중인 그림 이펙트 */
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
+  /** 흘려베기 받아내는 중인 플레이어의 방패 그림 (색 층 + 흰 심) */
+  private guardShields = new Map<string, Phaser.GameObjects.Sprite[]>();
   /** 날아가는 화살 그림 (화살 id → 색 입힌 몸 + 흰 심) */
   private arrowSprites = new Map<string, Phaser.GameObjects.Sprite[]>();
   /** 사슬 화살로 끌려가는 동안 박혀 있는 작살 */
@@ -260,6 +262,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.fxList = [];
     for (const o of this.vfxSprites) o.sp.destroy();
     this.vfxSprites = [];
+    for (const l of this.guardShields.values()) l.forEach(sp => sp.destroy());
+    this.guardShields.clear();
     for (const l of this.arrowSprites.values()) l.forEach(sp => sp.destroy());
     this.arrowSprites.clear();
     this.ropeHarpoon?.destroy(); this.ropeHarpoon = null;
@@ -1012,14 +1016,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       for (let i = 0; i < 4; i++) { const x0 = tr.x - hw + i * (tr.w / 4); u.fillTriangle(x0, tr.y - 5, x0 + tr.w / 8, tr.y - 13, x0 + tr.w / 4, tr.y - 5); }
     }
 
-    // 흘려베기 받아내기 자세: 몸 주위 원
-    for (const p of world.players.values()) {
-      if (p.action?.guard) {
-        const el = p.data.learned.heullyeo, c = el ? hex(ELEMENTS[el].color) : 0xffffff;
-        g.lineStyle(3, c, 0.8).strokeCircle(p.x + p.w / 2, p.y + p.h / 2, 36 + 2 * Math.sin(t * 30));
-        g.fillStyle(c, 0.15).fillCircle(p.x + p.w / 2, p.y + p.h / 2, 36);
-      }
-    }
+    // 흘려베기 받아내기 자세: 몸 앞 방패 그림 (guard_shield, 받아내는 동안 반복)
+    this.syncGuardShields();
 
     const seenArrows = new Set<string>();
     for (const o of world.projectiles) {
@@ -1263,6 +1261,34 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (let f = 0; f < 3; f++) tex.add(f, 0, f * 32, 0, 32, 32);
     tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /** 받아내는 중인 플레이어마다 방패 그림을 붙여 두고, 끝나면 뗌 */
+  private syncGuardShields() {
+    const world = this.deps.session.world;
+    for (const [id, sps] of this.guardShields) {
+      const p = world.players.get(id);
+      if (p?.action?.guard) continue;
+      for (const sp of sps) sp.destroy();
+      this.guardShields.delete(id);
+    }
+    for (const p of world.players.values()) {
+      if (!p.action?.guard) continue;
+      let sps = this.guardShields.get(p.id);
+      if (!sps) {
+        const el = p.data.learned.heullyeo, tint = hex(el ? ELEMENTS[el].color : '#dddddd');
+        sps = ['guard_shield', 'guard_shield_core'].map((name, i) => {
+          const d = VFX[name];
+          const sp = this.add.sprite(0, 0, vfxKey(name), 0).setDepth(d.depth ?? 5.5).setOrigin(d.origin![0] / d.frame, d.origin![1] / (d.frameH ?? d.frame));
+          if (i === 0) sp.setTint(tint);
+          sp.play(vfxKey(name));
+          return sp;
+        });
+        this.guardShields.set(p.id, sps);
+      }
+      const s = VFX.guard_shield.scale;
+      for (const sp of sps) sp.setPosition(p.x + p.w / 2, p.y + p.h / 2).setScale(s * (p.face < 0 ? -1 : 1), s);
+    }
   }
 
   /** 그림 이펙트 재생 (끝나면 사라짐). owner 가 있으면 그 플레이어를 따라감 */

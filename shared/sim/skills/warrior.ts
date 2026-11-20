@@ -33,7 +33,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     const slash = () => w.fx({ kind: 'anim', anim: 'ilseom_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, life: 0.27 });
     p.action = {
       name: 'ilseom', t: 0, dur: 0.24,
-      events: [{ at: 0, fn: slash }, { at: 0.02, fn: hit }],
+      events: [{ at: ILSEOM.windup, fn: slash }, { at: ILSEOM.windup + 0.02, fn: hit }],
       end: () => { p.lockT = 0.18; },
       update: () => { p.vx = p.onGround ? p.face * 40 : p.cmd.move * 130; },
     };
@@ -160,7 +160,7 @@ WARRIOR_START.hyeolseom = (w, p) => {
 WARRIOR_START.heullyeo = (w, p) => {
   const H = HINT.heullyeo, el = w.elemOf(p, 'heullyeo'), c = color(el);
   const guard = { taken: 0 };
-  w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: c, r0: 40, r1: 30, life: 0.25 });
+  // 받아내는 동안 몸 앞 방패 그림은 화면 쪽이 guard 상태를 보고 붙임 (guard_shield)
   p.action = {
     name: 'guard', skill: 'heullyeo', t: 0, dur: H.guard, superArmor: true, guard,
     update: () => { p.vx = 0; },
@@ -169,12 +169,11 @@ WARRIOR_START.heullyeo = (w, p) => {
       const big = coef > H.coef;
       p.action = {
         name: 'heullyeo', t: 0, dur: 0.24, superArmor: true,
-        events: [{
-          at: 0.04, fn: () => {
-            w.addHB(p, { dx: -10, dy: -60, w: big ? 150 : 124, h: 104, coef, elem: el, kb: 320, life: 0.08, skill: 'heullyeo' });
-            w.fx({ kind: 'arc', x: cx(p), y: cy(p) - 4, face: p.face, r: big ? 96 : 80, a0: 1.4, a1: -1.4, color: c, w: big ? 16 : 11, life: 0.22 });
-          },
-        }],
+        events: [
+          // 방패 돌진 → 오라처럼 퍼짐 (shield_bash). 받아내던 방패가 사라지는 순간 바로 이어서 시작
+          { at: 0, fn: () => w.fx({ kind: 'anim', anim: 'shield_bash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, life: 0.44 }) },
+          { at: 0.04, fn: () => w.addHB(p, { dx: -10, dy: -60, w: big ? 150 : 124, h: 104, coef, elem: el, kb: 320, life: 0.08, skill: 'heullyeo' }) },
+        ],
         update: () => { p.vx = 0; },
         end: () => { p.lockT = 0.2; },
       };

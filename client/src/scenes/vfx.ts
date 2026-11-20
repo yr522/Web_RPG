@@ -23,6 +23,12 @@ import groundPop from '../../../assets/img/vfx/pixelfx/ground_pop.png';
 import groundPopCore from '../../../assets/img/vfx/pixelfx/ground_pop_core.png';
 import ilseomSlash from '../../../assets/img/vfx/pixelfx/ilseom_slash.png';
 import ilseomSlashCore from '../../../assets/img/vfx/pixelfx/ilseom_slash_core.png';
+import guardShield from '../../../assets/img/vfx/pixelfx/guard_shield.png';
+import guardShieldCore from '../../../assets/img/vfx/pixelfx/guard_shield_core.png';
+import guardHit from '../../../assets/img/vfx/pixelfx/guard_hit.png';
+import guardHitCore from '../../../assets/img/vfx/pixelfx/guard_hit_core.png';
+import shieldBash from '../../../assets/img/vfx/pixelfx/shield_bash.png';
+import shieldBashCore from '../../../assets/img/vfx/pixelfx/shield_bash_core.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -74,6 +80,15 @@ export const VFX: Record<string, VfxDef> = {
   /** 검사 일섬: 눈높이에서 본 납작한 초승달, 납작 크레용 붓으로 그은 두꺼운 베기 (pixelfx). 바깥은 무채색이라 원소 색, 흰 심은 위층. 칸 128×52, 기준점 (44, 33) = 몸 중심 */
   ilseom_slash: { url: ilseomSlash, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33], core: 'ilseom_slash_core' },
   ilseom_slash_core: { url: ilseomSlashCore, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33] },
+  /** 검사 흘려베기 받아내기 (pixelfx, 반복): 몸 바로 앞 반구 방패 + 가장자리를 따라 뒤로 흐르는 알갱이. 받아내는 동안 GameScene 이 붙여 둠. 칸 52×56, 기준점 (22, 28) = 몸 중심 */
+  guard_shield: { url: guardShield, frame: 52, frameH: 56, frames: 18, fps: 30, scale: 1.5, loop: true, origin: [22, 28], core: 'guard_shield_core' },
+  guard_shield_core: { url: guardShieldCore, frame: 52, frameH: 56, frames: 18, fps: 30, scale: 1.5, loop: true, origin: [22, 28] },
+  /** 받아내는 중 맞음 (한 번): 방패에서 알갱이가 뿜어져 공기 중에 퍼짐. 칸 76×76, 기준점 (22, 38) */
+  guard_hit: { url: guardHit, frame: 76, frameH: 76, frames: 17, fps: 30, scale: 1.5, origin: [22, 38], depth: 6.5, core: 'guard_hit_core' },
+  guard_hit_core: { url: guardHitCore, frame: 76, frameH: 76, frames: 17, fps: 30, scale: 1.5, origin: [22, 38], depth: 6.5 },
+  /** 흘려베기 공격 (한 번): 방패가 잔상을 남기며 앞으로 돌진 → 방패 모양 그대로 커지며 오라처럼 퍼짐. 칸 108×132, 기준점 (22, 66) */
+  shield_bash: { url: shieldBash, frame: 108, frameH: 132, frames: 13, fps: 30, scale: 1.5, origin: [22, 66], core: 'shield_bash_core' },
+  shield_bash_core: { url: shieldBashCore, frame: 108, frameH: 132, frames: 13, fps: 30, scale: 1.5, origin: [22, 66] },
   /** 검사 질풍참: 돌진 앞 뾰족한 바람 쐐기 (pixelfx 로 그림). 바깥은 밝은 무채색이라 원소 색이 입혀지고, 가운데 흰 심은 위층(gale_dash_core)으로 색 없이 겹침. 칸 100×32, 몸 중심은 칸의 x 27 */
   gale_dash: { url: galeDash, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3, core: 'gale_dash_core' },
   gale_dash_core: { url: galeDashCore, frame: 100, frameH: 32, frames: 6, fps: 20, scale: 3 },
