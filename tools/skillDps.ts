@@ -64,7 +64,10 @@ function run(cls: ClassId, skillLv: number, plan: (tick: number, p: PlayerState)
     if (infMp) p.mp = p.stats.maxMp;
     // 돌진 등으로 멀어지면 할 일이 없을 때 제자리로
     if (!p.action) { p.x = 300; p.face = 1; }
-    w.step(new Map([['p', plan(t, p)]]));
+    const cmd = plan(t, p);
+    // 원소 기둥: 토네이도가 있는 동안 다시 누르면 움직여 버리므로, 측정은 제자리 토네이도 기준 (그동안은 안 누름)
+    if (w.tornadoes.some(o => o.owner === p)) cmd.skillPressed = cmd.skillPressed.filter(k => p.data.skillKeys[k] !== 'gidung');
+    w.step(new Map([['p', cmd]]));
   }
   // 1e9 에서 깎인 만큼이 마지막 틱 것만 남으므로 따로 셈: hit 이벤트 대신 누적
   return { dmg: dmgTotal(w), casts, mpUsed, by };

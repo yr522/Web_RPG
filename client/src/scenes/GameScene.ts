@@ -1,7 +1,7 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
 import { GROUND_Y } from '@shared/data/maps';
-import { CLASSES, DOYAK, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
+import { CLASSES, DOYAK, GIDUNG, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
@@ -145,6 +145,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private ropeHarpoon: Phaser.GameObjects.Sprite | null = null;
   /** 소용돌이 그림 (소용돌이 → 색 입힌 층 + 흰 심) */
   private vortexSprites = new Map<object, Phaser.GameObjects.Sprite[]>();
+  /** 원소 기둥 토네이도 그림 (색 층 + 흰 심) */
+  private tornadoSprites = new Map<object, Phaser.GameObjects.Sprite[]>();
   /** 정예몹 특성 오버레이 (몬스터 id + 특성 → 계속 도는 그림) */
   private eliteFx = new Map<string, Phaser.GameObjects.Sprite>();
   private combat!: Phaser.GameObjects.Graphics;
@@ -269,6 +271,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.ropeHarpoon?.destroy(); this.ropeHarpoon = null;
     for (const l of this.vortexSprites.values()) l.forEach(sp => sp.destroy());
     this.vortexSprites.clear();
+    for (const l of this.tornadoSprites.values()) l.forEach(sp => sp.destroy());
+    this.tornadoSprites.clear();
     const { world, save } = this.deps.session, map = world.map;
     // 배경 그림이 없는 맵, 시간대 배경이 있어도 화면보다 짧은 맵: 맵 밖(양옆)은 검정
     if (!map.bg && (!map.bgTime || map.width < VIEW_MAX_W)) {
@@ -1008,6 +1012,30 @@ export class GameScene extends Phaser.Scene implements Stage {
       this.vortexSprites.delete(v);
     }
 
+    // 원소 기둥 토네이도: 생김 → 돎(반복)을 붙여 두고 토네이도를 따라 움직임. 끝나면 사라지는 칸 재생 후 지움
+    for (const o of world.tornadoes) {
+      let l = this.tornadoSprites.get(o);
+      if (!l) {
+        const d = VFX.gidung_tornado;
+        l = ['gidung_tornado', d.core!].map((n, i) => {
+          const sp = this.add.sprite(o.x, o.by, vfxKey(n), 0).setDepth(5.5).setScale(d.scale * GIDUNG.scale).setOrigin(d.origin![0] / d.frame, d.origin![1] / (d.frameH ?? d.frame));
+          if (i === 0) sp.setTint(hex(o.color));
+          sp.play(vfxKey(n) + ':in').chain(vfxKey(n) + ':loop');
+          return sp;
+        });
+        this.tornadoSprites.set(o, l);
+      }
+      l.forEach(sp => sp.setPosition(o.x, o.by));
+    }
+    for (const [o, l] of this.tornadoSprites) if (!world.tornadoes.includes(o as never)) {
+      for (const sp of l) {
+        sp.chain();
+        sp.play(sp.anims.currentAnim!.key.replace(/:(in|loop)$/, ':out'));
+        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => sp.destroy());
+      }
+      this.tornadoSprites.delete(o);
+    }
+
     // 궁수 덫: 바닥 위 톱니 모양 (작동 전엔 흐리게)
     for (const tr of world.traps) {
       const c = elCol(tr.elem), on = tr.t >= HINT.deot.arm, al = on ? 1 : 0.45, hw = tr.w / 2;
@@ -1316,14 +1344,20 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.vfxSprites.push({ sp, follow });
     const remove = () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); };
     const key = vfxKey(f.anim);
-    if (f.hold && d.parts?.in && d.parts.loop && d.parts.out) {
-      // 오래 있는 그림 (설치기): 생기는 칸 → hold 초 동안 반복 칸 → 사라지는 칸 재생 후 지움
+    if (f.hold && d.parts?.in && d.parts.loop) {
+      // 오래 있는 그림 (설치기): 생기는 칸 → hold 초 동안 반복 칸 → 사라지는 칸 재생 후 지움.
+      // 사라지는 칸(out)이 없으면 남은 시간(life − hold) 동안 투명해지며 사라짐
+      const out = d.parts.out;
       sp.play(key + ':in').chain(key + ':loop');
       this.time.delayedCall(f.hold * 1000, () => {
         if (!sp.active) return;
-        sp.chain();
-        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
-        sp.play(key + ':out');
+        if (out) {
+          sp.chain();
+          sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
+          sp.play(key + ':out');
+        } else {
+          this.tweens.add({ targets: sp, alpha: 0, duration: Math.max(0.05, f.life - f.hold!) * 1000, onComplete: remove });
+        }
       });
     } else {
       sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);

@@ -1,6 +1,6 @@
 import type { Element } from '../../data/elements';
 import type { Fx } from '../types';
-import type { Enemy, Hitbox, PlayerState, Projectile, Vortex } from '../entities';
+import type { Enemy, Hitbox, PlayerState, Projectile, Tornado, Vortex } from '../entities';
 
 export type HitboxSpec = Omit<Hitbox, 'owner' | 't' | 'hit' | 'sm' | 'face' | 'order' | 'chain' | 'dx' | 'dy' | 'w' | 'h'> & {
   dx?: number; dy?: number; w?: number; h?: number;
@@ -29,6 +29,7 @@ export interface SkillWorld {
   addHB(p: PlayerState, h: HitboxSpec): void;
   addProj(p: PlayerState, s: ProjSpec): Projectile;
   addVortex(p: PlayerState, v: Vortex): void;
+  addTornado(t: Tornado): void;
   /** x 에서 y 아래로 처음 만나는 땅·발판 윗면 높이 (없으면 맵 바닥) */
   surfaceBelow(x: number, y: number): number;
   /** 중심에서 반지름 안 몬스터 모두에게 무속성 피해 한 번 */
