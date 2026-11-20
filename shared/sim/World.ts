@@ -487,7 +487,10 @@ export class World implements SkillWorld {
         this.hitEnemy(e, o);
         if (!o.pierce) {
           o.dead = true;
-          this.fx({ kind: 'ring', x: o.x, y: o.y, color: o.elem ? ELEMENTS[o.elem].color : '#dddddd', r0: 4, r1: 26, life: 0.2 });
+          const col = o.elem ? ELEMENTS[o.elem].color : '#dddddd';
+          // 마력탄·마법사 기본 공격: 동그란 몸이 찌그러지며 터짐 (mana_burst). 기본 공격은 작게
+          if (o.kind === 'orb' && (o.skill === 'madan' || o.skill === 'basic')) this.fx({ kind: 'anim', anim: 'mana_burst', x: o.x, y: o.y, face: o.face, color: col, scale: o.skill === 'basic' ? 0.8 : 1, life: 0.4 });
+          else this.fx({ kind: 'ring', x: o.x, y: o.y, color: col, r0: 4, r1: 26, life: 0.2 });
           break;
         }
       }
