@@ -4,9 +4,11 @@ const FILES = import.meta.glob('../../../assets/sound/BGM/*.mp3', { eager: true,
 const URLS: Record<string, string> = {};
 for (const [path, url] of Object.entries(FILES)) URLS[decodeURIComponent(path.split('/').pop()!.replace(/\.mp3$/, ''))] = url;
 
-/** 음량 (0~1), 바꿀 때 걸리는 시간(초) */
-const VOLUME = 0.4;
+import { onSettings, settings } from '../settings';
+
+/** 곡 바꿀 때 걸리는 시간(초). 음량은 설정 창 (기본 0.4) */
 const FADE = 0.6;
+const volume = () => (settings.mute ? 0 : settings.bgm);
 
 let cur: { name: string; el: HTMLAudioElement } | null = null;
 let fading: HTMLAudioElement[] = [];
@@ -46,5 +48,8 @@ export function playBgm(name: string | null | undefined) {
   el.volume = 0;
   cur = { name: want, el };
   tryPlay(el);
-  fadeTo(el, VOLUME);
+  fadeTo(el, volume());
 }
+
+// 설정을 바꾸면 지금 곡 음량을 바로 맞춤
+onSettings(() => { if (cur) cur.el.volume = volume(); });

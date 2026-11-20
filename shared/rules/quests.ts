@@ -1,6 +1,6 @@
 // 퀘스트 진행·보상. 저장 데이터만 다룬다.
 // 퀘스트 하나에 목표가 여러 개일 수 있다 (전부 해야 보고).
-import { QUESTS, QUEST_PIN_MAX, classNpc, questDef, questTitle, type QuestDef } from '../data/quests';
+import { QUESTS, QUEST_PIN_MAX, classNpc, questDef, questLevelOk, questTitle, type QuestDef } from '../data/quests';
 import { CLASSES, SKILLS } from '../data/classes';
 import { MAPS, type MapId } from '../data/maps';
 import { MONSTERS, type MonsterId } from '../data/monsters';
@@ -20,7 +20,7 @@ const fail = (msg: string): ActionResult => ({ ok: false, msg });
  * 퀘스트 저장 상태. counts = 목표마다 센 숫자 (처치 수, 가 봤으면 1. 모으기는 가방 개수로 세서 안 씀)
  * at = 받은 순서 번호, doneAt = 처음 끝낸 순서 번호 (SaveData.questSeq). 반복 퀘스트도 처음 끝냈을 때만 정해져서 완료 목록에 한 번만, 그 자리에 있음
  */
-export interface QuestSave { active: boolean; counts: number[]; done?: boolean; at?: number; doneAt?: number }
+export interface QuestSave { active: boolean; counts: number[]; done?: boolean; at?: number; doneAt?: number; /** 일일 퀘스트를 마지막으로 끝낸 날 */ doneDay?: string }
 
 /** 목표 하나의 진행도. talk 는 그 NPC 에게 가서 보고하면 끝 → 항상 0/1 */
 export function goalProgress(s: SaveData, q: QuestDef, i: number): { cur: number; need: number } {
@@ -82,13 +82,15 @@ export function questState(s: SaveData, id: string): QuestState {
   const q = questDef(id), st = s.quests[id];
   if (!q) return 'none';
   if (st?.active) return goalsDone(s, q) ? 'ready' : 'active';
+  if (q.daily) return st?.doneDay && st.doneDay === s.dailyDay ? 'done' : 'none';
   return st?.done && !q.repeat ? 'done' : 'none';
 }
 
 export function acceptQuest(s: SaveData, id: string): ActionResult {
   const q = questDef(id);
   if (!q) return fail('없는 퀘스트야');
-  if (questState(s, id) !== 'none') return fail('이미 받은 퀘스트야');
+  if (questState(s, id) !== 'none') return fail(q.daily && s.quests[id]?.doneDay === s.dailyDay ? '오늘은 이미 끝냈어' : '이미 받은 퀘스트야');
+  if (!questLevelOk(q, s.level)) return fail(`Lv ${q.minLevel} 부터 받을 수 있어`);
   // 받을 때 주는 물건 (가방 자리부터 확인)
   const give = q.start?.items ?? [];
   const room = structuredClone(s);
@@ -116,7 +118,7 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   for (const c of collectCosts(q)) removeItem(room, c.id, c.n);
   for (const it of r.items ?? []) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
   for (const c of collectCosts(q)) removeItem(s, c.id, c.n);
-  s.quests[id] = { active: false, counts: [], done: true, doneAt: s.quests[id]?.doneAt ?? ++s.questSeq };
+  s.quests[id] = { active: false, counts: [], done: true, doneAt: s.quests[id]?.doneAt ?? ++s.questSeq, ...(q.daily ? { doneDay: s.dailyDay } : {}) };
   s.questPins = s.questPins.filter(p => p !== id);
   const parts: string[] = [];
   let res: ActionResult = { ok: true };
@@ -297,6 +299,9 @@ export function hudQuests(s: SaveData, max: number): QuestDef[] {
 }
 
 /** 끝낸 퀘스트: 최근에 끝낸 것이 위 (중요도 상관없이). 반복 퀘스트는 처음 끝낸 때 기준 */
+/** 교수님 퀘스트 메뉴에 나오는 퀘스트 (레벨이 되는 것만) */
+export const profQuests = (s: SaveData) => QUESTS.filter(q => q.giver === 'prof' && questLevelOk(q, s.level));
+
 export function doneQuests(s: SaveData): QuestDef[] {
   return QUESTS.filter(q => s.quests[q.id]?.done)
     .sort((a, b) => (s.quests[b.id].doneAt ?? 0) - (s.quests[a.id].doneAt ?? 0) || questIndex(b.id) - questIndex(a.id));

@@ -163,5 +163,7 @@ export const START_ITEMS: { id: ItemId; n: number }[] = [{ id: 'hp', n: 3 }, { i
 
 /** 가방 칸 수 (4칸 × 15줄). 장비는 1칸에 1개, 나머지는 같은 것끼리 1칸 */
 export const BAG_SIZE = 60;
+/** 창고 칸 수 (개인 창고·공용 창고 각각, 2026-11-21 임시) */
+export const STORAGE_SIZE = 40;
 
 export const POTION = { cooldown: 0.8 };

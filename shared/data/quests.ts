@@ -1,5 +1,5 @@
 // 퀘스트 (기획서 6장).
-// - 교수님 반복 퀘스트: giver 'prof', repeat true → 교수님 퀘스트 메뉴에 나옴
+// - 교수님 일일 퀘스트: giver 'prof', daily true → 교수님 퀘스트 메뉴에 나옴, 하루(내 컴퓨터 날짜)에 한 번씩. minLevel 이상만
 // - 목표(goals)는 여러 개 가능, 전부 해야 보고
 // - 전달 퀘스트: start 로 물건을 주고, 목표 = [모아 오기(그 물건), 말 걸기(받을 사람)]
 // - 이야기 퀘스트: 대화 NPC 대사의 { do: { quest: 'give', id } } 로 받고, { do: { quest: 'report', id } } 로 보고
@@ -51,6 +51,10 @@ export interface QuestDef {
   giver: string;
   /** 끝난 뒤 다시 받을 수 있는지 */
   repeat?: boolean;
+  /** 일일 퀘스트: 끝내면 그날은 끝, 다음 날(내 컴퓨터 날짜 바뀌면) 다시 받을 수 있음 */
+  daily?: boolean;
+  /** 이 레벨부터 받을 수 있음 (교수님 일일 퀘스트) */
+  minLevel?: number;
   /** 다 하면 NPC 에게 안 가도 바로 보고됨 */
   auto?: boolean;
   /** 보고하면 바로 받는 다음 퀘스트 (자동 수락) */
@@ -147,13 +151,26 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 800, gold: 3000 }, where: 'guard_a',
   },
 
+  // ---- 교수님 일일 퀘스트 (2026-11-21, 예전 반복 퀘스트 q1·q2 대신. 수치·이름 임시) ----
   {
-    id: 'q1', name: '슬라임 퇴치', desc: '학교 뒷숲에서 일반 슬라임 8마리 처치', giver: 'prof', repeat: true,
-    goals: [{ kind: 'kill', mob: 'slime', n: 8 }], reward: { exp: lv => 60 + lv * 12 },
+    id: 'd_slime', name: '슬라임 퇴치', desc: '학교 뒷숲에서 일반 슬라임 15마리 처치', giver: 'prof', daily: true, minLevel: 1,
+    goals: [{ kind: 'kill', mob: 'slime', n: 15 }], reward: { exp: lv => 100 + lv * 20, gold: 200 },
   },
   {
-    id: 'q2', name: '원소 슬라임 조사', desc: '원소 슬라임 서식지에서 원소 슬라임 5마리 처치', giver: 'prof', repeat: true,
-    goals: [{ kind: 'kill', mob: 'slime_elem', n: 5 }], reward: { exp: lv => 100 + lv * 18 },
+    id: 'd_gel', name: '점액 모으기', desc: '슬라임 점액 10개를 교수님께', giver: 'prof', daily: true, minLevel: 1,
+    goals: [{ kind: 'collect', item: 'slime_gel', n: 10 }], reward: { exp: lv => 80 + lv * 15, gold: 300 }, where: 'field',
+  },
+  {
+    id: 'd_elem', name: '원소 슬라임 조사', desc: '원소 슬라임 서식지에서 원소 슬라임 10마리 처치', giver: 'prof', daily: true, minLevel: 3,
+    goals: [{ kind: 'kill', mob: 'slime_elem', n: 10 }], reward: { exp: lv => 150 + lv * 25, gold: 300 },
+  },
+  {
+    id: 'd_honey', name: '꿀 슬라임 조사', desc: '꿀 슬라임 서식지에서 꿀 슬라임 10마리 처치', giver: 'prof', daily: true, minLevel: 5,
+    goals: [{ kind: 'kill', mob: 'honey_slime', n: 10 }], reward: { exp: lv => 150 + lv * 25, gold: 400 },
+  },
+  {
+    id: 'd_guard', name: '경비기계 정리', desc: '경비기계A 10마리 처치', giver: 'prof', daily: true, minLevel: 8,
+    goals: [{ kind: 'kill', mob: 'guard_a', n: 10 }], reward: { exp: lv => 250 + lv * 35, gold: 600 },
   },
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움) ----
   {
@@ -197,7 +214,14 @@ export const QUEST_CHAPTERS: { id: string; name: string; prefix: string }[] = [
 export const questChapter = (q: { id: string }) => QUEST_CHAPTERS.find(c => q.id.startsWith(c.prefix)) ?? null;
 
 /** 화면에 보이는 퀘스트 제목 (반복 퀘스트는 앞에 [반복]) */
-export const questTitle = (q: QuestDef) => (q.repeat ? `[반복] ${q.name}` : q.name);
+export const questTitle = (q: QuestDef) => (q.daily ? `[일일] ${q.name}` : q.repeat ? `[반복] ${q.name}` : q.name);
+/** 지금 레벨로 받을 수 있는 퀘스트인지 (minLevel) */
+export const questLevelOk = (q: QuestDef, level: number) => !q.minLevel || level >= q.minLevel;
+/** 일일 퀘스트 날짜 (내 컴퓨터 날짜, 예: 2026-11-21) */
+export function dayKey(ms: number) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 export const questDef = (id: string) => QUESTS.find(q => q.id === id);
 

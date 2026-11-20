@@ -12,6 +12,7 @@ import { BOSS_BAR } from '@shared/data/bosses';
 import { comboColor } from '@shared/data/combo';
 import { MONSTERS } from '@shared/data/monsters';
 import type { Session } from '../session/LocalSession';
+import { Minimap } from './Minimap';
 import type { Action, Input } from '../input/Input';
 import icoProfile from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Profile.png';
 import icoInventory from '../../../assets/UI/menu_icons/2D Icons - Menu Icon Set 1/PNG/128/Icon_Inventory.png';
@@ -38,6 +39,8 @@ const MENU = [
   { id: 'skill', label: '스킬', key: 'K', icon: icoSkill },
   { id: 'quest', label: '퀘스트', key: '', icon: icoSpell },
   { id: 'boss', label: '보스', key: '', icon: icoBattle },
+  { id: 'codex', label: '도감', key: '', icon: '' },
+  { id: 'achieve', label: '업적', key: '', icon: '' },
   { id: 'menu', label: '메뉴', key: 'Esc', icon: icoPicto },
   { id: 'home', label: '귀환', key: '', icon: '' },
   { id: 'full', label: '전체 화면', key: '', icon: '' },
@@ -60,6 +63,7 @@ function questCard(id: string, name: string, main: boolean, pin: boolean, lines:
 
 export class Hud {
   readonly root = h('div');
+  readonly minimap = new Minimap();
   private els: Record<string, HTMLElement> = {};
   private slotEls = new Map<SlotKey, HTMLElement>();
   private cache: Record<string, string> = {};
@@ -107,6 +111,8 @@ export class Hud {
 
     // 오른쪽 위: 맵 · 시간 · 골드 (구상도에 없던 것, 임시 위치)
     this.els.info = r.appendChild(h('div', 'info'));
+    // 오른쪽 위, 맵 이름 줄 아래: 미니맵
+    r.appendChild(this.minimap.el);
     // 위 가운데: 보스 이름 + 여러 줄 HP 바 (보스가 있을 때만)
     this.els.boss = r.appendChild(h('div', 'bossbar', '<div class="bb-head"><b class="bb-name"></b><span class="bb-n"></span></div><div class="bb-bar"><i class="bb-under"></i><i class="bb-trail"></i><i class="bb-fill"></i></div>'));
     // 오른쪽 가운데: 콤보 (큰 기울인 숫자 + 아래 작고 굵은 Combo)
