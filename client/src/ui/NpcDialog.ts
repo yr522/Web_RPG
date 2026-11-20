@@ -33,7 +33,7 @@ const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', arc
 
 const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-type ProfView = 'main' | 'learn' | 'class' | 'quest' | 'test';
+type ProfView = 'main' | 'learn' | 'class' | 'quest';
 type SmithView = 'enhance' | 'repair' | 'option';
 const SMITH_TABS: { id: SmithView; label: string }[] = [{ id: 'enhance', label: '강화' }, { id: 'repair', label: '수리' }, { id: 'option', label: '옵션' }];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -126,7 +126,26 @@ export class NpcDialog {
     panel.appendChild(el('div', 'npc-name', '메뉴'));
     const opts = el('div', 'opts');
     opts.appendChild(el('button', 'opt', '설정', () => { this.host.close(); this.openSettings(); }));
+    opts.appendChild(el('button', 'opt', '🧪 테스트용 기능', () => { this.host.close(); this.openTest(); }));
     opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 테스트용 기능 (메뉴에서, 예전엔 교수님 메뉴에 있었음) */
+  openTest() {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '테스트용 기능'));
+    body.appendChild(el('p', 'note', '개발 확인용 버튼이야. 실제 게임에는 없어.'));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '⏩ 다음 시간대로', () => this.act({ type: 'debug', what: 'nextPhase' })));
+    opts.appendChild(el('button', 'opt', '⬆️ 레벨 +1', () => this.act({ type: 'debug', what: 'levelUp' })));
+    opts.appendChild(el('button', 'opt', '💰 골드 +1000', () => this.act({ type: 'debug', what: 'gold' })));
+    opts.appendChild(el('button', 'opt', '📖 이야기 테스트 초기화', () => this.act({ type: 'debug', what: 'resetStory' })));
     body.appendChild(opts);
     panel.appendChild(body);
     panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
@@ -293,7 +312,6 @@ export class NpcDialog {
       opt('📚 스킬 배우기', learnNew, 'learn');
       opt('🕘 수업 듣기', classOk, 'class');
       opt('📋 퀘스트', questNew, 'quest');
-      opt('🧪 테스트용 기능', false, 'test');
       opts.appendChild(el('button', 'opt', '👋 안녕히 계세요', () => this.host.close()));
       b.appendChild(opts);
       return;
@@ -381,15 +399,6 @@ export class NpcDialog {
       return;
     }
 
-    // 테스트용
-    b.appendChild(el('p', 'note', '개발 확인용 버튼이야. 실제 게임에는 없어.'));
-    const opts = el('div', 'opts');
-    opts.appendChild(el('button', 'opt', '⏩ 다음 시간대로', () => this.act({ type: 'debug', what: 'nextPhase' })));
-    opts.appendChild(el('button', 'opt', '⬆️ 레벨 +1', () => this.act({ type: 'debug', what: 'levelUp' })));
-    opts.appendChild(el('button', 'opt', '💰 골드 +1000', () => this.act({ type: 'debug', what: 'gold' })));
-    opts.appendChild(el('button', 'opt', '📖 이야기 테스트 초기화', () => this.act({ type: 'debug', what: 'resetStory' })));
-    b.appendChild(opts);
-    back();
   }
 
   // ---------- 대장장이 ----------
