@@ -114,6 +114,8 @@ const ITEM_LIST = {
   workshop_key: { name: '공방 퀘스트 템', kind: 'etc', icon: '⚙️', img: 'item/quest/workshop_key', desc: '임시' },
   slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/material/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액', sell: 1 },
   // 영주님의 생일잔치 (2026-11-21, 설명·판매가 임시)
+  // 일일 퀘스트 보상 (2026-11-21). 나중에 주화 상점 등에 씀. 팔 수 없음
+  mission_coin: { name: '미션 주화', kind: 'etc', icon: '🪙', desc: '일일 퀘스트를 끝내고 받은 주화' },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
   scrap_rusty: { name: '녹슨 고철', kind: 'etc', icon: '🔩', img: 'item/material/bad_slate', desc: '경비기계에서 떨어진 녹슨 쇳조각', sell: 5 },
   scrap_good: { name: '쓸만한 고철', kind: 'etc', icon: '⚙️', img: 'item/material/good_slate', desc: '경비기계에서 떨어진 아직 쓸 만한 쇳조각', sell: 30 },

@@ -151,26 +151,10 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 800, gold: 3000 }, where: 'guard_a',
   },
 
-  // ---- 교수님 일일 퀘스트 (2026-11-21, 예전 반복 퀘스트 q1·q2 대신. 수치·이름 임시) ----
+  // ---- 교수님 일일 퀘스트 (2026-11-21, 예전 반복 퀘스트 q1·q2 대신. 범용 하나: 아무 몬스터나. 마릿수·보상 임시) ----
   {
-    id: 'd_slime', name: '슬라임 퇴치', desc: '학교 뒷숲에서 일반 슬라임 15마리 처치', giver: 'prof', daily: true, minLevel: 1,
-    goals: [{ kind: 'kill', mob: 'slime', n: 15 }], reward: { exp: lv => 100 + lv * 20, gold: 200 },
-  },
-  {
-    id: 'd_gel', name: '점액 모으기', desc: '슬라임 점액 10개를 교수님께', giver: 'prof', daily: true, minLevel: 1,
-    goals: [{ kind: 'collect', item: 'slime_gel', n: 10 }], reward: { exp: lv => 80 + lv * 15, gold: 300 }, where: 'field',
-  },
-  {
-    id: 'd_elem', name: '원소 슬라임 조사', desc: '원소 슬라임 서식지에서 원소 슬라임 10마리 처치', giver: 'prof', daily: true, minLevel: 3,
-    goals: [{ kind: 'kill', mob: 'slime_elem', n: 10 }], reward: { exp: lv => 150 + lv * 25, gold: 300 },
-  },
-  {
-    id: 'd_honey', name: '꿀 슬라임 조사', desc: '꿀 슬라임 서식지에서 꿀 슬라임 10마리 처치', giver: 'prof', daily: true, minLevel: 5,
-    goals: [{ kind: 'kill', mob: 'honey_slime', n: 10 }], reward: { exp: lv => 150 + lv * 25, gold: 400 },
-  },
-  {
-    id: 'd_guard', name: '경비기계 정리', desc: '경비기계A 10마리 처치', giver: 'prof', daily: true, minLevel: 8,
-    goals: [{ kind: 'kill', mob: 'guard_a', n: 10 }], reward: { exp: lv => 250 + lv * 35, gold: 600 },
+    id: 'd_hunt', name: '오늘의 사냥', desc: '아무 몬스터나 50마리 처치', giver: 'prof', daily: true, minLevel: 1,
+    goals: [{ kind: 'kill', n: 50 }], reward: { exp: lv => 150 + lv * 25, items: [{ id: 'mission_coin', n: 5 }] },
   },
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움) ----
   {

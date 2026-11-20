@@ -370,7 +370,7 @@ export class NpcDialog {
       for (const q of profQuests(this.session.save)) {
         const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
-        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}${q.reward.gold ? ` · ${q.reward.gold} G` : ''}</span><br><span class="note">${q.desc}</span>`));
+        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}${q.reward.gold ? ` · ${q.reward.gold} G` : ''}${(q.reward.items ?? []).map(it => ` · ${itemDef(it.id)?.name ?? it.id} ×${it.n}`).join('')}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));
         else if (st === 'ready') card.appendChild(el('button', 'sm go', '보고하기', () => this.act({ type: 'questReport', id: q.id })));
         else if (st === 'done') card.appendChild(el('div', 'note', '오늘은 끝 (내일 다시)'));
