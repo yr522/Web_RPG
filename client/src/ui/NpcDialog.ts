@@ -4,8 +4,9 @@ import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import { GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
 import { countItem, equippedSlot } from '@shared/rules/inventory';
-import { QUESTS, questTitle } from '@shared/data/quests';
-import { questProgressText, questState } from '@shared/rules/quests';
+import { questTitle } from '@shared/data/quests';
+import { settings, setSettings } from '../settings';
+import { profQuests, questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { checkCond, pickTalk } from '@shared/rules/story';
 import { BOSSES, DIFFICULTIES, DIFFICULTY_ORDER, bossDef } from '@shared/data/bosses';
@@ -28,11 +29,11 @@ const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teac
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
-const PROF_QUESTS = () => QUESTS.filter(q => q.giver === 'prof');
+
 
 const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
-type ProfView = 'main' | 'learn' | 'class' | 'quest' | 'test';
+type ProfView = 'main' | 'learn' | 'class' | 'quest';
 type SmithView = 'enhance' | 'repair' | 'option';
 const SMITH_TABS: { id: SmithView; label: string }[] = [{ id: 'enhance', label: '강화' }, { id: 'repair', label: '수리' }, { id: 'option', label: '옵션' }];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -124,8 +125,50 @@ export class NpcDialog {
     const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
     panel.appendChild(el('div', 'npc-name', '메뉴'));
     const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '설정', () => { this.host.close(); this.openSettings(); }));
+    opts.appendChild(el('button', 'opt', '🧪 테스트용 기능', () => { this.host.close(); this.openTest(); }));
     opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
     body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 테스트용 기능 (메뉴에서, 예전엔 교수님 메뉴에 있었음) */
+  openTest() {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '테스트용 기능'));
+    body.appendChild(el('p', 'note', '개발 확인용 버튼이야. 실제 게임에는 없어.'));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '⏩ 다음 시간대로', () => this.act({ type: 'debug', what: 'nextPhase' })));
+    opts.appendChild(el('button', 'opt', '⬆️ 레벨 +1', () => this.act({ type: 'debug', what: 'levelUp' })));
+    opts.appendChild(el('button', 'opt', '💰 골드 +1000', () => this.act({ type: 'debug', what: 'gold' })));
+    opts.appendChild(el('button', 'opt', '📖 이야기 테스트 초기화', () => this.act({ type: 'debug', what: 'resetStory' })));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
+  /** 설정: 배경 음악 음량 · 음소거 (이 브라우저에 저장) */
+  openSettings() {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    panel.appendChild(el('div', 'npc-name', '설정'));
+    const vol = el('div', 'set-row', `<span class="set-label">배경 음악</span><input type="range" min="0" max="100" step="5"><b class="set-val"></b>`);
+    const range = vol.querySelector('input') as HTMLInputElement, val = vol.querySelector('.set-val') as HTMLElement;
+    const show = () => { range.value = String(Math.round(settings.bgm * 100)); val.textContent = `${range.value}%`; range.disabled = settings.mute; };
+    range.addEventListener('input', () => { setSettings({ bgm: Number(range.value) / 100 }); show(); });
+    body.appendChild(vol);
+    const mute = el('label', 'set-row', `<span class="set-label">음소거</span><input type="checkbox">`);
+    const cb = mute.querySelector('input') as HTMLInputElement;
+    cb.checked = settings.mute;
+    cb.addEventListener('change', () => { setSettings({ mute: cb.checked }); show(); });
+    body.appendChild(mute);
+    show();
     panel.appendChild(body);
     panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
     box.appendChild(panel);
@@ -262,14 +305,13 @@ export class NpcDialog {
       b.appendChild(el('p', 'line', `"어서 와, ${esc(s.name)}. 오늘도 열심히 해보자."`));
       const learnNew = learnable(s).length > 0;
       const classOk = canAttend(s, now) === null;
-      const questNew = PROF_QUESTS().some(q => { const st = questState(s, q.id); return st === 'none' || st === 'ready'; });
+      const questNew = profQuests(this.session.save).some(q => { const st = questState(s, q.id); return st === 'none' || st === 'ready'; });
       const opts = el('div', 'opts');
       const opt = (label: string, news: boolean, v: ProfView) =>
         opts.appendChild(el('button', 'opt' + (news ? ' news' : ''), `${label}${news ? '<i>!</i>' : ''}`, () => go(v)));
       opt('📚 스킬 배우기', learnNew, 'learn');
       opt('🕘 수업 듣기', classOk, 'class');
       opt('📋 퀘스트', questNew, 'quest');
-      opt('🧪 테스트용 기능', false, 'test');
       opts.appendChild(el('button', 'opt', '👋 안녕히 계세요', () => this.host.close()));
       b.appendChild(opts);
       return;
@@ -342,13 +384,14 @@ export class NpcDialog {
     }
 
     if (view === 'quest') {
-      b.appendChild(el('p', 'line', '"부탁할 일이 있어. 언제든 다시 받을 수 있단다."'));
-      for (const q of PROF_QUESTS()) {
+      b.appendChild(el('p', 'line', '"부탁할 일이 있어. 하루에 한 번씩 받을 수 있단다."'));
+      for (const q of profQuests(this.session.save)) {
         const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
-        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}</span><br><span class="note">${q.desc}</span>`));
+        card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}${q.reward.gold ? ` · ${q.reward.gold} G` : ''}${(q.reward.items ?? []).map(it => ` · ${itemDef(it.id)?.name ?? it.id} ×${it.n}`).join('')}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));
         else if (st === 'ready') card.appendChild(el('button', 'sm go', '보고하기', () => this.act({ type: 'questReport', id: q.id })));
+        else if (st === 'done') card.appendChild(el('div', 'note', '오늘은 끝 (내일 다시)'));
         else card.appendChild(el('div', 'note', `진행 중 ${pr}`));
         b.appendChild(card);
       }
@@ -356,15 +399,6 @@ export class NpcDialog {
       return;
     }
 
-    // 테스트용
-    b.appendChild(el('p', 'note', '개발 확인용 버튼이야. 실제 게임에는 없어.'));
-    const opts = el('div', 'opts');
-    opts.appendChild(el('button', 'opt', '⏩ 다음 시간대로', () => this.act({ type: 'debug', what: 'nextPhase' })));
-    opts.appendChild(el('button', 'opt', '⬆️ 레벨 +1', () => this.act({ type: 'debug', what: 'levelUp' })));
-    opts.appendChild(el('button', 'opt', '💰 골드 +1000', () => this.act({ type: 'debug', what: 'gold' })));
-    opts.appendChild(el('button', 'opt', '📖 이야기 테스트 초기화', () => this.act({ type: 'debug', what: 'resetStory' })));
-    b.appendChild(opts);
-    back();
   }
 
   // ---------- 대장장이 ----------

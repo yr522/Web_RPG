@@ -16,6 +16,9 @@ import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
 import { showLoading } from './ui/Loading';
+import { CodexWindow } from './ui/CodexWindow';
+import { AchieveWindow } from './ui/AchieveWindow';
+import { StorageWindow } from './ui/StorageWindow';
 import { canvasRect, setFullWindowStage, stageRect, viewWidth } from './ui/stage';
 
 const params = new URLSearchParams(location.search);
@@ -88,12 +91,16 @@ async function boot() {
   hud.onUpdate.push(() => skillWindow.update());
   hud.onUpdate.push(() => questWindow.update());
   const charWindow = new CharWindow(session, hud);
+  const codexWindow = new CodexWindow(session);
+  const achieveWindow = new AchieveWindow(session, hud);
+  const storageWindow = new StorageWindow(session, hud);
+  hud.onUpdate.push(() => codexWindow.update(), () => achieveWindow.update(), () => storageWindow.update());
   hud.onUpdate.push(() => charWindow.update());
   hud.onRevive = () => session.revive();
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
   const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
-  const openNpc = (id: string) => (id === 'shop' ? npcDialog.openShop() : id === 'smith' ? ((pickTalk(session.save, 'smith', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('smith') : npcDialog.openSmith()) : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
+  const openNpc = (id: string) => (id === 'storage' ? storageWindow.open() : id === 'shop' ? npcDialog.openShop() : id === 'smith' ? ((pickTalk(session.save, 'smith', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('smith') : npcDialog.openSmith()) : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
   if (import.meta.env.DEV) Object.assign(window, { __npc: openNpc });
 
   const toggleFullscreen = () => {
@@ -107,6 +114,8 @@ async function boot() {
     else if (id === 'quest') questWindow.toggle();
     else if (id === 'skill') skillWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
+    else if (id === 'codex') codexWindow.toggle();
+    else if (id === 'achieve') achieveWindow.toggle();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
     else npcDialog.openMenu(() => { void store.save(session.save).then(() => location.reload()); });
@@ -115,7 +124,7 @@ async function boot() {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
     if (code === 'KeyK') hud.onMenu('skill');
-    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

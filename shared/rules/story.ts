@@ -1,7 +1,7 @@
 // 이야기 진행: 대사 조건 검사, 대사 효과(퀘스트 주기·보고, 플래그, 물건·골드) 처리.
 import { TALK_NPCS, type Cond, type DialogueStep, type Effect } from '../data/npcs';
 import type { SaveData } from '../sim/save';
-import { acceptQuest, questState, reportQuest } from './quests';
+import { acceptQuest, profQuests, questState, reportQuest } from './quests';
 import { QUESTS, type QuestDef } from '../data/quests';
 import { BAG_FULL, addItem, countItem, removeItem } from './inventory';
 import { itemDef } from '../data/items';
@@ -58,7 +58,7 @@ function stepEffects(steps: DialogueStep[]): Effect[] {
  */
 export function offeredQuests(s: SaveData, nowMs?: number): QuestDef[] {
   const ids = new Set<string>();
-  for (const q of QUESTS) if (q.giver === 'prof' && questState(s, q.id) === 'none') ids.add(q.id);
+  for (const q of profQuests(s)) if (questState(s, q.id) === 'none') ids.add(q.id);
   for (const npc of Object.keys(TALK_NPCS)) {
     const pick = pickTalk(s, npc, nowMs);
     if (!pick || pick.talk < 0) continue;

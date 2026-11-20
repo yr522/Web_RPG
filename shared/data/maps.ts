@@ -296,7 +296,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사' },
     ],
     // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
-    npcs: [{ id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
+    npcs: [{ id: 'storage', x: 250 }, { id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
     signs: [], spawns: [],
   },
   school_hallway: {

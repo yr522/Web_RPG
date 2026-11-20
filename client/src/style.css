@@ -898,3 +898,50 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 #loading .ld-bar { width: min(320px, 60vw); height: 10px; border-radius: 5px; background: rgba(0, 0, 0, .3); border: 1px solid var(--c-latte); overflow: hidden; }
 #loading .ld-bar i { display: block; height: 100%; width: 0; background: var(--c-mint); }
 #loading .ld-pct { font-size: 13px; opacity: .8; }
+
+/* 떠 있는 창 공통 (도감·업적·창고) */
+.pwin { right: auto; left: 50%; transform: translate(-50%, -50%); }
+.pwin.moved { transform: none; }
+.pw-body { flex: none; display: flex; gap: calc(4 * var(--s)); box-sizing: border-box; color: var(--c-brown); }
+.codex .pw-body { height: calc(300 * var(--s)); }
+.qw-item.unknown { opacity: .55; }
+.cx-count { font-weight: 700; padding: calc(2 * var(--s)) calc(4 * var(--s)); }
+.cx-pic { width: calc(96 * var(--s)); height: calc(96 * var(--s)); background-repeat: no-repeat; background-position: 0 0; image-rendering: pixelated;
+  background-color: var(--c-paper-lo); border: calc(1 * var(--s)) solid var(--c-latte); border-radius: calc(4 * var(--s)); margin-bottom: calc(6 * var(--s)); }
+.cx-pic.unknown { filter: brightness(0) opacity(.35) !important; }
+.cx-gap { margin-left: calc(10 * var(--s)); }
+/* 업적 */
+.ac-wrap { width: calc(400 * var(--s)); height: calc(320 * var(--s)); display: flex; flex-direction: column; gap: calc(4 * var(--s)); background: var(--c-paper-hi); border-radius: calc(4 * var(--s)); padding: calc(6 * var(--s)); box-sizing: border-box; font-size: max(10px, 12 * var(--s)); }
+.ac-head { display: flex; align-items: center; gap: calc(4 * var(--s)); }
+.ac-n { margin-left: auto; opacity: .7; }
+.ac-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: calc(3 * var(--s)); }
+.ac-item { display: flex; align-items: center; gap: calc(6 * var(--s)); padding: calc(5 * var(--s)) calc(6 * var(--s)); background: var(--c-paper-lo); border: calc(1 * var(--s)) solid var(--c-latte); border-radius: calc(3 * var(--s)); opacity: .7; }
+.ac-item.done { opacity: 1; background: var(--c-paper); }
+.ac-item.on { background: var(--c-mint); border-color: var(--c-brown); }
+.ac-text { flex: 1; display: flex; flex-direction: column; }
+.ac-text small { font-weight: 300; }
+.ac-prog { position: relative; width: calc(110 * var(--s)); height: calc(16 * var(--s)); background: rgba(0, 0, 0, .12); border-radius: calc(3 * var(--s)); overflow: hidden; flex: none; }
+.ac-prog i { position: absolute; inset: 0 auto 0 0; background: var(--c-mint); }
+.ac-prog span { position: relative; display: block; text-align: center; font-size: .85em; line-height: calc(16 * var(--s)); }
+.ac-item .sm { font-size: .9em; padding: calc(3 * var(--s)) calc(8 * var(--s)); }
+/* 창고 */
+.st-wrap { display: flex; flex-direction: column; gap: calc(3 * var(--s)); background: var(--c-paper-hi); border-radius: calc(4 * var(--s)); padding: calc(6 * var(--s)); --cell: calc(36 * var(--s)); --ico: calc(26 * var(--s)); }
+.st-label { font-weight: 700; font-size: max(10px, 12 * var(--s)); }
+.st-grid { display: grid; grid-template-columns: repeat(10, var(--cell)); gap: calc(3 * var(--s)); max-height: calc(4 * (36 + 3) * var(--s)); overflow-y: auto; overscroll-behavior: contain; }
+.st-grid .inv-cell { cursor: pointer; }
+.st-grid .inv-cell.empty { cursor: default; }
+
+/* 설정 창 */
+.set-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; font-size: 15px; }
+.set-label { width: 90px; font-weight: 700; }
+.set-row input[type=range] { flex: 1; accent-color: var(--c-brown); }
+.set-row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--c-brown); }
+.set-val { width: 48px; text-align: right; }
+
+/* 미니맵 (오른쪽 위, 맵 이름 줄 아래) */
+.minimap {
+  position: absolute; right: calc(20 * var(--u) + var(--sar)); top: calc(16 * var(--u) + var(--sat) + max(30px, 44 * var(--u)));
+  width: max(150px, 260 * var(--u)); height: max(48px, 80 * var(--u));
+  background: rgba(40, 34, 28, .62); border: 1px solid var(--c-latte); border-radius: 8px; overflow: hidden; pointer-events: none;
+}
+.minimap canvas { width: 100%; height: 100%; display: block; }

@@ -3,10 +3,11 @@
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip } from './inventory';
+import { BAG_FULL, addItem, canAdd, depositItem, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
+import { setTitle } from './achievements';
 import { QUESTS, questDef } from '../data/quests';
 import { enhance, optionUp, repair, reroll } from './gear';
-import { acceptQuest, questState, reportQuest, togglePin } from './quests';
+import { acceptQuest, profQuests, questState, reportQuest, togglePin } from './quests';
 import { applyEffect, findEffect, npcMark, pickTalk } from './story';
 import { CUTSCENES } from '../data/cutscenes';
 import { timeInfo } from '../sim/clock';
@@ -38,6 +39,11 @@ export type MenuAction =
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
   | { type: 'sortBag' }
+  /** 개인 창고에 맡기기 (가방 index 칸) / 꺼내기 (창고 index 칸) */
+  | { type: 'deposit'; index: number }
+  | { type: 'withdraw'; index: number }
+  /** 칭호 달기 (null = 떼기) */
+  | { type: 'title'; id: string | null }
   /** 대화 중 효과 (퀘스트 주기·보고, 플래그). 위치는 story.ts 의 findEffect 참고 */
   | { type: 'storyDo'; npc: string; talk: number; path: number[] }
   /** 컷신 안의 { do } 단계 (데이터에서 직접 찾음) */
@@ -128,8 +134,7 @@ export function gainExp(s: SaveData, n: number): ActionResult {
 /** 교수님 머리 위 "!" : 배울 스킬, 받을·보고할 퀘스트, 들을 수업이 있음 */
 export function professorHasNews(s: SaveData, nowMs: number) {
   if (learnable(s).length) return true;
-  for (const q of QUESTS) {
-    if (q.giver !== 'prof') continue;
+  for (const q of profQuests(s)) {
     const st = questState(s, q.id);
     if (st === 'none' || st === 'ready') return true;
   }
@@ -140,7 +145,7 @@ export function professorHasNews(s: SaveData, nowMs: number) {
 
 /** 교수님 머리 위 퀘스트 말풍선: '?' = 보고할 퀘스트, '!' = 받을 퀘스트·배울 스킬·들을 수업 등 할 일, null = 없음 */
 export function professorMark(s: SaveData, nowMs: number): '!' | '?' | null {
-  if (QUESTS.some(q => q.giver === 'prof' && questState(s, q.id) === 'ready')) return '?';
+  if (profQuests(s).some(q => questState(s, q.id) === 'ready')) return '?';
   const talk = npcMark(s, 'prof', nowMs);
   if (talk === '?') return '?';
   return professorHasNews(s, nowMs) ? '!' : null;
@@ -269,6 +274,9 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       sortBag(s);
       return { ok: true };
     }
+    case 'deposit': return depositItem(s, s.storage, a.index);
+    case 'withdraw': return withdrawItem(s, s.storage, a.index);
+    case 'title': return setTitle(s, a.id);
     case 'storyDo': {
       const e = findEffect(a.npc, a.talk, a.path);
       return e ? applyEffect(s, e) : fail('없는 대사야');

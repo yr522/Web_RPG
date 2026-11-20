@@ -709,6 +709,7 @@ export class World implements SkillWorld {
     // 처치 목표 + 레벨업(레벨 목표)으로 새로 끝난 퀘스트
     const before = readyQuestIds(s);
     s.kills++;
+    s.mobKills[e.mob] = (s.mobKills[e.mob] ?? 0) + 1;
     this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const def = MONSTERS[e.mob];
     const em = e.elite ? ELITE.exp : 1;
