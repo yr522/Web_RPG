@@ -1028,6 +1028,12 @@ export class GameScene extends Phaser.Scene implements Stage {
         seenArrows.add(o.id);
         continue;
       }
+      // 마력탄·마법사 기본 공격: 파직거리는 마력 덩어리 그림 (mana_orb)
+      if (o.kind === 'orb' && (o.skill === 'madan' || o.skill === 'basic')) {
+        this.drawManaOrb(o, o.elem ? hex(ELEMENTS[o.elem].color) : null);
+        seenArrows.add(o.id);
+        continue;
+      }
       if (o.kind === 'orb') {
         g.fillStyle(c, 0.33).fillCircle(o.x, o.y, 13);
         g.fillStyle(c).fillCircle(o.x, o.y, 8);
@@ -1295,7 +1301,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private playVfx(f: Extract<Fx, { kind: 'anim' }>) {
     const d = VFX[f.anim];
     if (!d) return;
-    const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(d.depth ?? 5.5).setScale(d.scale * (f.face < 0 ? -1 : 1), d.scale);
+    const sc = d.scale * (f.scale ?? 1);
+    const sp = this.add.sprite(f.x, f.y, vfxKey(f.anim), 0).setDepth(d.depth ?? 5.5).setScale(sc * (f.face < 0 ? -1 : 1), sc);
     // 위아래 뒤집으면 기준점도 같이 뒤집음 (그림 속 같은 점이 기준점에 오게)
     if (d.origin) { const fh = d.frameH ?? d.frame; sp.setOrigin(d.origin[0] / d.frame, (f.flipY ? fh - d.origin[1] : d.origin[1]) / fh); }
     if (f.color) sp.setTint(hex(f.color));
@@ -1339,6 +1346,23 @@ export class GameScene extends Phaser.Scene implements Stage {
   }
 
   /** 날아가는 화살 하나: 촉 끝이 화살 위치, 날아가는 방향으로 돌림. 길이(len)에 맞춰 크기 조절. 원소 없으면 색 안 입힘 */
+  /** 마력탄 그림 (색 층 + 흰 심). 화살 그림과 같은 목록(arrowSprites)으로 관리해서 사라지면 같이 지움. 기본 공격은 작게 */
+  private drawManaOrb(o: { id: string; x: number; y: number; face: number; skill: string }, tint: number | null) {
+    const d = VFX.mana_orb;
+    let l = this.arrowSprites.get(o.id);
+    if (!l) {
+      l = ['mana_orb', d.core!].map((n, i) => {
+        const sp = this.add.sprite(o.x, o.y, vfxKey(n), 0).setDepth(5.5);
+        if (i === 0 && tint !== null) sp.setTint(tint);
+        sp.play(vfxKey(n));
+        return sp;
+      });
+      this.arrowSprites.set(o.id, l);
+    }
+    const sc = d.scale * (o.skill === 'basic' ? 0.8 : 1);
+    l.forEach(sp => sp.setPosition(o.x, o.y).setScale(sc * (o.face < 0 ? -1 : 1), sc));
+  }
+
   private drawArrow(o: { id: string; kind: string; x: number; y: number; ang: number; len?: number }, tint: number | null) {
     const name = o.kind === 'big' ? 'arrow_big' : 'arrow', d = VFX[name], chain = o.kind === 'chain', hd = VFX.harpoon;
     let l = this.arrowSprites.get(o.id);
