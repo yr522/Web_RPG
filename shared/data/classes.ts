@@ -114,8 +114,8 @@ export const WARRIOR_CHAIN = ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbu
  * 판정: 몸 앞 front · 몸 뒤 behind · 발에서 위로 h. 끌려온 몬스터는 내 앞 gather(px) 쪽으로 모임 (보스는 안 끌려옴)
  */
 export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 156, coef: 1.4, gather: 46 };
-/** 검사 일섬: 한 번 베기 (2026-11-20, 예전 1.0 × 2 → 1.6 × 1) */
-export const ILSEOM = { coef: 1.6 };
+/** 검사 일섬: 한 번 베기 (2026-11-20, 예전 1.0 × 2 → 1.6 × 1). windup = 휘두르기 전 그림이 보이는 시간(초), 그 뒤에 베기·판정 */
+export const ILSEOM = { coef: 1.6, windup: 0.08 };
 export const WARRIOR_REACH = {
   basicW: 72, ilseomW: 136,
   jilpung: { speed: 1000, time: 0.28 },

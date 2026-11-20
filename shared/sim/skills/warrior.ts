@@ -33,7 +33,7 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
     const slash = () => w.fx({ kind: 'anim', anim: 'ilseom_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, life: 0.27 });
     p.action = {
       name: 'ilseom', t: 0, dur: 0.24,
-      events: [{ at: 0, fn: slash }, { at: 0.02, fn: hit }],
+      events: [{ at: ILSEOM.windup, fn: slash }, { at: ILSEOM.windup + 0.02, fn: hit }],
       end: () => { p.lockT = 0.18; },
       update: () => { p.vx = p.onGround ? p.face * 40 : p.cmd.move * 130; },
     };
