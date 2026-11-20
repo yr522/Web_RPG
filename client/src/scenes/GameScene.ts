@@ -1320,14 +1320,14 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (!im) {
         im = this.add.image(0, 0, vfxKey('magic_circle'), 0).setDepth(d.depth!).setTint(0xc8b8ff).setAlpha(0.2).setScale(d.scale * 0.85)
           .setData('rise', 18).setData('born', now);
-        this.tweens.add({ targets: im, alpha: 0.75, duration: 600, ease: 'Quad.easeIn' });
+        this.tweens.add({ targets: im, alpha: 0.95, duration: 600, ease: 'Quad.easeIn' });
         this.tweens.add({ targets: im, scale: d.scale, duration: 600, ease: 'Cubic.easeOut' });
         this.tweens.addCounter({ from: 18, to: 0, duration: 700, ease: 'Cubic.easeOut', onUpdate: tw => im!.setData('rise', tw.getValue()) });
         this.haebangCircles.set(p.id, im);
       }
       const age = now - (im.getData('born') as number);
-      // 몸 뒤 가운데보다 조금 위, 천천히 돎 + 위아래로 살짝 떠다님
-      im.setPosition(p.x + p.w / 2 - p.face * 4, p.y + p.h / 2 - 8 + (im.getData('rise') as number) + Math.sin(age * 2) * 2).setRotation(age * 0.35);
+      // 머리 위 (마법진 가운데가 머리 끝보다 30px 위), 천천히 돎 + 위아래로 살짝 떠다님
+      im.setPosition(p.x + p.w / 2 - p.face * 4, p.y - 30 + (im.getData('rise') as number) + Math.sin(age * 2) * 2).setRotation(age * 0.35);
     }
   }
 
