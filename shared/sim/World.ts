@@ -1105,6 +1105,9 @@ export class World implements SkillWorld {
     const g = p.action?.guard;
     if (!g) return dmg;
     g.taken += dmg;
+    // 방패에서 알갱이가 뿜어짐 (흘려베기 원소 색)
+    const el = p.data.learned.heullyeo;
+    this.fx({ kind: 'anim', anim: 'guard_hit', x: p.x + p.w / 2, y: p.y + p.h / 2, face: p.face, owner: p.id, color: el ? ELEMENTS[el].color : '#dddddd', life: 0.55 });
     return Math.max(1, Math.round(dmg * HINT.heullyeo.taken));
   }
 
