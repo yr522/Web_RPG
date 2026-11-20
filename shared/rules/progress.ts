@@ -7,7 +7,7 @@ import { BAG_FULL, addItem, canAdd, moveItem, removeItem, sellItem, sortBag, tog
 import { QUESTS, questDef } from '../data/quests';
 import { enhance, optionUp, repair, reroll } from './gear';
 import { acceptQuest, questState, reportQuest, togglePin } from './quests';
-import { applyEffect, findEffect, pickTalk } from './story';
+import { applyEffect, findEffect, npcMark, pickTalk } from './story';
 import { CUTSCENES } from '../data/cutscenes';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
@@ -136,6 +136,14 @@ export function professorHasNews(s: SaveData, nowMs: number) {
   // 이야기 대사 (보고 받을 퀘스트 등)
   if ((pickTalk(s, 'prof', nowMs)?.talk ?? -1) >= 0) return true;
   return canAttend(s, nowMs) === null;
+}
+
+/** 교수님 머리 위 퀘스트 말풍선: '?' = 보고할 퀘스트, '!' = 받을 퀘스트·배울 스킬·들을 수업 등 할 일, null = 없음 */
+export function professorMark(s: SaveData, nowMs: number): '!' | '?' | null {
+  if (QUESTS.some(q => q.giver === 'prof' && questState(s, q.id) === 'ready')) return '?';
+  const talk = npcMark(s, 'prof', nowMs);
+  if (talk === '?') return '?';
+  return professorHasNews(s, nowMs) ? '!' : null;
 }
 
 /** 지금 수업을 들을 수 있으면 null, 아니면 이유 */

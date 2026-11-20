@@ -6,7 +6,7 @@ import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette, type Palette } from './palette';
-import { professorHasNews } from '@shared/rules/progress';
+import { professorMark } from '@shared/rules/progress';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 import type { Enemy } from '@shared/sim/entities';
@@ -23,7 +23,7 @@ import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
 import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
-import { mapNpcs, mapPortals, offersQuest, selfMark } from '@shared/rules/story';
+import { mapNpcs, mapPortals, npcMark, offersQuest, selfMark, type QuestMark } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -34,6 +34,13 @@ import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
 import coinIron from '../../../assets/img/icon/coin/iron_coin.png';
 import coinSilver from '../../../assets/img/icon/coin/silver_coin.png';
 import coinGold from '../../../assets/img/icon/coin/gold_coin.png';
+import qmarkNew from '../../../assets/UI/speech_bubbles/exclamation_mark.png';
+import qmarkDone from '../../../assets/UI/speech_bubbles/question_mark.png';
+import qmarkTail from '../../../assets/UI/speech_bubbles/mark_tail.png';
+
+/** 퀘스트 말풍선 (16×16 아이콘 + 16×20 꼬리, 같은 자리에 겹침) 화면 배율, NPC 머리 위 높이 */
+const QMARK_SCALE = 3;
+const QMARK_NPC_TOP = 108;
 
 /** 마법 골렘 파츠 그림 (192×192 레이어별) */
 const GOLEM_FILES = import.meta.glob('../../../assets/img/sprites/enemies/02_boss_Golem/golem_*.png', { eager: true, import: 'default' }) as Record<string, string>;
@@ -123,9 +130,10 @@ export class GameScene extends Phaser.Scene implements Stage {
   private nameTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
-  private profMark: Phaser.GameObjects.Text | null = null;
   /** 내 머리 위 [?]·[✔] 말풍선 (혼자 하는 퀘스트, 누르면 혼잣말 대화) */
-  private selfMark!: Phaser.GameObjects.Text;
+  private selfMark!: Phaser.GameObjects.Container;
+  /** NPC id → 머리 위 퀘스트 말풍선 */
+  private npcMarks = new Map<string, Phaser.GameObjects.Container>();
   /** 머리 위 말풍선: 'player' 또는 'npc:<id>' */
   private bubbles = new Map<string, SpeechBubble>();
   /** 다가오면 말풍선을 띄우는 NPC: 범위 안에 들어와 있는지 (나갔다 다시 와야 또 뜸) */
@@ -181,6 +189,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
   preload() {
     this.load.on('progress', (p: number) => this.deps.loading?.set(p));
+    this.load.image('qmark:!', qmarkNew); this.load.image('qmark:?', qmarkDone); this.load.image('qmark:tail', qmarkTail);
     preloadAvatar(this);
     preloadVfx(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
@@ -212,10 +221,9 @@ export class GameScene extends Phaser.Scene implements Stage {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
     this.overlay = this.add.graphics().setScrollFactor(0).setDepth(10);
-    this.selfMark = this.add.text(0, 0, '', {
-      fontFamily: FONT, fontSize: '20px', fontStyle: 'bold', color: '#675D50', backgroundColor: '#F3DEBA', padding: { x: 9, y: 3 },
-    }).setOrigin(0.5, 1).setDepth(7.5).setVisible(false).setResolution(this.zoom).setInteractive({ useHandCursor: true });
-    this.selfMark.on('pointerdown', () => { if (!this.deps.input.blocked && !this.cut.running) void this.deps.talk('self'); });
+    this.selfMark = this.makeQuestMark().setDepth(7.5).setVisible(false);
+    this.selfMark.getAt<Phaser.GameObjects.Image>(1).setInteractive({ useHandCursor: true });
+    this.selfMark.getAt<Phaser.GameObjects.Image>(1).on('pointerdown', () => { if (!this.deps.input.blocked && !this.cut.running) void this.deps.talk('self'); });
 
     this.scale.on('resize', () => this.applyView());
     this.applyView();
@@ -346,13 +354,13 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const pt of mapPortals(save, world.mapId, world.cleared)) {
       this.mapLayer.add(this.text(pt.label, 12, '#e8dcff').setOrigin(0.5, 1).setPosition(pt.x, (pt.y ?? GROUND_Y) - 98));
     }
-    this.profMark = null;
+    this.npcMarks.clear();
     for (const a of this.actors.values()) if (a.kind === 'mob') { a.root.destroy(); a.label.destroy(); }
     this.actors.clear();
     for (const n of mapNpcs(save, world.mapId)) {
       const x = n.x, y = GROUND_Y;
       // 터치·클릭으로 대화
-      const zone = this.add.zone(x, y - 55, n.id === 'shop' ? 132 : 80, 125).setInteractive({ useHandCursor: true });
+      const zone = this.add.zone(x, y - 55, n.id === 'shop' ? 132 : n.id === 'bed' ? 190 : 80, n.id === 'bed' ? 110 : 125).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => {
         if (this.deps.input.blocked) return;
         const me = this.deps.session.me();
@@ -361,18 +369,16 @@ export class GameScene extends Phaser.Scene implements Stage {
       });
       this.mapLayer.add(zone);
       if (n.id === 'prof') {
-        this.profMark = this.text('!', 26, '#ffd84a').setOrigin(0.5, 1).setPosition(x, y - 106);
-        this.mapLayer.add(this.profMark);
+      }
+      if (n.id === 'prof' || (TALK_NPCS[n.id] && TALK_NPCS[n.id].prop !== 'bed')) {
+        const qm = this.makeQuestMark().setPosition(x, GROUND_Y - QMARK_NPC_TOP).setVisible(false);
+        this.mapLayer.add(qm);
+        this.npcMarks.set(n.id, qm);
       }
       // 교수님은 이야기 대사가 있어도 그림은 교수님 그대로
       const talk = n.id === 'prof' ? undefined : TALK_NPCS[n.id];
       if (talk?.prop === 'bed') {
-        // 침대 (임시 그림)
-        g.fillStyle(0x5a3f22).fillRect(x - 50, y - 30, 100, 30).fillRect(x - 54, y - 52, 10, 52);
-        g.fillStyle(0xe8e2d4).fillRect(x - 44, y - 38, 92, 12);
-        g.fillStyle(0x6a7ac0).fillRect(x - 20, y - 40, 68, 14);
-        g.fillStyle(0xffffff).fillRect(x - 42, y - 46, 22, 9);
-        this.mapLayer.add(this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6));
+        // 침대: 그림은 배경에 있음. 눈에 안 보이는 NPC (클릭·↑ 자리만)
         continue;
       }
       if (talk) {
@@ -580,12 +586,14 @@ export class GameScene extends Phaser.Scene implements Stage {
     // 혼자 하는 퀘스트: 내 머리 위 [?] (받기) · [✔] (보고)
     const mark = selfMark(session.save, session.nowMs());
     if (mark && !input.blocked && !this.cut.running) {
-      if (this.selfMark.text !== mark) this.selfMark.setText(mark);
-      this.selfMark.setPosition(me.x + me.w / 2, me.y - 44 + Math.sin(this.time.now / 200) * 3).setVisible(true);
+      this.setQuestMark(this.selfMark, mark);
+      this.selfMark.setPosition(me.x + me.w / 2, me.y - 16 + Math.sin(this.time.now / 200) * 3).setVisible(true);
     } else this.selfMark.setVisible(false);
-    if (this.profMark) {
-      const news = professorHasNews(session.save, session.nowMs());
-      this.profMark.setVisible(news).setY(GROUND_Y - 106 + Math.sin(this.time.now / 200) * 3);
+    // NPC 머리 위: ! 받을 퀘스트 · ? 보고할 퀘스트
+    const bob = Math.sin(this.time.now / 200) * 3;
+    for (const [id, c] of this.npcMarks) {
+      const m: QuestMark = id === 'prof' ? professorMark(session.save, session.nowMs()) : npcMark(session.save, id, session.nowMs());
+      if (m && !this.cut.running) { this.setQuestMark(c, m); c.setVisible(true).setY(GROUND_Y - QMARK_NPC_TOP + bob); } else c.setVisible(false);
     }
     this.updateFloats(dt);
 
@@ -957,6 +965,18 @@ export class GameScene extends Phaser.Scene implements Stage {
       const el = me.data.learned.cheonbung;
       g.fillStyle(el ? hex(ELEMENTS[el].color) : 0xffffff, 0.3).fillCircle(me.x + me.w / 2, me.y + me.h / 2, 34);
     }
+  }
+
+  /** 퀘스트 말풍선: 아래 가운데가 꼬리 끝. [꼬리, 아이콘] 순서 */
+  private makeQuestMark() {
+    const tail = this.add.image(0, 0, 'qmark:tail').setOrigin(0.5, 1).setScale(QMARK_SCALE);
+    const icon = this.add.image(0, -4 * QMARK_SCALE, 'qmark:!').setOrigin(0.5, 1).setScale(QMARK_SCALE);
+    for (const im of [tail, icon]) im.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return this.add.container(0, 0, [tail, icon]).setDepth(7.5);
+  }
+  private setQuestMark(c: Phaser.GameObjects.Container, mark: '!' | '?') {
+    const key = `qmark:${mark}`, icon = c.getAt<Phaser.GameObjects.Image>(1);
+    if (icon.texture.key !== key) icon.setTexture(key);
   }
 
   /** 떨어진 물건: 아이콘 그림(없으면 이모지)이 바닥 위에서 살짝 위아래로 흔들림. (x, y) = 아래 가운데 */
