@@ -125,6 +125,7 @@ const SCHOOL_TRAINING_X = 1280;
 const SCHOOL_DOOR_X = 1018;
 /** 학교 홀 그림 속 복도로 가는 아치 통로 자리 */
 const HALL_ARCH_X = 499;
+const HALL_DORM_X = 1346;
 /** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
 const HALLWAY_DOORS = [261, 569, 880, 1197, 1516];
 /** 강의실 그림 속 교탁 자리 */
@@ -147,7 +148,7 @@ export const MAPS: Record<MapId, MapDef> = {
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [
-      { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' }, { x: 1620, to: 'dorm', toX: 700, label: '기숙사' },
+      { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
       { x: SCHOOL_TRAINING_X, to: 'training', toX: 120, label: '훈련장' },
@@ -262,6 +263,8 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: 80, to: 'school', toX: SCHOOL_DOOR_X, label: '마법 학교' },
       // 그림 속 아치 통로
       { x: HALL_ARCH_X, to: 'school_hallway', toX: 70, label: '학교 복도' },
+      // 맨 오른쪽: 기숙사 (2026-11-20, 예전엔 학교 바깥 오른쪽 끝)
+      { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사' },
     ],
     // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
     npcs: [{ id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
@@ -285,10 +288,11 @@ export const MAPS: Record<MapId, MapDef> = {
   classroom_magic: classroom('마법학과 강의실', 1, 'mage'),
   classroom_bow: classroom('궁술과 강의실', 2, 'archer'),
   dorm: {
-    name: '기숙사 방', width: 900, safe: true,
+    // 2026-11-20: 학교 홀 맨 오른쪽 문으로 들어옴. 배경 school_room (그림 속 왼쪽 복도 문 = 나가는 포탈), 폭 = 그림 비율대로
+    name: '기숙사 방', width: 1113, indoor: true, safe: true, bg: { img: 'school_room', groundY: 706 },
     platforms: [],
-    portals: [{ x: 800, to: 'school', toX: 1520, label: '마법 학교' }],
-    npcs: [{ id: 'bed', x: 300 }],
+    portals: [{ x: 126, to: 'school_hall', toX: HALL_DORM_X - 80, label: '학교 홀' }],
+    npcs: [{ id: 'bed', x: 413 }],
     signs: [],
     spawns: [],
   },
