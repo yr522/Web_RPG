@@ -4,7 +4,8 @@ import {
   ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPTIONS, OPTION_POOL, OPT_CHANCE, OPT_MAX, OPT_MAX_TIER, OPT_UP_COST, REROLL_COST,
   enhanceMult, repairCost, type OptionId,
 } from '../data/gear';
-import { equippedEntry, equippedSlot, type BagEntry } from './inventory';
+import { countItem, equippedEntry, equippedSlot, removeItem, type BagEntry } from './inventory';
+import { REPAIR_INGOT, enhanceIngot } from '../data/craft';
 import type { SaveData } from '../sim/save';
 
 export type Rng = () => number;
@@ -91,8 +92,10 @@ export function enhance(s: SaveData, uid: number, protect: boolean, rng: Rng): R
   if (e.broken) return fail('먼저 수리해야 해');
   const lv = e.enh ?? 0;
   if (lv >= ENHANCE_MAX) return fail('최대 강화야');
-  const t = ENHANCE[lv];
+  const t = ENHANCE[lv], ing = enhanceIngot(lv);
+  if (countItem(s, ing.item) < ing.n) return fail(`${itemDef(ing.item)?.name ?? ing.item} ${ing.n}개가 필요해`);
   if (!pay(s, t.cost * (protect ? ENHANCE_PROTECT : 1))) return fail('골드가 부족해');
+  removeItem(s, ing.item, ing.n);
   const r = rng();
   const name = itemDef(e.id)!.name;
   if (r < t.ok) {
@@ -110,7 +113,9 @@ export function enhance(s: SaveData, uid: number, protect: boolean, rng: Rng): R
 export function repair(s: SaveData, uid: number): Res {
   const e = findGear(s, uid);
   if (!e?.broken) return fail('파괴된 장비가 아니야');
+  if (countItem(s, REPAIR_INGOT.item) < REPAIR_INGOT.n) return fail(`${itemDef(REPAIR_INGOT.item)?.name ?? REPAIR_INGOT.item} ${REPAIR_INGOT.n}개가 필요해`);
   if (!pay(s, repairCost(e.enh ?? 0))) return fail('골드가 부족해');
+  removeItem(s, REPAIR_INGOT.item, REPAIR_INGOT.n);
   delete e.broken;
   return { ok: true, msg: '수리 완료' };
 }

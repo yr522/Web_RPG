@@ -4,6 +4,7 @@ import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
 import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
 import { questDef } from '../data/quests';
+import { recipeDef } from '../data/craft';
 import type { QuestSave } from '../rules/quests';
 import { addItem, emptyBag, emptyStorage, equipBonus, migrateBag, totalStats, type Bag } from '../rules/inventory';
 
@@ -57,6 +58,8 @@ export interface SaveData {
   title: string | null;
   /** 개인 창고 (STORAGE_SIZE 칸) */
   storage: Bag;
+  /** 대장장이 제작 대기열 (레시피 id 차례대로) · 맨 앞 것을 만들기 시작한 시간 (실제 시간 ms) */
+  craft: { queue: string[]; t0: number };
   /** 오늘 날짜 (일일 퀘스트용, 내 컴퓨터 날짜. 화면이 매 순간 맞춰 줌) */
   dailyDay: string;
 }
@@ -76,7 +79,7 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     bag: emptyBag(), equip: {}, nextUid: 1,
     map: 'school',
     quests: {}, questPins: [], questSeq: 0, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
-    mobKills: {}, achievements: [], title: null, storage: emptyStorage(), dailyDay: '',
+    mobKills: {}, achievements: [], title: null, storage: emptyStorage(), dailyDay: '', craft: { queue: [], t0: 0 },
   };
   for (const it of START_ITEMS) addItem(s, it.id, it.n);
   return s;
@@ -145,6 +148,7 @@ function cleanSave(s: SaveData) {
   s.storage = emptyStorage().map((_, i) => { const e = s.storage?.[i]; return e && itemDef(e.id) && e.n > 0 ? e : null; });
   s.mobKills = { ...s.mobKills };
   s.achievements = [...(s.achievements ?? [])];
+  s.craft = { queue: (s.craft?.queue ?? []).filter(id => recipeDef(id)), t0: s.craft?.t0 ?? 0 };
   for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
     if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];
   }
