@@ -167,7 +167,7 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: [{ x: 578, y: 370, w: 170 }, { x: 405, y: 290, w: 150 }, { x: 173, y: 360, w: 190 }],
     portals: [
       { x: 862, to: 'school', toX: 190, label: '마법 학교' },
-      { x: 90, to: 'field2', toX: 1150, label: '원소 슬라임 서식지' },
+      { x: 90, to: 'field2', toX: 848, label: '원소 슬라임 서식지' },
     ],
     npcs: [],
     signs: [{ x: 200, text: '← 원소 슬라임 서식지' }],
@@ -177,17 +177,20 @@ export const MAPS: Record<MapId, MapDef> = {
     ]),
   },
   field2: {
-    name: '원소 슬라임 서식지', width: 1400, bgTime: FOREST_BG,
-    platforms: [{ x: 840, y: 375, w: 200 }, { x: 570, y: 300, w: 180 }, { x: 230, y: 350, w: 210 }],
+    // 2026-11-20: 학교 뒷숲과 같은 조건으로 — 폭 1400 → 1050 (3/4), 원소 슬라임 1.2배, 10마리 (땅 5 · 발판 5, 원소마다 2마리). 오른쪽 입구 쪽은 비워 둠
+    name: '원소 슬라임 서식지', width: 1050, bgTime: FOREST_BG,
+    platforms: [{ x: 630, y: 375, w: 200 }, { x: 428, y: 300, w: 180 }, { x: 173, y: 350, w: 210 }],
     portals: [
-      { x: 1250, to: 'field', toX: 160, label: '학교 뒷숲' },
+      { x: 938, to: 'field', toX: 160, label: '학교 뒷숲' },
       { x: 70, to: 'crossroad', toX: 1430, label: '갈림길' },
     ],
     npcs: [],
     signs: [],
     spawns: [
-      { x: 898, mob: 'slime_elem', elem: 'fire' }, { x: 618, mob: 'slime_elem', elem: 'water', y: 210 }, { x: 498, mob: 'slime_elem', elem: 'earth' },
-      { x: 298, mob: 'slime_elem', elem: 'light', y: 260 }, { x: 198, mob: 'slime_elem', elem: 'dark' }, { x: 760, mob: 'slime_elem', elem: 'fire' },
+      { x: 150, mob: 'slime_elem', elem: 'fire' }, { x: 330, mob: 'slime_elem', elem: 'water' }, { x: 500, mob: 'slime_elem', elem: 'earth' },
+      { x: 670, mob: 'slime_elem', elem: 'light' }, { x: 820, mob: 'slime_elem', elem: 'dark' },
+      { x: 220, mob: 'slime_elem', elem: 'fire', y: 260 }, { x: 460, mob: 'slime_elem', elem: 'water', y: 210 }, { x: 540, mob: 'slime_elem', elem: 'earth', y: 210 },
+      { x: 700, mob: 'slime_elem', elem: 'light', y: 285 }, { x: 780, mob: 'slime_elem', elem: 'dark', y: 285 },
     ],
   },
   // 갈림길: 몬스터 없음. 가운데 포탈 = 마법공학의 유산 쪽, 왼쪽 끝은 나중에 다른 사냥터

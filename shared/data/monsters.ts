@@ -44,7 +44,8 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
     drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   slime_elem: {
-    name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 42, h: 30, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
+    // 크기 1.2배 (42×30 → 50×36, 2026-11-20, 슬라임과 같게)
+    name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 50, h: 36, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
     drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   // 마법공학의 유산 (임시 그림, 수치 임시)
