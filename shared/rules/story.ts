@@ -69,16 +69,20 @@ export function offeredQuests(s: SaveData, nowMs?: number): QuestDef[] {
   return QUESTS.filter(q => ids.has(q.id)).sort((a, b) => Number(!!b.main) - Number(!!a.main));
 }
 
-/**
- * 혼자 하는 퀘스트(대화 NPC 'self'): 내 머리 위에 띄울 말풍선. '?' = 받을 퀘스트, '✔' = 보고할 퀘스트, null = 없음
- */
-export function selfMark(s: SaveData, nowMs?: number): '?' | '✔' | null {
-  const pick = pickTalk(s, 'self', nowMs);
+/** 머리 위 퀘스트 말풍선: '!' = 받을 수 있는 퀘스트, '?' = 보고(완료)할 퀘스트, null = 없음 */
+export type QuestMark = '!' | '?' | null;
+
+/** 대화 NPC(·혼자 하는 퀘스트 'self')가 지금 말을 걸면 퀘스트를 주는지(!) / 보고를 받는지(?) */
+export function npcMark(s: SaveData, npc: string, nowMs?: number): QuestMark {
+  const pick = pickTalk(s, npc, nowMs);
   if (!pick || pick.talk < 0) return null;
   const fx = stepEffects(pick.steps);
-  if (fx.some(e => 'quest' in e && e.quest === 'report')) return '✔';
-  return fx.some(e => 'quest' in e && e.quest === 'give') ? '?' : null;
+  if (fx.some(e => 'quest' in e && e.quest === 'report')) return '?';
+  return fx.some(e => 'quest' in e && e.quest === 'give') ? '!' : null;
 }
+
+/** 혼자 하는 퀘스트(대화 NPC 'self'): 내 머리 위에 띄울 말풍선 */
+export const selfMark = (s: SaveData, nowMs?: number): QuestMark => npcMark(s, 'self', nowMs);
 
 /**
  * 대사 안의 효과 위치: [단계 번호, 선택지 번호, 단계 번호, …].

@@ -61,7 +61,7 @@ function playthrough(cls: ClassId) {
     if (s.level < 5) gainExp(s, expNeed(s.level));
     const phases = nightLocked(s) ? [PHASE_NOW[2]] : PHASE_NOW;
     for (const now of phases) {
-      // 'self' = 내 머리 위 [?]·[✔] (어느 맵에서나)
+      // 'self' = 내 머리 위 !·? (어느 맵에서나)
       for (const map of ['self', ...Object.keys(MAPS)] as (MapId | 'self')[]) {
         for (const n of map === 'self' ? [{ id: 'self' }] : mapNpcs(s, map)) {
           if (!TALK_NPCS[n.id] && n.id !== 'prof') continue;
@@ -87,12 +87,12 @@ describe('마법사 처음 부분', () => {
     const s = newSave('t', 'mage', 'M');
     expect(selfMark(s)).toBeNull();
     while (s.level < 3) gainExp(s, expNeed(s.level));
-    expect(selfMark(s)).toBe('?');
+    expect(selfMark(s)).toBe('!');
     play(s, pickTalk(s, 'self')!.steps);
     expect(questState(s, 'mgm2')).toBe('active');
     expect(selfMark(s)).toBeNull();
     questsOnVisit(s, 'crossroad');
-    expect(selfMark(s)).toBe('✔');
+    expect(selfMark(s)).toBe('?');
     play(s, pickTalk(s, 'self')!.steps);
     expect(questState(s, 'mgm4')).toBe('ready');
     expect(pickTalk(s, 'bed', PHASE_NOW[1])!.talk).toBe(-1);
