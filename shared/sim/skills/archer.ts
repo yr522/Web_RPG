@@ -2,7 +2,7 @@
 // 기본 공격·마법 화살: 꾹 눌러 충전 → 떼면 발사
 import { ELEMENTS, type Element } from '../../data/elements';
 import { GROUND_Y } from '../../data/maps';
-import { AIM_TURN, ARROW_RANGE, DOYAK, HINT, MOVE_SKILL, PASSIVE, SOYONG_PULL_R, SOYONG_TICK } from '../../data/classes';
+import { AIM_TURN, ARROW_RANGE, DOYAK, HINT, HWASALBI, MOVE_SKILL, PASSIVE, SOYONG_PULL_R, SOYONG_TICK } from '../../data/classes';
 import { passiveLv } from '../../rules/progress';
 import type { PlayerAction, PlayerState } from '../entities';
 import type { ClassSkills, SkillWorld } from './types';
@@ -184,17 +184,14 @@ export const ARCHER: ClassSkills = {
       p.action = {
         name: 'draw', skill: 'hwasalbi', elem: el, t: 0, dur: 0.24, superArmor: true, update: () => { p.vx = 0; },
         end: () => {
-          const zx = cx(p) + p.face * 230;
-          p.lockT = 0.35 + 6 * 0.1 + 0.05;
+          const H = HWASALBI, zx = cx(p) + p.face * H.dist;
+          p.lockT = H.delay + H.fall + (H.hits - 1) * H.interval + 0.05;
           w.fx({ kind: 'line', x1: cx(p), y1: cy(p), x2: cx(p) + p.face * 40, y2: -20, color: c, w: 3, life: 0.25 });
-          w.later(p, 0.35, () => w.fx({ kind: 'zone', x: zx - 160, w: 320, color: c, life: 0.8 }));
-          for (let i = 0; i < 7; i++) {
-            w.later(p, 0.35 + i * 0.1, () => {
-              w.addHB(p, { abs: { x: zx - 160, y: 0, w: 320, h: GROUND_Y }, coef: 0.75, elem: el, kb: 20, launch: -60, life: 0.05, light: true, face: 1, skill: 'hwasalbi' });
-              for (let j = 0; j < 6; j++) {
-                const x = zx - 160 + w.rng() * 320, y = 80 + w.rng() * (GROUND_Y - 140);
-                w.fx({ kind: 'line', x1: x, y1: y - 50, x2: x, y2: y + 10, color: c, w: 2, life: 0.15 });
-              }
+          // 그림 (hwasalbi_rain, 원소 색): 화살이 떨어지다(첫 칸) 땅에 꽂히며 터짐. 땅 줄 위 zx 가운데
+          w.later(p, H.delay, () => w.fx({ kind: 'anim', anim: 'hwasalbi_rain', x: zx, y: GROUND_Y, face: 1, color: c, life: 0.6 }));
+          for (let i = 0; i < H.hits; i++) {
+            w.later(p, H.delay + H.fall + i * H.interval, () => {
+              w.addHB(p, { abs: { x: zx - H.w / 2, y: 0, w: H.w, h: GROUND_Y }, coef: H.coef, elem: el, kb: 20, launch: -60, life: 0.05, light: true, face: 1, skill: 'hwasalbi' });
             });
           }
         },

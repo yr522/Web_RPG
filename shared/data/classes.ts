@@ -114,6 +114,12 @@ export const WARRIOR_CHAIN = ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbu
  * 판정: 몸 앞 front · 몸 뒤 behind · 발에서 위로 h. 끌려온 몬스터는 내 앞 gather(px) 쪽으로 모임 (보스는 안 끌려옴)
  */
 export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 156, coef: 1.4, gather: 46 };
+/**
+ * 궁수 화살비 (2026-11-20, 유저 그림 bow_rain.png 6칸에 맞춰 짧게): 위로 쏜 뒤 delay 초 있다가 그림이 시작,
+ * 첫 칸(fall 초)은 화살이 떨어지는 중이고 그 뒤 interval 초마다 hits 번 타격 (예전 0.75 × 7, 0.1초 간격, 총 1.2초 → 1.05 × 5, 0.5초 + 앞 delay 0.25).
+ * coef 는 총 피해가 예전과 같게 (0.75 × 7 = 1.05 × 5). w = 범위 폭
+ */
+export const HWASALBI = { delay: 0.25, fall: 0.1, interval: 0.1, hits: 5, coef: 1.05, w: 320, dist: 230 };
 /** 검사 일섬: 한 번 베기 (2026-11-20, 예전 1.0 × 2 → 1.6 × 1). windup = 휘두르기 전 그림이 보이는 시간(초), 그 뒤에 베기·판정 */
 export const ILSEOM = { coef: 1.6, windup: 0.08 };
 export const WARRIOR_REACH = {
