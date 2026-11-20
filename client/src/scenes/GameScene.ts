@@ -39,7 +39,7 @@ import qmarkDone from '../../../assets/UI/speech_bubbles/question_mark.png';
 import qmarkTail from '../../../assets/UI/speech_bubbles/mark_tail.png';
 
 /** 퀘스트 말풍선 (16×16 아이콘 + 16×20 꼬리, 같은 자리에 겹침) 화면 배율, NPC 머리 위 높이 */
-const QMARK_SCALE = 3;
+const QMARK_SCALE = 2;
 const QMARK_NPC_TOP = 108;
 
 /** 마법 골렘 파츠 그림 (192×192 레이어별) */
@@ -222,8 +222,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
     this.overlay = this.add.graphics().setScrollFactor(0).setDepth(10);
     this.selfMark = this.makeQuestMark().setDepth(7.5).setVisible(false);
-    this.selfMark.getAt<Phaser.GameObjects.Image>(1).setInteractive({ useHandCursor: true });
-    this.selfMark.getAt<Phaser.GameObjects.Image>(1).on('pointerdown', () => { if (!this.deps.input.blocked && !this.cut.running) void this.deps.talk('self'); });
+    this.selfMark.getAt<Phaser.GameObjects.Image>(0).setInteractive({ useHandCursor: true });
+    this.selfMark.getAt<Phaser.GameObjects.Image>(0).on('pointerdown', () => { if (!this.deps.input.blocked && !this.cut.running) void this.deps.talk('self'); });
 
     this.scale.on('resize', () => this.applyView());
     this.applyView();
@@ -967,15 +967,15 @@ export class GameScene extends Phaser.Scene implements Stage {
     }
   }
 
-  /** 퀘스트 말풍선: 아래 가운데가 꼬리 끝. [꼬리, 아이콘] 순서 */
+  /** 퀘스트 말풍선: 아래 가운데가 꼬리 끝. [아이콘, 꼬리] 순서 (꼬리가 앞) */
   private makeQuestMark() {
     const tail = this.add.image(0, 0, 'qmark:tail').setOrigin(0.5, 1).setScale(QMARK_SCALE);
     const icon = this.add.image(0, -4 * QMARK_SCALE, 'qmark:!').setOrigin(0.5, 1).setScale(QMARK_SCALE);
     for (const im of [tail, icon]) im.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    return this.add.container(0, 0, [tail, icon]).setDepth(7.5);
+    return this.add.container(0, 0, [icon, tail]).setDepth(7.5);
   }
   private setQuestMark(c: Phaser.GameObjects.Container, mark: '!' | '?') {
-    const key = `qmark:${mark}`, icon = c.getAt<Phaser.GameObjects.Image>(1);
+    const key = `qmark:${mark}`, icon = c.getAt<Phaser.GameObjects.Image>(0);
     if (icon.texture.key !== key) icon.setTexture(key);
   }
 
