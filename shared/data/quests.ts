@@ -188,6 +188,14 @@ export const QUEST_HUD_MAX = 3;
 /** 핀은 최대 몇 개까지 */
 export const QUEST_PIN_MAX = 3;
 
+/** 이야기 챕터: 퀘스트 창에서 한 묶음으로 접고 펼침. 퀘스트 id 앞부분(prefix)으로 나눔 */
+export const QUEST_CHAPTERS: { id: string; name: string; prefix: string }[] = [
+  { id: 'legacy', name: '마법공학의 유산', prefix: 'mg' },
+  { id: 'birthday', name: '영주님의 생일잔치', prefix: 'bd' },
+];
+/** 퀘스트가 속한 챕터 (없으면 null = 따로 보임) */
+export const questChapter = (q: { id: string }) => QUEST_CHAPTERS.find(c => q.id.startsWith(c.prefix)) ?? null;
+
 /** 화면에 보이는 퀘스트 제목 (반복 퀘스트는 앞에 [반복]) */
 export const questTitle = (q: QuestDef) => (q.repeat ? `[반복] ${q.name}` : q.name);
 

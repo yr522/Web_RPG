@@ -1,7 +1,7 @@
 // 퀘스트 창 (왼쪽 위 [퀘스트]). 게임을 멈추지 않는 떠 있는 창 (인벤토리 창과 같은 틀).
 // 탭: 진행 중 / 수락 대기 / 완료. 왼쪽 목록에서 고르면 오른쪽에 제목·관련 NPC·개요·조건.
 // 진행 중 탭은 목록에서 핀을 꽂고 뺄 수 있다 (핀 꽂은 퀘스트는 화면 왼쪽 맨 위에 항상 보임).
-import { QUEST_PIN_MAX, questTitle, type QuestDef } from '@shared/data/quests';
+import { QUEST_PIN_MAX, questChapter, questTitle, type QuestDef } from '@shared/data/quests';
 import { doneQuests, npcName, questLines, sortedActive } from '@shared/rules/quests';
 import { offeredQuests } from '@shared/rules/story';
 import type { Session } from '../session/LocalSession';
@@ -26,6 +26,8 @@ export class QuestWindow {
   /** 탭마다 고른 퀘스트 */
   private picked: Record<Tab, string | null> = { active: null, offer: null, done: null };
   private sig = '';
+  /** 접어 둔 챕터 (탭마다 따로) */
+  private folded: Record<Tab, Set<string>> = { active: new Set(), offer: new Set(), done: new Set() };
 
   constructor(private session: Session, private hud: Hud) {
     const panel = el('div', 'inv-panel');
@@ -74,7 +76,7 @@ export class QuestWindow {
 
   private signature() {
     const s = this.session.save, list = this.entries(this.tab);
-    return JSON.stringify([this.tab, this.picked[this.tab], s.questPins, list.map(q => [q.id, questLines(s, q, this.lineState())])]);
+    return JSON.stringify([this.tab, this.picked[this.tab], [...this.folded[this.tab]], s.questPins, list.map(q => [q.id, questLines(s, q, this.lineState())])]);
   }
 
   /** 조건 줄 상태: 완료 탭은 전부 다 함, 수락 대기 탭은 전부 0 */
@@ -88,24 +90,48 @@ export class QuestWindow {
     const full = s.questPins.length >= QUEST_PIN_MAX;
 
     this.list.innerHTML = '';
-    for (const q of list) {
-      const pin = s.questPins.includes(q.id);
-      const item = el('div', `qw-item${q.main ? ' main' : ''}${q.id === this.picked[tab] ? ' on' : ''}`,
-        `<i class="qw-dot"></i><span class="qw-name">${esc(questTitle(q))}</span>`, () => { this.picked[tab] = q.id; this.render(); });
-      if (tab === 'active') {
-        const b = el('button', `q-pin qw-pin${pin ? ' on' : ''}`, PIN_SVG) as HTMLButtonElement;
-        b.disabled = !pin && full;
-        b.addEventListener('click', e => {
-          e.stopPropagation();
-          const r = this.session.act({ type: 'questPin', id: q.id });
-          if (!r.ok && r.msg) this.hud.toast(r.msg);
-          this.render();
-        });
-        item.appendChild(b);
+    // 같은 챕터 퀘스트는 묶음 (챕터 줄을 누르면 접고 펼침). 묶음 자리 = 그 챕터 퀘스트가 처음 나오는 자리
+    const shown = new Set<string>();
+    for (const q0 of list) {
+      const ch = questChapter(q0);
+      if (ch && shown.has(ch.id)) continue;
+      const group = ch ? list.filter(o => questChapter(o)?.id === ch.id) : [q0];
+      if (ch) {
+        shown.add(ch.id);
+        const open = !this.folded[tab].has(ch.id);
+        const head = el('div', `qw-chapter${open ? ' open' : ''}`,
+          `<i class="qw-arrow">${open ? '▼' : '▶'}</i><span class="qw-name">${esc(ch.name)}</span><span class="qw-count">${group.length}</span>`,
+          () => { if (open) this.folded[tab].add(ch.id); else this.folded[tab].delete(ch.id); this.render(); });
+        this.list.appendChild(head);
+        if (!open) continue;
       }
-      this.list.appendChild(item);
+      for (const q of group) this.list.appendChild(this.listItem(q, ch !== null, full));
     }
+    this.renderDetail(list);
+  }
 
+  /** 목록 한 줄 (챕터 안이면 들여씀) */
+  private listItem(q: QuestDef, inChapter: boolean, full: boolean) {
+    const s = this.session.save, tab = this.tab;
+    const pin = s.questPins.includes(q.id);
+    const item = el('div', `qw-item${q.main ? ' main' : ''}${inChapter ? ' sub' : ''}${q.id === this.picked[tab] ? ' on' : ''}`,
+      `<i class="qw-dot"></i><span class="qw-name">${esc(questTitle(q))}</span>`, () => { this.picked[tab] = q.id; this.render(); });
+    if (tab === 'active') {
+      const b = el('button', `q-pin qw-pin${pin ? ' on' : ''}`, PIN_SVG) as HTMLButtonElement;
+      b.disabled = !pin && full;
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        const r = this.session.act({ type: 'questPin', id: q.id });
+        if (!r.ok && r.msg) this.hud.toast(r.msg);
+        this.render();
+      });
+      item.appendChild(b);
+    }
+    return item;
+  }
+
+  private renderDetail(list: QuestDef[]) {
+    const s = this.session.save, tab = this.tab;
     const q = list.find(o => o.id === this.picked[tab]);
     this.detail.innerHTML = '';
     if (!q) return;

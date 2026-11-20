@@ -627,6 +627,14 @@ body.ui-off #hud, body.ui-off .inv { visibility: hidden; }
   background: var(--c-paper-lo); border: calc(1 * var(--s)) solid var(--c-latte); border-radius: calc(3 * var(--s)); cursor: pointer;
 }
 .qw-item.on { background: var(--c-mint); border-color: var(--c-brown); }
+/* 이야기 챕터 묶음: 누르면 접고 펼침, 안의 퀘스트는 들여씀 */
+.qw-chapter {
+  display: flex; align-items: center; gap: calc(5 * var(--s)); padding: calc(4 * var(--s)) calc(5 * var(--s)); flex: none; cursor: pointer;
+  background: var(--c-brown); color: var(--c-cream); border-radius: calc(3 * var(--s)); font-weight: 700;
+}
+.qw-arrow { font-style: normal; font-size: .8em; width: calc(10 * var(--s)); text-align: center; }
+.qw-count { opacity: .7; font-weight: 400; }
+.qw-item.sub { margin-left: calc(10 * var(--s)); }
 .qw-name { flex: 1; line-height: 1.25; word-break: keep-all; }
 .qw-dot {
   flex: none; display: inline-block; width: calc(11 * var(--s)); height: calc(11 * var(--s)); border-radius: 50%;

@@ -1,12 +1,13 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
-import { GROUND_Y } from '@shared/data/maps';
+import { GROUND_Y, MAP_BGM } from '@shared/data/maps';
 import { CLASSES, DOYAK, GIDUNG, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette, type Palette } from './palette';
 import { professorMark } from '@shared/rules/progress';
+import { playBgm } from '../audio/bgm';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 import type { Enemy } from '@shared/sim/entities';
@@ -289,6 +290,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const l of this.tornadoSprites.values()) l.forEach(sp => sp.destroy());
     this.tornadoSprites.clear();
     const { world, save } = this.deps.session, map = world.map;
+    // 배경 음악 (같은 곡이면 이어서)
+    playBgm(MAP_BGM[world.mapId]);
     // 배경 그림이 없는 맵, 시간대 배경이 있어도 화면보다 짧은 맵: 맵 밖(양옆)은 검정
     if (!map.bg && (!map.bgTime || map.width < VIEW_MAX_W)) {
       const top = (map.top ?? 0) - 3000;

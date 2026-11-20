@@ -429,3 +429,21 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [],
   },
 };
+
+/**
+ * 배경 음악 (assets/sound/BGM/ 아래 파일 이름, .mp3 빼고). 없는 맵은 음악 없음 (사냥터 기본은 조용함).
+ * 같은 음악인 맵끼리 옮겨 다니면 음악이 처음부터 다시 나오지 않고 이어짐 (2026-11-21, 임시 음악)
+ */
+export const MAP_BGM: Partial<Record<MapId, string>> = {
+  // 마을 · 학교 바깥 · 학교 안 전부
+  town: 'Noblesse nostalgia', school: 'Noblesse nostalgia', school_hall: 'Noblesse nostalgia', school_hallway: 'Noblesse nostalgia',
+  classroom_sword: 'Noblesse nostalgia', classroom_magic: 'Noblesse nostalgia', classroom_bow: 'Noblesse nostalgia',
+  dorm: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
+  // 슬라임 사냥터 3개
+  field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow',
+  // 공방 안 전부 (던전 잊힌 공방 포함)
+  workshop: 'LowGradeOre', under_trial: 'LowGradeOre', under_cleared: 'LowGradeOre', under: 'LowGradeOre',
+  dungeon1: 'LowGradeOre', dungeon2: 'LowGradeOre', dungeon3: 'LowGradeOre',
+  // 골렘 보스
+  golem_room: 'GelimerLab', golem_scene: 'GelimerLab',
+};
