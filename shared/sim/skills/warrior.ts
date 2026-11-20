@@ -29,8 +29,8 @@ export const WARRIOR_START: Record<string, (w: SkillWorld, p: PlayerState, chain
   ilseom(w, p, chain) {
     const el = w.elemOf(p, 'ilseom'), c = color(el);
     const hit = () => w.addHB(p, { dx: -6, dy: -46, w: R.ilseomW, h: 78, coef: 1.0, elem: el, order: 0, chain, kb: 110, life: 0.06, skill: 'ilseom' });
-    // 베기 그림 (임시 sword_slash, 원소 색): 첫 번째는 위→아래, 두 번째는 위아래 뒤집어 아래→위
-    const slash = (i: number) => w.fx({ kind: 'anim', anim: 'sword_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 48, dy: -8, color: c, flipY: i === 1, life: 0.13 });
+    // 베기 그림 (ilseom_slash, 원소 색): 첫 번째는 위→아래, 두 번째는 위아래 뒤집어 아래→위
+    const slash = (i: number) => w.fx({ kind: 'anim', anim: 'ilseom_slash', x: cx(p), y: cy(p), face: p.face, owner: p.id, dx: 0, dy: 0, color: c, flipY: i === 1, life: 0.13 });
     p.action = {
       name: 'ilseom', t: 0, dur: 0.24,
       events: [{ at: 0, fn: () => slash(0) }, { at: 0.02, fn: hit }, { at: 0.13, fn: () => slash(1) }, { at: 0.15, fn: hit }],
