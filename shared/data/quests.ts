@@ -137,6 +137,16 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'talk', npc: 'prof' }], reward: { exp: 600, gold: 1500 },
   },
 
+  // ---- 영주님의 생일잔치 (2026-11-21, 마법공학의 유산을 다 끝내면 열림. 6개 중 일부, 대사·보상 임시) ----
+  {
+    id: 'bd1', name: '꿀케이크를 위해서라면...', desc: '마을의 마샤에게 꿀 50개 가져다주기. 꿀은 꿀 슬라임 서식지(원소 슬라임 서식지 왼쪽 위)의 꿀 슬라임에게서', giver: 'masha',
+    goals: [{ kind: 'collect', item: 'honey', n: 50 }], reward: { exp: 1000, gold: 800 }, where: 'honey_field',
+  },
+  {
+    id: 'bd2', name: '영주님의 동상 제작 의뢰', desc: '대 장장이에게 쓸만한 고철 5개 가져다주기. 경비기계 A·B 가 가끔 떨어뜨림', giver: 'smith',
+    goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 800, gold: 3000 }, where: 'guard_a',
+  },
+
   {
     id: 'q1', name: '슬라임 퇴치', desc: '학교 뒷숲에서 일반 슬라임 8마리 처치', giver: 'prof', repeat: true,
     goals: [{ kind: 'kill', mob: 'slime', n: 8 }], reward: { exp: lv => 60 + lv * 12 },

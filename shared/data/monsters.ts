@@ -1,7 +1,7 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss' | 'dummy';
+export type MonsterId = 'slime' | 'slime_elem' | 'honey_slime' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss' | 'dummy';
 
 /**
  * 움직임 종류
@@ -10,9 +10,10 @@ export type MonsterId = 'slime' | 'slime_elem' | 'guard_a' | 'guard_b' | 'guard_
  * - charger: 걸어서 쫓아오다가 가끔 멈춰 부들부들 떨고 앞으로 돌진 (CHARGER_AI)
  * - flyer: 공중에 떠서 플레이어 쪽으로 날아옴, 부딪히기만 (FLYER_AI)
  * - golem: 보스. 천천히 쫓아오며 내려치기·돌진 (GOLEM_AI, 보안장치 오브 BOSS_ORB)
+ * - snail: 꿀 슬라임(달팽이). 천천히 다가오다가 가까우면 제자리에서 점액을 휘두름, 맞으면 둔화 (SNAIL_AI)
  * - dummy: 훈련장 허수아비. 제자리에 서 있고, 안 밀리고, 안 죽고, 부딪혀도 피해 없음. 머리 위에 초당 피해 (DUMMY)
  */
-export type MonsterAi = 'slime' | 'walker' | 'charger' | 'flyer' | 'golem' | 'dummy';
+export type MonsterAi = 'slime' | 'snail' | 'walker' | 'charger' | 'flyer' | 'golem' | 'dummy';
 
 export interface MonsterDef {
   name: string;
@@ -34,8 +35,12 @@ export interface MonsterDef {
   /** 그림이 없으면 이 몬스터 그림을 빌려 씀 (크기는 w·h 에 맞춤) */
   look?: MonsterId;
   /** 잡으면 확률로 떨어뜨리는 물건. max = 이만큼 가지고 있으면(바닥에 떨어진 것 포함) 안 떨어뜨림, quest = 이 퀘스트를 하는 중일 때만 */
-  drops?: readonly { item: string; chance: number; max?: number; quest?: string }[];
+  /** group 이 같은 것끼리는 한 번만 굴려서 그중 하나만 떨어짐 (각 chance 를 더한 확률) */
+  drops?: readonly { item: string; chance: number; max?: number; quest?: string; group?: string }[];
 }
+
+/** 경비기계 A·B 고철: 녹슨 고철 30% 또는 쓸만한 고철 5% (둘이 같이 안 떨어짐) */
+const SCRAP_DROPS = [{ item: 'scrap_rusty', chance: 0.3, group: 'scrap' }, { item: 'scrap_good', chance: 0.05, group: 'scrap' }];
 
 export const MONSTERS: Record<MonsterId, MonsterDef> = {
   slime: {
@@ -48,11 +53,19 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
     name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 50, h: 36, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
     drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
+  // 꿀 슬라임 (영주님의 생일잔치, 2026-11-21): 세기는 원소 슬라임과 같음. 그림 assets/img/sprites/enemies/03_honeySlime
+  honey_slime: {
+    name: '꿀 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 50, h: 36, ai: 'snail', speed: [30, 45], chase: 1.5,
+    drops: [{ item: 'honey', chance: 0.7 }],
+  },
   // 마법공학의 유산 (임시 그림, 수치 임시)
-  guard_a: { name: '경비기계A', hp: 420, exp: 30, touch: 16, gold: [20, 30], w: 44, h: 52, ai: 'walker', speed: [45, 60], chase: 1.6 },
+  guard_a: {
+    name: '경비기계A', hp: 420, exp: 30, touch: 16, gold: [20, 30], w: 44, h: 52, ai: 'walker', speed: [45, 60], chase: 1.6,
+    drops: SCRAP_DROPS,
+  },
   guard_b: {
     name: '경비기계B', hp: 650, exp: 45, touch: 22, gold: [30, 45], w: 56, h: 58, ai: 'charger', speed: [35, 45], chase: 1.5,
-    drops: [{ item: 'workshop_key', chance: 0.05, max: 1, quest: 'mg9' }],
+    drops: [{ item: 'workshop_key', chance: 0.05, max: 1, quest: 'mg9' }, ...SCRAP_DROPS],
   },
   guard_c: { name: '경비기계C', hp: 800, exp: 55, touch: 26, gold: [35, 50], w: 50, h: 60, ai: 'walker', speed: [40, 50], chase: 1.5 },
   guard_d: { name: '경비기계D', hp: 350, exp: 40, touch: 18, gold: [25, 35], w: 34, h: 26, ai: 'flyer', speed: [60, 80], chase: 1.4 },
@@ -108,6 +121,14 @@ export const SLIME_AI = {
   leapVy: -560,
   leapVx: 230,
 };
+
+/**
+ * 꿀 슬라임(달팽이) 행동: 쫓아오다가 플레이어가 앞쪽 range(가로)·높이 차 rangeY 안이면 멈춰서 휘두름.
+ * every 초마다 한 번 (슬라임 큰 점프와 비슷한 빈도). windup 초 준비(3번 그림) → swing 초 휘두름(4번 그림), 휘두르는 순간 맞으면 피해 dmg + 둔화
+ */
+export const SNAIL_AI = { every: [2.5, 4.5] as const, range: 80, rangeY: 60, windup: 0.4, swing: 0.3, dmg: 12 };
+/** 둔화 (꿀 슬라임 점액): time 초 동안 걷는 속도 × (1 − slow) */
+export const SLOW_DEBUFF = { time: 3, slow: 0.4 };
 
 /** 돌진형 행동 수치: 쫓아오다가 가끔 멈춰 떨고(예고) 앞으로 돌진 */
 export const CHARGER_AI = {

@@ -28,6 +28,7 @@ import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
 import slimeUrl from '../../../assets/img/sprites/enemies/01_slime/slime.png';
+import honeySlimeUrl from '../../../assets/img/sprites/enemies/03_honeySlime/Honey_slime.png';
 import { BOSS_ORB, ELITE, GOLEM_AI, GOLEM_NORMAL, COIN, COIN_ANIM, COIN_KINDS, MONSTERS, coinKind, type MonsterId } from '@shared/data/monsters';
 import { GOLEM_ART_H, GOLEM_DEATH_BOOM, GOLEM_DEATH_CRACK, GOLEM_DEATH_TIME, GOLEM_PARTS, golemPose, type GolemState } from './golemRig';
 import coinBronze from '../../../assets/img/icon/coin/bronze_coin.png';
@@ -194,6 +195,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     preloadVfx(this);
     // 슬라임: 32×32 칸 3개 (1 기본 · 2 이동 · 3 점프 준비)
     this.load.spritesheet('slime', slimeUrl, { frameWidth: 32, frameHeight: 32 });
+    // 꿀 슬라임: 32×32 칸 5개 (1·2 이동 · 3·4 공격 · 5 죽음), 오른쪽을 봄
+    this.load.spritesheet('honey_slime', honeySlimeUrl, { frameWidth: 32, frameHeight: 32 });
     for (const [path, url] of Object.entries(ICON_URLS)) this.load.image(`ico:${path}`, url);
     for (const k of COIN_KINDS) this.load.spritesheet(`coin:${k.img}`, COIN_URLS[k.img], { frameWidth: 16, frameHeight: 16 });
     for (const [path, url] of Object.entries(GOLEM_FILES)) this.load.image(path.split('/').pop()!.replace(/\.png$/, ''), url);
@@ -376,7 +379,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.npcMarks.set(n.id, qm);
       }
       // 교수님은 이야기 대사가 있어도 그림은 교수님 그대로
-      const talk = n.id === 'prof' ? undefined : TALK_NPCS[n.id];
+      const talk = n.id === 'prof' || n.id === 'smith' ? undefined : TALK_NPCS[n.id];
       if (talk?.prop === 'bed') {
         // 침대: 그림은 배경에 있음. 눈에 안 보이는 NPC (클릭·↑ 자리만)
         continue;
@@ -813,9 +816,11 @@ export class GameScene extends Phaser.Scene implements Stage {
       let label = this.enemyLabels.get(e.id);
       const rigged = MONSTERS[e.mob].ai === 'golem' && !GOLEM_OLD_LOOK;
       if (rigged && e.dead && e.deadT <= GOLEM_DEATH_TIME) { alive.add(e.id); this.drawGolem(e, fl); }
-      if (e.dead && e.deadT > 0.35) { label?.setVisible(false); continue; }
+      // 죽음 그림이 있는 몬스터(꿀 슬라임)는 조금 더 오래 보여 줌
+      const fadeT = e.mob === 'honey_slime' ? 0.7 : 0.35;
+      if (e.dead && e.deadT > fadeT) { label?.setVisible(false); continue; }
       alive.add(e.id);
-      const alpha = e.dead ? 1 - e.deadT / 0.35 : 1;
+      const alpha = !e.dead ? 1 : e.mob === 'honey_slime' ? Math.min(1, 2 - 2 * e.deadT / fadeT) : 1 - e.deadT / fadeT;
       if (rigged && !e.dead) this.drawGolem(e, fl);
       let sp = this.enemySprites.get(e.id);
       if (!sp) {
@@ -826,17 +831,21 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.enemySprites.set(e.id, sp);
       }
       // 프레임 (유저 지정): 0 = 기본, 1 = 이동(0과 번갈아), 2 = 점프 준비 자세
+      // 꿀 슬라임: 0·1 이동, 2 휘두르기 준비, 3 휘두름, 4 죽음
+      const honey = e.mob === 'honey_slime';
       let frame = 0;
-      if (e.leap === 'crouch') frame = 2;
-      else if (e.onGround && e.stun <= 0 && Math.abs(e.vx) > 1) frame = Math.floor(this.time.now / 1000 * 6 + e.spawnX) % 2;
+      if (honey && e.dead) frame = 4;
+      else if (honey && e.leap === 'leap') frame = 3;
+      else if (e.leap === 'crouch') frame = 2;
+      else if (e.onGround && e.stun <= 0 && Math.abs(e.vx) > 1) frame = Math.floor(this.time.now / 1000 * (honey ? 4 : 6) + e.spawnX) % 2;
       // 웅크릴 때 부들부들 떨림 (점프 예고)
       const shiver = e.leap === 'crouch' ? Math.sin(this.time.now / 25) * 1.5 : 0;
       // 슬라임은 1.45배, 임시 그림 몬스터는 몸 높이에 맞춤 (정예는 몸이 커진 만큼)
-      const slime = e.mob === 'slime' || e.mob === 'slime_elem';
+      const slime = e.mob === 'slime' || e.mob === 'slime_elem' || honey;
       sp.setScale(slime ? SLIME_DRAW * e.h : e.h / sp.frame.height);
       sp.setFrame(frame).setVisible(!rigged).setAlpha(alpha)
-        .setPosition(e.x + e.w / 2 + shiver, e.y + e.h + 1)
-        .setFlipX(e.dir > 0);
+        .setPosition(e.x + e.w / 2 + (honey ? 0 : shiver), e.y + e.h + 1)
+        .setFlipX(honey ? e.dir < 0 : e.dir > 0);
       if (fl > 0) sp.setTintFill(0xffffff);
       else if (e.elem) sp.setTint(hex(ELEMENTS[e.elem].color));
       else if (e.groggy && e.groggy > 0) sp.setTint(0x8090b0);
@@ -1319,6 +1328,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (let f = 0; f < 3; f++) tex.add(f, 0, f * 32, 0, 32, 32);
     tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.textures.get('honey_slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /**

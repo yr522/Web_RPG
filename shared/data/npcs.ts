@@ -359,6 +359,69 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
       },
     ],
   },
+  // ---- 영주님의 생일잔치 (2026-11-21, 대사 임시: 유저 줄거리로 Claude 가 씀) ----
+  // 마을 아주머니 마샤: 꿀케이크 (bd1)
+  masha: {
+    name: '마샤',
+    icon: '🧁',
+    dialogue: [{ line: '요즘 마을이 북적북적하지? 다들 영주님 생신 잔치 준비로 정신이 없어.' }],
+    talks: [
+      {
+        when: { all: [{ quest: 'mg13', state: 'done' }, { level: { gte: 3 } }, { quest: 'bd1', state: 'none' }] },
+        steps: [
+          { line: '세상에, 들었어? 영주님 생신 잔치가 올해도 신기록이래. 이번엔 진짜 역대급이라고 또 예고를 하셨다지 뭐야.' },
+          { line: '잔치에 온 사람들 모두한테 내 꿀케이크를 먹이려면… 꿀이 턱없이 모자라.' },
+          { line: '딱 한 가지 방법이 있긴 한데…' },
+          { line: '제가 도울게요. 어떤 방법인데요?', who: 'player' },
+          { line: '(목소리를 낮추며) …깊은 숲에 꿀을 머금은 슬라임이 살아. 좀 께름칙하지만, 맛은 있을 거야.' },
+          { line: '원소 슬라임 서식지 왼쪽 위로 올라가면 있대. 꿀 50개만 모아다 줘!' },
+          { do: { quest: 'give', id: 'bd1' } },
+        ],
+      },
+      { when: { quest: 'bd1', state: 'active' }, steps: [{ line: '꿀 50개, 부탁해! 원소 슬라임 서식지 왼쪽 위로 올라가면 꿀 슬라임이 있대.' }] },
+      {
+        when: { quest: 'bd1', state: 'ready' },
+        steps: [
+          { line: '어머, 벌써 다 모았어? 이 정도면 꿀케이크를 잔뜩 구울 수 있겠다!' },
+          { line: '고마워. 이건 수고비야.' },
+          { do: { quest: 'report', id: 'bd1' } },
+        ],
+      },
+      { when: { quest: 'bd1', state: 'done' }, steps: [{ line: '잔치 날 꿀케이크 꼭 먹으러 와!' }] },
+    ],
+    guide: true,
+  },
+  // 영주의 집사 세바스찬 (퀘스트는 나중에)
+  sebastian: {
+    name: '세바스찬',
+    icon: '🎩',
+    dialogue: [{ line: '영주님의 생신 잔치 준비로 영지 전체가 분주합니다. 저 역시 마찬가지고요.' }],
+  },
+  // 대 장장이: 영주님 동상 (bd2). 줄 퀘스트·보고할 퀘스트가 없으면 대장간 창이 열림
+  smith: {
+    name: '대 장장이',
+    icon: '🔨',
+    dialogue: [],
+    talks: [
+      {
+        when: { all: [{ quest: 'mg13', state: 'done' }, { level: { gte: 3 } }, { quest: 'bd2', state: 'none' }] },
+        steps: [
+          { line: '하… 영주님이 또 특별 의뢰를 하셨어. 잔치 때 모두한테 나눠 줄 본인 동상을, 그것도 작은 걸로 잔뜩.', who: 'smith' },
+          { line: '귀찮아 죽겠는데… 보수가 워낙 두둑해서 말이야.', who: 'smith' },
+          { line: '너, 심부름 좀 해 줄래? 쓸만한 고철 5개만 구해 와. 보수는 나눠 줄게. 용돈 삼아.', who: 'smith' },
+          { do: { quest: 'give', id: 'bd2' } },
+        ],
+      },
+      {
+        when: { quest: 'bd2', state: 'ready' },
+        steps: [
+          { line: '오, 쓸만한 고철이네. 이 정도면 동상 몇 개는 뽑겠어.', who: 'smith' },
+          { line: '약속한 보수다. 아껴 써라.', who: 'smith' },
+          { do: { quest: 'report', id: 'bd2' } },
+        ],
+      },
+    ],
+  },
   // 기숙사 방 침대: 밤에 자면 다음으로 (검사·궁수: 동급생 마법사가 깨우러 옴 / 마법사: 소리에 깨서 동급생 검사를 깨우러 감)
   bed: {
     name: '침대',
