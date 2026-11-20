@@ -73,4 +73,4 @@ export type Fx =
    */
   /** 후방 도약 화살: (sx, sy) 에서 나타나 (x, y) = 박히는 촉 끝으로 fly 초 동안 날아감. 나타나기·사라지기 박자는 DOYAK.arrow */
   | { kind: 'droparrow'; x: number; y: number; sx: number; sy: number; fly: number; color?: string; life: number }
-  | { kind: 'anim'; anim: string; x: number; y: number; face: number; owner?: string; dx?: number; dy?: number; color?: string; flipY?: boolean; scale?: number; life: number };
+  | { kind: 'anim'; anim: string; x: number; y: number; face: number; owner?: string; dx?: number; dy?: number; color?: string; flipY?: boolean; scale?: number; /** 설치기처럼 오래 있는 그림: 생김 → hold 초 동안 반복 → 사라짐 (그림에 in·loop·out 구간이 있을 때) */ hold?: number; life: number };

@@ -33,6 +33,7 @@ import manaOrb from '../../../assets/img/vfx/pixelfx/mana_orb.png';
 import manaOrbCore from '../../../assets/img/vfx/pixelfx/mana_orb_core.png';
 import manaBurst from '../../../assets/img/vfx/pixelfx/mana_burst.png';
 import manaBurstCore from '../../../assets/img/vfx/pixelfx/mana_burst_core.png';
+import tornadoImg from '../../../assets/img/vfx/magic/tornado.png';
 import rainImg from '../../../assets/img/vfx/bow/bow_rain.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
@@ -91,6 +92,9 @@ export const VFX: Record<string, VfxDef> = {
   /** 마력탄이 맞았을 때 (한 번): 동그란 몸이 찌그러지며 찢어지고 조각이 플라즈마를 끌며 흩어짐. 칸 76×76, 가운데가 맞은 자리 */
   mana_burst: { url: manaBurst, frame: 76, frames: 12, fps: 30, scale: 2, depth: 6.5, core: 'mana_burst_core' },
   mana_burst_core: { url: manaBurstCore, frame: 76, frames: 12, fps: 30, scale: 2, depth: 6.5 },
+  /** 마법사 원소 기둥 = 마력 토네이도 (유저 그림, 무채색이라 원소 색을 입히고 흰 부분은 흰색 그대로). 칸 341×341 6칸: 0 = 생김, 1~3 = 돎(반복), 4~5 = 사라짐. 바닥 가운데 (172, 318) */
+  gidung_tornado: { url: tornadoImg, frame: 341, frames: 6, fps: 12, scale: 1, smooth: true, keepWhite: 0.75, origin: [172, 318],
+    parts: { in: { frames: [0] }, loop: { frames: [1, 2, 3], loop: true }, out: { frames: [4, 5] } } },
   /** 궁수 화살비 (유저 그림, 무채색이라 원소 색을 입히고 흰 화살은 흰색 그대로). 칸 512×512 6칸: 0 = 화살이 떨어지는 중, 1~4 = 땅에 꽂히며 터짐 (1·3, 2·4 는 같은 그림), 5 = 흩어짐. 땅 줄 가운데 (256, 398), 배율 0.85 = 범위 폭 320 */
   hwasalbi_rain: { url: rainImg, frame: 512, frames: 6, fps: 10, scale: 0.85, smooth: true, keepWhite: 0.8, origin: [256, 398] },
   /** 검사 흘려베기 받아내기 (pixelfx, 반복): 몸 바로 앞 반구 방패 + 가장자리를 따라 뒤로 흐르는 알갱이. 받아내는 동안 GameScene 이 붙여 둠. 칸 52×56, 기준점 (22, 28) = 몸 중심 */

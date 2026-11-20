@@ -115,6 +115,12 @@ export const WARRIOR_CHAIN = ['ilseom', 'wolcham', 'jilpung', 'hoeryu', 'cheonbu
  */
 export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 156, coef: 1.4, gather: 46 };
 /**
+ * 마법사 원소 기둥 → 마력 토네이도 설치기 (2026-11-20). 캐스팅이 끝나면 내 앞 dist(px) 발밑에 토네이도가 생겨 time 초 동안
+ * tick 초마다 폭 w · 높이 h 안의 적을 모두 때림 (coef 씩, 첫 타격은 생기는 칸이 끝난 뒤 first 초). 몬스터 없어도 씀.
+ * 예전: 가장 가까운 몬스터 발밑 기둥 폭 76 · 1.3 × 3
+ */
+export const GIDUNG = { cast: 0.5, dist: 150, w: 240, h: 260, time: 3, tick: 0.3, first: 0.1, coef: 0.45, launch: -120 };
+/**
  * 궁수 화살비 (2026-11-20, 유저 그림 bow_rain.png 6칸에 맞춰 짧게): 위로 쏜 뒤 delay 초 있다가 그림이 시작,
  * 첫 칸(fall 초)은 화살이 떨어지는 중이고 그 뒤 interval 초마다 hits 번 타격 (예전 0.75 × 7, 0.1초 간격, 총 1.2초 → 1.05 × 5, 0.5초 + 앞 delay 0.25).
  * coef 는 총 피해가 예전과 같게 (0.75 × 7 = 1.05 × 5). w = 범위 폭
