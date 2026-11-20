@@ -72,6 +72,8 @@ export interface PlayerState extends Body {
   hurt: number;
   /** 기절: 남은 시간 동안 조작 불가 */
   stunT: number;
+  /** 둔화 남은 시간 (꿀 슬라임 점액): 걷는 속도가 느려짐 */
+  slowT: number;
   /** 지금 무적(invT)이 몸통 접촉으로 생긴 것 (보스 패턴은 이 무적을 무시) */
   touchInv?: boolean;
   /** 마력 해방 남은 시간 */

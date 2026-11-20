@@ -30,7 +30,7 @@ export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; 
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
   | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow'
-  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training';
+  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field';
 
 export interface MapDef {
   name: string;
@@ -126,6 +126,10 @@ const SCHOOL_DOOR_X = 1018;
 /** 학교 홀 그림 속 복도로 가는 아치 통로 자리 */
 const HALL_ARCH_X = 499;
 const HALL_DORM_X = 1346;
+/** 마법 학교 맵 오른쪽 끝: 마을 가는 포탈 (예전 기숙사 포탈 자리) */
+const SCHOOL_TOWN_X = 1620;
+/** 원소 슬라임 서식지 왼쪽 위 발판 (꿀 슬라임 서식지 포탈) */
+const FIELD2_HONEY = { x: 40, y: 240, w: 170, portal: 110 };
 /** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
 const HALLWAY_DOORS = [261, 569, 880, 1197, 1516];
 /** 강의실 그림 속 교탁 자리 */
@@ -149,6 +153,7 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
     portals: [
       { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' },
+      { x: SCHOOL_TOWN_X, to: 'town', toX: 160, label: '마을' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
       { x: SCHOOL_TRAINING_X, to: 'training', toX: 120, label: '훈련장' },
@@ -177,12 +182,36 @@ export const MAPS: Record<MapId, MapDef> = {
       [210, 270], [300, 270], [440, 200], [510, 200], [640, 280],
     ]),
   },
+  // 마을 (2026-11-21, 임시): 학교 바깥 그림을 그대로 쓰는 빈 마을. 영주님의 생일잔치 NPC
+  town: {
+    name: '마을', width: 1700, safe: true, top: -150,
+    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
+    platforms: [],
+    portals: [{ x: 90, to: 'school', toX: SCHOOL_TOWN_X - 100, label: '마법 학교' }],
+    npcs: [{ id: 'masha', x: 620 }, { id: 'sebastian', x: 1150 }],
+    signs: [],
+    spawns: [],
+  },
+  // 꿀 슬라임 서식지 (2026-11-21): 학교 뒷숲 배치를 그대로 (임시). 배경 forest_inside (1672×941, 풀 윗면 849) → 폭은 그림 비율대로
+  honey_field: {
+    name: '꿀 슬라임 서식지', width: 926, bg: { img: 'forest_inside', groundY: 849 },
+    platforms: [{ x: 578, y: 370, w: 170 }, { x: 405, y: 290, w: 150 }, { x: 173, y: 360, w: 190 }],
+    portals: [{ x: 850, to: 'field2', toX: FIELD2_HONEY.portal + 40, toY: FIELD2_HONEY.y, label: '원소 슬라임 서식지' }],
+    npcs: [],
+    signs: [],
+    spawns: [
+      ...[180, 290, 430, 560, 680].map(x => ({ x, mob: 'honey_slime' as const })),
+      ...([[210, 270], [300, 270], [440, 200], [510, 200], [640, 280]] as const).map(([x, y]) => ({ x, y, mob: 'honey_slime' as const })),
+    ],
+  },
   field2: {
     // 2026-11-20: 학교 뒷숲과 같은 조건으로 — 폭 1400 → 1050 (3/4), 원소 슬라임 1.2배, 10마리 (땅 5 · 발판 5, 원소마다 2마리). 오른쪽 입구 쪽은 비워 둠
     name: '원소 슬라임 서식지', width: 1050, bgTime: FOREST_BG,
-    platforms: [{ x: 630, y: 375, w: 200 }, { x: 428, y: 300, w: 180 }, { x: 173, y: 350, w: 210 }],
+    // 왼쪽 위 발판 (2026-11-21): 꿀 슬라임 서식지 포탈만 (몬스터 없음)
+    platforms: [{ x: 630, y: 375, w: 200 }, { x: 428, y: 300, w: 180 }, { x: 173, y: 350, w: 210 }, { x: FIELD2_HONEY.x, y: FIELD2_HONEY.y, w: FIELD2_HONEY.w }],
     portals: [
       { x: 938, to: 'field', toX: 160, label: '학교 뒷숲' },
+      { x: FIELD2_HONEY.portal, y: FIELD2_HONEY.y, to: 'honey_field', toX: 800, label: '꿀 슬라임 서식지' },
       { x: 70, to: 'crossroad', toX: 1430, label: '갈림길' },
     ],
     npcs: [],

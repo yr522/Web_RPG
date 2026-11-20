@@ -338,3 +338,55 @@ describe('마법사 원소 기둥 토네이도', () => {
     expect(t.x + GIDUNG.w / 2).toBeLessThanOrEqual(w.bounds.r);
   });
 });
+
+describe('영주님의 생일잔치', () => {
+  it('꿀 슬라임: 가까우면 제자리에서 휘둘러 피해 + 둔화 (걷는 속도 느려짐)', async () => {
+    const { SNAIL_AI, SLOW_DEBUFF } = await import('../shared/data/monsters');
+    const w = new World('honey_field', 1);
+    const s = newSave('t', 'warrior', 'M');
+    const p = w.addPlayer('p', s, 100);
+    const inside = w as unknown as { spawnEnemy(m: string, x: number, e: null): Enemy };
+    w.enemies.length = 0;
+    run(w, 0.5);
+    const e = inside.spawnEnemy('honey_slime', p.x + p.w + 20, null);
+    e.leapCd = 0;
+    const hp0 = p.hp;
+    p.invT = 0;
+    // 몸통이 안 닿게 몬스터를 붙잡아 두지 않고, 휘두를 때까지 기다림
+    for (let i = 0; i < (SNAIL_AI.windup + 0.2) / TICK; i++) { p.invT = Math.min(p.invT, 0); w.step(new Map()); if (p.slowT > 0) break; }
+    expect(p.slowT).toBeGreaterThan(0);
+    expect(p.hp).toBeLessThan(hp0);
+    expect(p.slowT).toBeLessThanOrEqual(SLOW_DEBUFF.time);
+  });
+  it('고철은 녹슨 것 또는 쓸만한 것 하나만 (같이 안 떨어짐), 꿀 슬라임은 꿀', async () => {
+    const { MONSTERS } = await import('../shared/data/monsters');
+    expect(MONSTERS.guard_a.drops!.filter(d => d.group === 'scrap').map(d => [d.item, d.chance])).toEqual([['scrap_rusty', 0.3], ['scrap_good', 0.05]]);
+    expect(MONSTERS.guard_b.drops!.some(d => d.item === 'scrap_good')).toBe(true);
+    expect(MONSTERS.honey_slime.drops).toEqual([{ item: 'honey', chance: 0.7 }]);
+    const w = new World('guard_a', 3);
+    const s = newSave('t', 'warrior', 'M');
+    const p = w.addPlayer('p', s, 300);
+    let both = 0, any = 0;
+    for (let i = 0; i < 300; i++) {
+      const e = w.enemies.find(x => !x.dead)!;
+      const n0 = w.coins.filter(c => c.item).length;
+      inside(w).kill(e, p);
+      const got = w.coins.slice(n0).filter(c => c.item === 'scrap_rusty' || c.item === 'scrap_good').length;
+      if (got > 1) both++;
+      if (got) any++;
+      w.coins.length = 0; e.dead = false; e.hp = e.maxHp;
+    }
+    expect(both).toBe(0);
+    expect(any).toBeGreaterThan(60);
+  });
+  it('마법공학의 유산을 다 끝내야 마샤·대 장장이가 퀘스트를 줌', async () => {
+    const { npcMark } = await import('../shared/rules/story');
+    const s = newSave('t', 'mage', 'M');
+    s.level = 5;
+    expect(npcMark(s, 'masha')).toBeNull();
+    expect(npcMark(s, 'smith')).toBeNull();
+    s.quests.mg13 = { active: false, counts: [], done: 1 } as never;
+    expect(npcMark(s, 'masha')).toBe('!');
+    expect(npcMark(s, 'smith')).toBe('!');
+  });
+});

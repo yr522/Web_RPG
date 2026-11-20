@@ -11,7 +11,7 @@ import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKil
 import { mapNpcs, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
-import { MONSTERS, MONSTER_AI, SLIME_AI, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, SNAIL_AI, SLOW_DEBUFF, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
@@ -106,7 +106,7 @@ export class World implements SkillWorld {
       id, name: data.name, data, stats, x, y: y - 46, w: 28, h: 46, vx: 0, vy: 0, face: 1,
       onGround: false, drop: 0, plat: null, hp: hp ?? stats.maxHp, mp: mp ?? stats.maxMp,
       cmd: emptyCommand(), potionCd: 0, warnCd: 0, action: null, cd: {}, lockT: 0, buffer: null,
-      lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
+      lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, slowT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
     // 가기 퀘스트: 이 맵에 들어오면 완료
@@ -225,6 +225,7 @@ export class World implements SkillWorld {
     }
     // 기절: 조작 불가
     if (p.stunT > 0) { p.stunT = Math.max(0, p.stunT - dt); cmd = emptyCommand(); }
+    if (p.slowT > 0) p.slowT = Math.max(0, p.slowT - dt);
     p.cmd = cmd;
     p.drop = Math.max(0, p.drop - dt);
     p.potionCd = Math.max(0, p.potionCd - dt);
@@ -302,7 +303,7 @@ export class World implements SkillWorld {
     const walkMul = p.action ? cs.walk[p.action.name] : undefined;
     if (p.action && walkMul !== undefined && p.hurt <= 0) {
       // 검사·궁수: 공격 중에도 이동 (바라보는 방향은 공격 방향 유지)
-      if (cmd.move) p.vx = cmd.move * p.stats.speed * walkMul;
+      if (cmd.move) p.vx = cmd.move * this.walkSpeed(p) * walkMul;
       else if (p.onGround && p.action.name !== 'ilseom' && p.action.name !== 'wolcham') p.vx = 0;
       if (cmd.jumpPressed && p.onGround && !p.action.noGravity) p.vy = JUMP_VELOCITY;
     }
@@ -311,7 +312,7 @@ export class World implements SkillWorld {
     if (!p.action) {
       if (p.hurt > 0) p.vx *= 1 - 5 * dt;
       else {
-        p.vx = p.crouch ? 0 : cmd.move * p.stats.speed;
+        p.vx = p.crouch ? 0 : cmd.move * this.walkSpeed(p);
         if (cmd.move) p.face = cmd.move;
         if (cmd.jumpPressed && p.onGround) {
           const onPlatform = p.plat && !p.plat.ground && p.y + p.h < GROUND_Y - 2;
@@ -352,7 +353,7 @@ export class World implements SkillWorld {
       // 쓰러짐: 쓰러져 있는 동안 무적 (몸통 접촉 무적이 아니라서 골렘 돌진도 막음)
       p.hp = 0;
       this.resetCombat(p);
-      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0; p.hits = 0;
+      p.downT = DOWN_TIME; p.invT = DOWN_TIME + 1; p.touchInv = false; p.stunT = 0; p.slowT = 0; p.hits = 0;
     }
   }
 
@@ -720,10 +721,19 @@ export class World implements SkillWorld {
     if (r.statsChanged) this.refreshStats(p, r.fullHeal);
     const [g0, g1] = def.gold;
     this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold * (e.elite ? ELITE.gold : 1)));
+    // group 이 같은 드롭은 한 번만 굴림 (누적 확률 안에 들면 그것 하나)
+    const groupRoll = new Map<string, { r: number; acc: number; done: boolean }>();
     for (const d of def.drops ?? []) {
       if (d.quest && questState(s, d.quest) !== 'active') continue;
       // 최대 개수: 가방 + 바닥에 떨어져 있는 것
       if (d.max !== undefined && countItem(s, d.item) + this.coins.filter(c => c.item === d.item).length >= d.max) continue;
+      if (d.group) {
+        let g = groupRoll.get(d.group);
+        if (!g) { g = { r: this.rng(), acc: 0, done: false }; groupRoll.set(d.group, g); }
+        g.acc += d.chance;
+        if (!g.done && g.r < g.acc) { g.done = true; this.dropItem(cx(e), cy(e), d.item); }
+        continue;
+      }
       if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
     }
     questsOnKill(s, e.mob, e.tag);
@@ -865,6 +875,7 @@ export class World implements SkillWorld {
       } else {
         const ai = MONSTERS[e.mob].ai;
         if (ai === 'slime') this.slimeAi(e, target, dt);
+        else if (ai === 'snail') this.snailAi(e, target, dt);
         else if (ai === 'flyer') this.flyerAi(e, target, dt);
         else if (ai === 'golem') this.golemAi(e, target, dt);
         else this.groundAi(e, target, dt);
@@ -892,7 +903,7 @@ export class World implements SkillWorld {
   /** 다음 특수 패턴(슬라임 큰 점프, 돌진)까지 시간 */
   private patternCd(mob: MonsterId) {
     const ai = MONSTERS[mob].ai;
-    return ai === 'slime' ? this.range(SLIME_AI.leapEvery) : ai === 'charger' ? this.range(CHARGER_AI.every) : 0;
+    return ai === 'slime' ? this.range(SLIME_AI.leapEvery) : ai === 'snail' ? this.range(SNAIL_AI.every) : ai === 'charger' ? this.range(CHARGER_AI.every) : 0;
   }
 
   /** 쫓을 대상이 보이면 그쪽으로, 아니면 돌아다니기. 쫓는 중인지 돌려준다 */
@@ -910,6 +921,39 @@ export class World implements SkillWorld {
       e.vx = e.dir * e.speed;
     }
     return { chasing, dx };
+  }
+
+  /** 꿀 슬라임(달팽이): 쫓아오다가 앞쪽 가까이 있으면 멈춰서 점액 휘두르기 (준비 → 휘두름). 맞으면 피해 + 둔화 */
+  private snailAi(e: Enemy, target: PlayerState | null, dt: number) {
+    const A = SNAIL_AI;
+    if (e.leap === 'crouch') {
+      e.vx = 0;
+      e.leapT -= dt;
+      if (e.leapT <= 0) {
+        e.leap = 'leap'; e.leapT = A.swing;
+        // 휘두르는 순간: 앞쪽 범위 안 플레이어가 맞음
+        const zone = { x: e.dir > 0 ? cx(e) : cx(e) - A.range, y: e.y + e.h - A.rangeY, w: A.range, h: A.rangeY + 10 };
+        for (const p of this.players.values()) {
+          if (p.downT > 0 || p.invT > 0 || (p.action && p.action.inv) || !overlaps(p, zone)) continue;
+          this.hurtPlayer(p, this.mobDmg(A.dmg * (e.elite ? ELITE.touch : 1)), e.dir);
+          p.slowT = SLOW_DEBUFF.time;
+          this.float(cx(p), p.y - 34, '둔화', '#e0b040', 16, 1.0);
+        }
+      }
+      return;
+    }
+    if (e.leap === 'leap') {
+      e.vx = 0;
+      e.leapT -= dt;
+      if (e.leapT <= 0) { e.leap = 'none'; e.leapCd = this.range(A.every); }
+      return;
+    }
+    const { chasing, dx } = this.walk(e, target, dt);
+    const dy = target ? Math.abs(target.y + target.h - (e.y + e.h)) : 9999;
+    if (chasing && Math.abs(dx) < A.range + e.w / 2 && dy < A.rangeY) {
+      e.vx = 0;
+      if (e.leapCd <= 0 && e.onGround) { e.dir = dx > 0 ? 1 : -1; e.leap = 'crouch'; e.leapT = A.windup; }
+    }
   }
 
   /** 슬라임: 폴짝 + 웅크렸다 크게 점프 */
@@ -1109,6 +1153,9 @@ export class World implements SkillWorld {
       this.hurtPlayer(p, this.mobDmg(GOLEM_AI.slamDmg), Math.sign(cx(p) - cx(e)) || e.dir);
     }
   }
+
+  /** 걷는 속도 (둔화 중이면 느림) */
+  private walkSpeed(p: PlayerState) { return p.stats.speed * (p.slowT > 0 ? 1 - SLOW_DEBUFF.slow : 1); }
 
   /** 몬스터 공격(접촉 말고)에 맞음. pierce = 방어력 무시 (최대 HP 비율 피해) */
   private hurtPlayer(p: PlayerState, dmg: number, dir: number, pierce = false) {
