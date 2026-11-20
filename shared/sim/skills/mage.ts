@@ -1,7 +1,7 @@
 // 마법사 스킬 — 프로토타입 v0.4.7 그대로 이식
 // 캐스팅 중에는 이동 불가, 맞아도 안 끊김(슈퍼아머)
 import { ELEMENTS, type Element } from '../../data/elements';
-import { GIDUNG, HINT, MADAN_COEF, MAGE_SHOT, TELEPORT } from '../../data/classes';
+import { GIDUNG, HINT, MADAN_COEF, MAGE_SHOT, PADO, TELEPORT } from '../../data/classes';
 import type { PlayerState } from '../entities';
 import type { ClassSkills } from './types';
 
@@ -62,17 +62,21 @@ export const MAGE: ClassSkills = {
       });
     },
 
+    /** 원소 파도: 앞으로 불길이 하나씩 나란히 생겨 타오르다 생긴 순서대로 사라짐 */
     pado(w, p) {
-      const el = w.elemOf(p, 'pado'), c = color(el);
-      castAction(p, 'pado', 0.6, () => {
-        const face = p.face, px = cx(p), feet = p.y + p.h, segW = 62;
-        p.lockT = 7 * 0.055 + 0.06;
-        for (let i = 0; i < 8; i++) {
-          w.later(p, i * 0.055, () => {
-            const x = face > 0 ? px + 24 + i * segW : px - 24 - (i + 1) * segW;
-            w.addHB(p, { abs: { x, y: feet - 60, w: segW, h: 60 }, coef: 1.5, elem: el, kb: 80, face, launch: -220, life: 0.06, light: true, skill: 'pado' });
-            w.fx({ kind: 'flame', x, y: feet, w: segW, h: 60, color: c, life: 0.45 });
+      const P = PADO, el = w.elemOf(p, 'pado'), c = color(el);
+      castAction(p, 'pado', P.cast, () => {
+        const face = p.face, px = cx(p), feet = p.y + p.h;
+        p.lockT = (P.n - 1) * P.gap + 0.06;
+        for (let i = 0; i < P.n; i++) {
+          const x = face > 0 ? px + P.start + i * P.segW : px - P.start - (i + 1) * P.segW;
+          const rect = { x, y: feet - P.h, w: P.segW, h: P.h };
+          const hit = () => w.addHB(p, { abs: rect, coef: P.coef, elem: el, kb: P.kb, face, launch: P.launch, life: 0.06, light: true, skill: 'pado' });
+          w.later(p, i * P.gap, () => {
+            hit();
+            w.fx({ kind: 'anim', anim: 'pado_flame', x: x + P.segW / 2, y: feet, face, color: c, hold: P.hold, life: P.hold + P.fade });
           });
+          w.later(p, i * P.gap + P.tick, hit);
         }
       });
     },

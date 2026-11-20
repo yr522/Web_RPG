@@ -1316,14 +1316,20 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.vfxSprites.push({ sp, follow });
     const remove = () => { sp.destroy(); this.vfxSprites = this.vfxSprites.filter(o => o.sp !== sp); };
     const key = vfxKey(f.anim);
-    if (f.hold && d.parts?.in && d.parts.loop && d.parts.out) {
-      // 오래 있는 그림 (설치기): 생기는 칸 → hold 초 동안 반복 칸 → 사라지는 칸 재생 후 지움
+    if (f.hold && d.parts?.in && d.parts.loop) {
+      // 오래 있는 그림 (설치기): 생기는 칸 → hold 초 동안 반복 칸 → 사라지는 칸 재생 후 지움.
+      // 사라지는 칸(out)이 없으면 남은 시간(life − hold) 동안 투명해지며 사라짐
+      const out = d.parts.out;
       sp.play(key + ':in').chain(key + ':loop');
       this.time.delayedCall(f.hold * 1000, () => {
         if (!sp.active) return;
-        sp.chain();
-        sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
-        sp.play(key + ':out');
+        if (out) {
+          sp.chain();
+          sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);
+          sp.play(key + ':out');
+        } else {
+          this.tweens.add({ targets: sp, alpha: 0, duration: Math.max(0.05, f.life - f.hold!) * 1000, onComplete: remove });
+        }
       });
     } else {
       sp.once(Phaser.Animations.Events.ANIMATION_COMPLETE, remove);

@@ -121,6 +121,13 @@ export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 156, c
  */
 export const GIDUNG = { cast: 0.5, dist: 150, w: 240, h: 260, time: 3, tick: 0.3, first: 0.1, coef: 0.45, launch: -120 };
 /**
+ * 마법사 원소 파도 (2026-11-20, 유저 그림 wave_fire 에 맞춤): 캐스팅이 끝나면 내 앞으로 불길 n 개가 gap 초 간격으로 나란히 생기고
+ * (한 칸 폭 segW, 첫 칸은 몸 앞 start), 각 불길은 생길 때와 tick 초 뒤 두 번 폭 segW · 높이 h 안을 때림 (coef).
+ * 생긴 지 hold 초 뒤부터 생긴 순서대로 fade 초에 걸쳐 투명해지며 사라짐.
+ * 예전: 62px 칸 8개가 0.055초 간격, 칸마다 1.5 한 번
+ */
+export const PADO = { cast: 0.6, n: 4, gap: 0.1, start: 24, segW: 125, h: 90, coef: 1.0, tick: 0.35, hold: 0.7, fade: 0.25, launch: -220, kb: 80 };
+/**
  * 궁수 화살비 (2026-11-20, 유저 그림 bow_rain.png 6칸에 맞춰 짧게): 위로 쏜 뒤 delay 초 있다가 그림이 시작,
  * 첫 칸(fall 초)은 화살이 떨어지는 중이고 그 뒤 interval 초마다 hits 번 타격 (예전 0.75 × 7, 0.1초 간격, 총 1.2초 → 1.05 × 5, 0.5초 + 앞 delay 0.25).
  * coef 는 총 피해가 예전과 같게 (0.75 × 7 = 1.05 × 5). w = 범위 폭
