@@ -312,3 +312,29 @@ describe('후방 도약 화살이 박히는 자리', () => {
     expect(w.surfaceBelow(pl.x + 20, pl.y + 5)).toBe(GROUND_Y);
   });
 });
+
+describe('마법사 원소 기둥 토네이도', () => {
+  it('키를 한 번 더 누르면 바라보는 방향으로 움직이고, 맵 끝에 닿으면 반대로 감', async () => {
+    const { GIDUNG } = await import('../shared/data/classes');
+    const w = new World('training', 1);
+    const s = newSave('t', 'mage', 'M');
+    s.learned.gidung = 'fire'; s.skillKeys = { Q: 'gidung' };
+    const p = w.addPlayer('p', s, 300);
+    run(w, 0.5);
+    p.face = 1; p.mp = 999;
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    run(w, GIDUNG.cast + 0.1);
+    expect(w.tornadoes.length).toBe(1);
+    const t = w.tornadoes[0], x0 = t.x;
+    run(w, 0.3);
+    expect(t.x).toBe(x0); // 누르기 전엔 제자리
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Q'] }]]));
+    run(w, 0.3);
+    expect(t.x).toBeGreaterThan(x0);
+    // 맵 오른쪽 끝 근처로 옮기면 부딪혀서 왼쪽으로
+    t.x = w.bounds.r - GIDUNG.w / 2 - 2;
+    run(w, 0.1);
+    expect(t.dir).toBe(-1);
+    expect(t.x + GIDUNG.w / 2).toBeLessThanOrEqual(w.bounds.r);
+  });
+});

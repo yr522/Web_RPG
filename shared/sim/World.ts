@@ -1,7 +1,7 @@
 // 맵 하나 = 방 하나. 화면(Phaser)·DOM을 모르는 순수 시뮬레이션.
 // 지금은 브라우저(LocalSession)가 돌리고, 나중에는 서버가 같은 코드를 돌린다.
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
-import { SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
+import { GIDUNG, SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, POTIONS, itemDef, potionIds, type PotionKind } from '../data/items';
 import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
@@ -16,14 +16,14 @@ import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './ph
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, keySkill, learned, passiveLv, skillKeyOf, skillLevel } from '../rules/progress';
-import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Trap, Vortex } from './entities';
+import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Tornado, Trap, Vortex } from './entities';
 import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
 import { HIT_COMBO, comboExpMult } from '../data/combo';
 
-export type { PlayerState, Enemy, Coin, Projectile, Vortex, Trap } from './entities';
+export type { PlayerState, Enemy, Coin, Projectile, Vortex, Tornado, Trap } from './entities';
 export const TICK = 1 / 60;
 
 const cx = (o: { x: number; w: number }) => o.x + o.w / 2;
@@ -50,6 +50,7 @@ export class World implements SkillWorld {
   hitboxes: Hitbox[] = [];
   projectiles: Projectile[] = [];
   vortices: Vortex[] = [];
+  tornadoes: Tornado[] = [];
   traps: Trap[] = [];
   private timers: { t: number; fn: () => void; owner: PlayerState }[] = [];
   time = 0;
@@ -201,6 +202,7 @@ export class World implements SkillWorld {
     this.stepHitboxes(dt);
     this.stepProjectiles(dt);
     this.stepVortices(dt);
+    this.stepTornadoes(dt);
     this.stepTraps(dt);
     this.stepWaves(dt);
     this.stepOrb(dt);
@@ -263,6 +265,8 @@ export class World implements SkillWorld {
       if (!bound) continue;
       const name = keySkill(p.data, key), a = p.action;
       if (!name) { this.warn(p, `Lv ${unlockLevel(p.data.cls, bound)}에 배울 수 있어`); continue; }
+      // 원소 기둥 토네이도가 제자리에 있을 때 한 번 더 누르면 바라보는 방향으로 지면을 따라 움직이기 시작
+      if (name === 'gidung') { const tn = this.tornadoes.find(o => o.owner === p && o.dir === 0); if (tn) { tn.dir = p.face; continue; } }
       // 사슬 화살이 날아가는 중 한 번 더 누르면 끌려감
       if (name === 'sasl' && p.chainArrow && !p.chainArrow.dead && !(a && a.name === 'aim')) { startGrapple(this, p); continue; }
       // 조준·충전·돌진·끌려가는 중에는 다른 스킬 완전 무효
@@ -409,6 +413,7 @@ export class World implements SkillWorld {
     return o;
   }
   addVortex(_p: PlayerState, v: Vortex) { this.vortices.push(v); }
+  addTornado(t: Tornado) { this.tornadoes.push(t); }
   surfaceBelow(x: number, y: number) {
     let best = Infinity;
     for (const s of this.solids) if (x >= s.x && x <= s.x + s.w && s.y >= y && s.y < best) best = s.y;
@@ -551,6 +556,26 @@ export class World implements SkillWorld {
       }
       return false;
     });
+  }
+
+  /** 원소 기둥 토네이도: tick 마다 범위 안 적을 때리고, 움직이는 중이면 지면을 따라 이동 (맵 끝·발판 끝에서 반대로) */
+  private stepTornadoes(dt: number) {
+    const G = GIDUNG;
+    for (const o of this.tornadoes) {
+      o.t += dt;
+      if (o.dir) {
+        const nx = o.x + o.dir * G.speed * dt, hw = G.w / 2;
+        // 바닥 밖(발판 끝)이나 맵 끝이면 방향을 바꿈
+        const off = nx - hw < this.bounds.l || nx + hw > this.bounds.r || Math.abs(this.surfaceBelow(nx, o.by - 1) - o.by) > 1;
+        if (off) o.dir = -o.dir; else o.x = nx;
+      }
+      o.tick -= dt;
+      if (o.tick <= 0 && o.t < o.life) {
+        o.tick += G.tick;
+        if (this.players.has(o.owner.id)) this.addHB(o.owner, { abs: { x: o.x - G.w / 2, y: o.by - G.h, w: G.w, h: G.h }, coef: G.coef, elem: o.elem, kb: 0, launch: G.launch, life: 0.05, light: true, skill: 'gidung' });
+      }
+    }
+    this.tornadoes = this.tornadoes.filter(o => o.t < o.life);
   }
 
   /** 소용돌이: 범위 안 몬스터를 가운데로 끌어당김 */

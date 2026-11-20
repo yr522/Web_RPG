@@ -52,12 +52,8 @@ export const MAGE: ClassSkills = {
       const G = GIDUNG, el = w.elemOf(p, 'gidung');
       castAction(p, 'gidung', G.cast, () => {
         const tx = Math.max(w.bounds.l + G.w / 2, Math.min(w.bounds.r - G.w / 2, cx(p) + p.face * G.dist)), by = p.y + p.h;
-        const rect = { x: tx - G.w / 2, y: by - G.h, w: G.w, h: G.h };
-        const n = Math.floor((G.time - G.first) / G.tick) + 1;
-        w.fx({ kind: 'anim', anim: 'gidung_tornado', x: tx, y: by, face: p.face, color: color(el), hold: G.time, life: G.time });
-        for (let i = 0; i < n; i++) {
-          w.later(p, G.first + i * G.tick, () => w.addHB(p, { abs: rect, coef: G.coef, elem: el, kb: 0, launch: G.launch, life: 0.05, light: true, skill: 'gidung' }));
-        }
+        // 토네이도 (World 가 tick 마다 때리고, 키를 한 번 더 누르면 움직임). 그림은 화면 쪽이 tornadoes 를 보고 붙임
+        w.addTornado({ owner: p, x: tx, by, dir: 0, t: 0, life: G.time, tick: G.first, elem: el, color: color(el) });
         p.lockT = 0.3;
       });
     },

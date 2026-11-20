@@ -117,9 +117,10 @@ export const HOERYU = { back: 280, time: 0.32, front: 165, behind: 40, h: 156, c
 /**
  * 마법사 원소 기둥 → 마력 토네이도 설치기 (2026-11-20). 캐스팅이 끝나면 내 앞 dist(px) 발밑에 토네이도가 생겨 time 초 동안
  * tick 초마다 폭 w · 높이 h 안의 적을 모두 때림 (coef 씩, 첫 타격은 생기는 칸이 끝난 뒤 first 초). 몬스터 없어도 씀.
- * 예전: 가장 가까운 몬스터 발밑 기둥 폭 76 · 1.3 × 3
+ * 토네이도가 있을 때 스킬 키를 한 번 더 누르면 바라보는 방향으로 speed(px/초)로 지면을 따라 움직임. 맵 끝·발판 끝에 닿으면 반대로.
+ * 범위·그림 크기는 처음(폭 240 · 높이 260)의 1.2배 (2026-11-20). 예전: 가장 가까운 몬스터 발밑 기둥 폭 76 · 1.3 × 3
  */
-export const GIDUNG = { cast: 0.5, dist: 150, w: 240, h: 260, time: 3, tick: 0.3, first: 0.1, coef: 0.45, launch: -120 };
+export const GIDUNG = { cast: 0.5, dist: 150, w: 288, h: 312, scale: 1.2, time: 3, tick: 0.3, first: 0.1, coef: 0.45, launch: -120, speed: 200 };
 /**
  * 마법사 원소 파도 (2026-11-20, 유저 그림 wave_fire 에 맞춤): 캐스팅이 끝나면 내 앞으로 불길 n 개가 gap 초 간격으로 나란히 생기고
  * (한 칸 폭 segW, 첫 칸은 몸 앞 start), 각 불길은 생길 때와 tick 초 뒤 두 번 폭 segW · 높이 h 안을 때림 (coef).

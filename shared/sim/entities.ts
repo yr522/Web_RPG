@@ -208,6 +208,9 @@ export interface Projectile extends Attack {
 /** 소용돌이 화살: 범위 안 몬스터를 가운데로 끌어모음 */
 export interface Vortex { x: number; y: number; r: number; t: number; life: number; color: string }
 
+/** 원소 기둥 토네이도 (설치기): x = 가운데, by = 바닥. dir 0 = 제자리, ±1 = 지면을 따라 이동 중 (벽·발판 끝에서 방향 바뀜) */
+export interface Tornado { owner: PlayerState; x: number; by: number; dir: number; t: number; life: number; tick: number; elem: Element | null; color: string }
+
 export interface Hitbox extends Attack {
   /** 고정 위치 판정 (원소 기둥, 화살비 등). 있으면 dx·dy 무시 */
   abs?: Rect;
