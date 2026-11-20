@@ -139,6 +139,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private vfxSprites: { sp: Phaser.GameObjects.Sprite; follow: () => void }[] = [];
   /** 흘려베기 받아내는 중인 플레이어의 방패 그림 (색 층 + 흰 심) */
   private guardShields = new Map<string, Phaser.GameObjects.Sprite[]>();
+  /** 마력 해방 중인 플레이어 뒤 마법진 */
+  private haebangCircles = new Map<string, Phaser.GameObjects.Image>();
   /** 날아가는 화살 그림 (화살 id → 색 입힌 몸 + 흰 심) */
   private arrowSprites = new Map<string, Phaser.GameObjects.Sprite[]>();
   /** 사슬 화살로 끌려가는 동안 박혀 있는 작살 */
@@ -266,6 +268,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.vfxSprites = [];
     for (const l of this.guardShields.values()) l.forEach(sp => sp.destroy());
     this.guardShields.clear();
+    for (const im of this.haebangCircles.values()) im.destroy();
+    this.haebangCircles.clear();
     for (const l of this.arrowSprites.values()) l.forEach(sp => sp.destroy());
     this.arrowSprites.clear();
     this.ropeHarpoon?.destroy(); this.ropeHarpoon = null;
@@ -1046,6 +1050,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
     // 흘려베기 받아내기 자세: 몸 앞 방패 그림 (guard_shield, 받아내는 동안 반복)
     this.syncGuardShields();
+    this.syncHaebangCircles();
 
     const seenArrows = new Set<string>();
     for (const o of world.projectiles) {
@@ -1096,8 +1101,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (this.ropeHarpoon.getData('ang') === undefined) this.ropeHarpoon.setData('ang', ang).setRotation(ang).setFlipY(Math.cos(ang) < 0);
       this.ropeHarpoon.setPosition(me.ropeTo.x, me.ropeTo.y);
     } else if (this.ropeHarpoon) { this.ropeHarpoon.destroy(); this.ropeHarpoon = null; }
-    // 마력 해방 중: 몸 주위 원
-    if (me.buffT > 0) g.lineStyle(2, 0xc8b8ff, 0.5 + 0.3 * Math.sin(t * 10)).strokeCircle(x + me.w / 2, y + me.h / 2, 32);
+    // 마력 해방 중: 몸 뒤 마법진은 syncHaebangCircles
     if (!a) return;
 
     if (a.cast) {
@@ -1295,6 +1299,36 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (let f = 0; f < 3; f++) tex.add(f, 0, f * 32, 0, 32, 32);
     tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.textures.get('slime').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /**
+   * 마력 해방: 캐릭터 뒤에 마법진. 처음엔 반투명·조금 아래·작게 → 0.6초 동안 진해지며 살짝 위로 올라옴.
+   * 해방 중에는 몸을 따라다니며 천천히 돌고 은은하게 숨 쉼, 끝나면 0.4초 동안 투명해지며 사라짐
+   */
+  private syncHaebangCircles() {
+    const world = this.deps.session.world, d = VFX.magic_circle, now = this.time.now / 1000;
+    for (const [id, im] of this.haebangCircles) {
+      const p = world.players.get(id);
+      if (p && p.buffT > 0) continue;
+      this.haebangCircles.delete(id);
+      this.tweens.killTweensOf(im);
+      this.tweens.add({ targets: im, alpha: 0, duration: 400, onComplete: () => im.destroy() });
+    }
+    for (const p of world.players.values()) {
+      if (p.buffT <= 0) continue;
+      let im = this.haebangCircles.get(p.id);
+      if (!im) {
+        im = this.add.image(0, 0, vfxKey('magic_circle'), 0).setDepth(d.depth!).setTint(0xc8b8ff).setAlpha(0.2).setScale(d.scale * 0.85)
+          .setData('rise', 18).setData('born', now);
+        this.tweens.add({ targets: im, alpha: 0.95, duration: 600, ease: 'Quad.easeIn' });
+        this.tweens.add({ targets: im, scale: d.scale, duration: 600, ease: 'Cubic.easeOut' });
+        this.tweens.addCounter({ from: 18, to: 0, duration: 700, ease: 'Cubic.easeOut', onUpdate: tw => im!.setData('rise', tw.getValue()) });
+        this.haebangCircles.set(p.id, im);
+      }
+      const age = now - (im.getData('born') as number);
+      // 머리 위 (마법진 가운데가 머리 끝보다 60px 위), 천천히 돎 + 위아래로 살짝 떠다님
+      im.setPosition(p.x + p.w / 2 - p.face * 4, p.y - 60 + (im.getData('rise') as number) + Math.sin(age * 2) * 2).setRotation(age * 0.35);
+    }
   }
 
   /** 받아내는 중인 플레이어마다 방패 그림을 붙여 두고, 끝나면 뗌 */
