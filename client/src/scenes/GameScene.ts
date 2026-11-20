@@ -1326,8 +1326,8 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.haebangCircles.set(p.id, im);
       }
       const age = now - (im.getData('born') as number);
-      // 머리 위 (마법진 가운데가 머리 끝보다 30px 위), 천천히 돎 + 위아래로 살짝 떠다님
-      im.setPosition(p.x + p.w / 2 - p.face * 4, p.y - 30 + (im.getData('rise') as number) + Math.sin(age * 2) * 2).setRotation(age * 0.35);
+      // 머리 위 (마법진 가운데가 머리 끝보다 60px 위), 천천히 돎 + 위아래로 살짝 떠다님
+      im.setPosition(p.x + p.w / 2 - p.face * 4, p.y - 60 + (im.getData('rise') as number) + Math.sin(age * 2) * 2).setRotation(age * 0.35);
     }
   }
 

@@ -82,7 +82,6 @@ export const MAGE: ClassSkills = {
         // 쿨타임 60초는 버프가 끝난 뒤부터 (World 가 버프 끝날 때 건다)
         p.buffT = HAEBANG_TIME; p.cd.haebang = 0;
         w.float(cx(p), p.y - 30, '마력 해방!', '#c8b8ff', 22, 1.0);
-        w.fx({ kind: 'ring', x: cx(p), y: cy(p), color: '#c8b8ff', r0: 10, r1: 120, life: 0.5 });
       });
     },
 

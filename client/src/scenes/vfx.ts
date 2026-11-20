@@ -95,7 +95,7 @@ export const VFX: Record<string, VfxDef> = {
   mana_burst: { url: manaBurst, frame: 76, frames: 12, fps: 30, scale: 2, depth: 6.5, core: 'mana_burst_core' },
   mana_burst_core: { url: manaBurstCore, frame: 76, frames: 12, fps: 30, scale: 2, depth: 6.5 },
   /** 마법사 마력 해방 마법진 (유저 그림, 한 장 1024×1024, 무채색이라 해방 색을 입힘). 해방 중 캐릭터 뒤에 떠 있음 (GameScene.syncHaebangCircles) */
-  magic_circle: { url: magicCircleImg, frame: 1024, frames: 1, fps: 1, scale: 0.14, smooth: true, depth: 4.85 },
+  magic_circle: { url: magicCircleImg, frame: 1024, frames: 1, fps: 1, scale: 0.112, smooth: true, depth: 4.85 },
   /** 마법사 원소 기둥 = 마력 토네이도 (유저 그림, 무채색이라 원소 색을 입히고 흰 부분은 흰색 그대로). 칸 341×341 6칸: 0 = 생김, 1~3 = 돎(반복), 4~5 = 사라짐. 땅 줄 가운데 (172, 285) (그림 속 바닥 먼지·그림자가 땅 줄 아래로 조금 내려가게, 몸통 정도 = 23px 내림) */
   gidung_tornado: { url: tornadoImg, frame: 341, frames: 6, fps: 12, scale: 1, smooth: true, keepWhite: 0.75, origin: [172, 285],
     parts: { in: { frames: [0] }, loop: { frames: [1, 2, 3], loop: true }, out: { frames: [4, 5] } } },
