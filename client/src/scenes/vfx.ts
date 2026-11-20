@@ -29,6 +29,7 @@ import guardHit from '../../../assets/img/vfx/pixelfx/guard_hit.png';
 import guardHitCore from '../../../assets/img/vfx/pixelfx/guard_hit_core.png';
 import shieldBash from '../../../assets/img/vfx/pixelfx/shield_bash.png';
 import shieldBashCore from '../../../assets/img/vfx/pixelfx/shield_bash_core.png';
+import rainImg from '../../../assets/img/vfx/bow/bow_rain.png';
 import cheonbungVfx from '../../../assets/img/vfx/sword/cheon_boong_vfx.png';
 import buff_blessed_loop from '../../../assets/img/vfx/buff_overlay/blessed_loop.png';
 import buff_buff_applied from '../../../assets/img/vfx/buff_overlay/buff_applied.png';
@@ -80,6 +81,8 @@ export const VFX: Record<string, VfxDef> = {
   /** 검사 일섬: 눈높이에서 본 납작한 초승달, 납작 크레용 붓으로 그은 두꺼운 베기 (pixelfx). 바깥은 무채색이라 원소 색, 흰 심은 위층. 칸 128×52, 기준점 (44, 33) = 몸 중심 */
   ilseom_slash: { url: ilseomSlash, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33], core: 'ilseom_slash_core' },
   ilseom_slash_core: { url: ilseomSlashCore, frame: 128, frameH: 52, frames: 8, fps: 30, scale: 1.5, origin: [44, 33] },
+  /** 궁수 화살비 (유저 그림, 무채색이라 원소 색을 입히고 흰 화살은 흰색 그대로). 칸 512×512 6칸: 0 = 화살이 떨어지는 중, 1~4 = 땅에 꽂히며 터짐 (1·3, 2·4 는 같은 그림), 5 = 흩어짐. 땅 줄 가운데 (256, 398), 배율 0.85 = 범위 폭 320 */
+  hwasalbi_rain: { url: rainImg, frame: 512, frames: 6, fps: 10, scale: 0.85, smooth: true, keepWhite: 0.8, origin: [256, 398] },
   /** 검사 흘려베기 받아내기 (pixelfx, 반복): 몸 바로 앞 반구 방패 + 가장자리를 따라 뒤로 흐르는 알갱이. 받아내는 동안 GameScene 이 붙여 둠. 칸 52×56, 기준점 (22, 28) = 몸 중심 */
   guard_shield: { url: guardShield, frame: 52, frameH: 56, frames: 18, fps: 30, scale: 1.5, loop: true, origin: [22, 28], core: 'guard_shield_core' },
   guard_shield_core: { url: guardShieldCore, frame: 52, frameH: 56, frames: 18, fps: 30, scale: 1.5, loop: true, origin: [22, 28] },
