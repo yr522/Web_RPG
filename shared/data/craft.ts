@@ -27,9 +27,10 @@ export const SMITH_SHOP = ['mold_rusty', 'mold_iron'];
 
 /** 강화에 드는 주괴: 지금 강화 수치(+0 ~ +14) → 주괴 종류·개수 (골드와 함께) */
 export function enhanceIngot(lv: number): { item: string; n: number } {
+  // 2026-11-21 유저: +9 까지는 녹슨 주괴 (녹슨 주괴가 너무 적게 들어서)
   if (lv < 5) return { item: 'ingot_rusty', n: 1 };
-  if (lv < 10) return { item: 'ingot_iron', n: 1 };
-  return { item: 'ingot_iron', n: 2 };
+  if (lv < 10) return { item: 'ingot_rusty', n: 2 };
+  return { item: 'ingot_iron', n: 1 };
 }
 /** 수리에 드는 주괴 (골드와 함께) */
 export const REPAIR_INGOT = { item: 'ingot_iron', n: 1 };

@@ -74,21 +74,22 @@ describe('대장장이 강화', () => {
     expect(s.bag[idx]!.enh).toBe(10);
     expect(s.gold).toBe(1e6 - t.cost * 2);
   });
-  it('강화·수리에 주괴가 듦 (+0~4 녹슨 1 · +5~9 철 1 · +10~ 철 2, 수리 철 1), 없으면 못 함', async () => {
+  it('강화·수리에 주괴가 듦 (+0~4 녹슨 1 · +5~9 녹슨 2 · +10~ 철 1, 수리 철 1), 없으면 못 함', async () => {
     const { countItem, removeItem } = await import('../shared/rules/inventory');
     const { s, uid, idx } = withGear('slime_armor');
     enhance(s, uid, false, fixed(0));
     expect(countItem(s, 'ingot_rusty')).toBe(19);
     s.bag[idx]!.enh = 5;
     enhance(s, uid, false, fixed(0));
-    expect(countItem(s, 'ingot_iron')).toBe(19);
+    expect(countItem(s, 'ingot_rusty')).toBe(17);
+    expect(countItem(s, 'ingot_iron')).toBe(20);
     s.bag[idx]!.enh = 10;
     enhance(s, uid, false, fixed(0));
-    expect(countItem(s, 'ingot_iron')).toBe(17);
+    expect(countItem(s, 'ingot_iron')).toBe(19);
     s.bag[idx]!.broken = true;
     expect(repair(s, uid).ok).toBe(true);
-    expect(countItem(s, 'ingot_iron')).toBe(16);
-    removeItem(s, 'ingot_rusty', 19);
+    expect(countItem(s, 'ingot_iron')).toBe(18);
+    removeItem(s, 'ingot_rusty', 17);
     s.bag[idx]!.enh = 0;
     const g = s.gold;
     expect(enhance(s, uid, false, fixed(0)).ok).toBe(false);
