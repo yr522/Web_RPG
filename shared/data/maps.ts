@@ -296,7 +296,7 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사' },
     ],
     // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
-    npcs: [{ id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
+    npcs: [{ id: 'storage', x: 250 }, { id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
     signs: [], spawns: [],
   },
   school_hallway: {
@@ -428,4 +428,22 @@ export const MAPS: Record<MapId, MapDef> = {
     signs: [],
     spawns: [],
   },
+};
+
+/**
+ * 배경 음악 (assets/sound/BGM/ 아래 파일 이름, .mp3 빼고). 없는 맵은 음악 없음 (사냥터 기본은 조용함).
+ * 같은 음악인 맵끼리 옮겨 다니면 음악이 처음부터 다시 나오지 않고 이어짐 (2026-11-21, 임시 음악)
+ */
+export const MAP_BGM: Partial<Record<MapId, string>> = {
+  // 마을 · 학교 바깥 · 학교 안 전부
+  town: 'Noblesse nostalgia', school: 'Noblesse nostalgia', school_hall: 'Noblesse nostalgia', school_hallway: 'Noblesse nostalgia',
+  classroom_sword: 'Noblesse nostalgia', classroom_magic: 'Noblesse nostalgia', classroom_bow: 'Noblesse nostalgia',
+  dorm: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
+  // 슬라임 사냥터 3개
+  field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow',
+  // 공방 안 전부 (던전 잊힌 공방 포함)
+  workshop: 'LowGradeOre', under_trial: 'LowGradeOre', under_cleared: 'LowGradeOre', under: 'LowGradeOre',
+  dungeon1: 'LowGradeOre', dungeon2: 'LowGradeOre', dungeon3: 'LowGradeOre',
+  // 골렘 보스
+  golem_room: 'GelimerLab', golem_scene: 'GelimerLab',
 };

@@ -8,7 +8,7 @@ import { TALK_NPCS, type Cond, type DialogueStep, type Effect } from '../shared/
 import { CUTSCENES, type CutStep } from '../shared/data/cutscenes';
 import { CLASSES, SKILLS } from '../shared/data/classes';
 
-const SPECIAL_NPCS = ['prof', 'shop', 'smith'];
+const SPECIAL_NPCS = ['prof', 'shop', 'smith', 'storage'];
 const npcExists = (id: string) => SPECIAL_NPCS.includes(id) || id in TALK_NPCS;
 const mapIds = Object.keys(MAPS) as MapId[];
 

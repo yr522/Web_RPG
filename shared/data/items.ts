@@ -114,6 +114,13 @@ const ITEM_LIST = {
   workshop_key: { name: '공방 퀘스트 템', kind: 'etc', icon: '⚙️', img: 'item/quest/workshop_key', desc: '임시' },
   slime_gel: { name: '슬라임 점액', kind: 'etc', icon: '🟢', img: 'item/material/a_001_slime_fluid', desc: '슬라임에게서 얻은 끈적한 점액', sell: 1 },
   // 영주님의 생일잔치 (2026-11-21, 설명·판매가 임시)
+  // 일일 퀘스트 보상 (2026-11-21). 나중에 주화 상점 등에 씀. 팔 수 없음
+  mission_coin: { name: '미션 주화', kind: 'etc', icon: '🪙', desc: '일일 퀘스트를 끝내고 받은 주화' },
+  // 대장장이 제작 (2026-11-21, 이름·가격 임시). 형판은 대장장이가 팔고, 제작할 때 하나씩 씀
+  mold_rusty: { name: '녹슨 주괴 형판', kind: 'etc', icon: '🧱', price: 30, desc: '녹슨 고철을 녹여 주괴로 굳히는 틀 (제작할 때 하나씩 씀)', bulk: [1, 10] },
+  mold_iron: { name: '철 주괴 형판', kind: 'etc', icon: '🧱', price: 100, desc: '쓸만한 고철을 녹여 철 주괴로 굳히는 틀 (제작할 때 하나씩 씀)', bulk: [1, 10] },
+  ingot_rusty: { name: '녹슨 주괴', kind: 'etc', icon: '🟫', desc: '녹슨 고철을 녹여 만든 주괴. 강화 재료 (+0 ~ +9)', sell: 180 },
+  ingot_iron: { name: '철 주괴', kind: 'etc', icon: '⬜', desc: '쓸만한 고철을 녹여 만든 주괴. 강화(+10 이상)·수리 재료', sell: 600 },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
   scrap_rusty: { name: '녹슨 고철', kind: 'etc', icon: '🔩', img: 'item/material/bad_slate', desc: '경비기계에서 떨어진 녹슨 쇳조각', sell: 5 },
   scrap_good: { name: '쓸만한 고철', kind: 'etc', icon: '⚙️', img: 'item/material/good_slate', desc: '경비기계에서 떨어진 아직 쓸 만한 쇳조각', sell: 30 },
@@ -163,5 +170,7 @@ export const START_ITEMS: { id: ItemId; n: number }[] = [{ id: 'hp', n: 3 }, { i
 
 /** 가방 칸 수 (4칸 × 15줄). 장비는 1칸에 1개, 나머지는 같은 것끼리 1칸 */
 export const BAG_SIZE = 60;
+/** 창고 칸 수 (개인 창고·공용 창고 각각, 2026-11-21 임시) */
+export const STORAGE_SIZE = 40;
 
 export const POTION = { cooldown: 0.8 };

@@ -14,6 +14,8 @@ function withGear(id: ItemId, gold = 1e6): { s: SaveData; uid: number; idx: numb
   s.gold = gold;
   addItem(s, id);
   const idx = s.bag.findIndex(e => e?.id === id);
+  // 강화·수리 재료 주괴
+  addItem(s, 'ingot_rusty', 20); addItem(s, 'ingot_iron', 20);
   return { s, uid: s.bag[idx]!.uid!, idx };
 }
 
@@ -71,6 +73,27 @@ describe('대장장이 강화', () => {
     expect(s.bag[idx]!.broken).toBeUndefined();
     expect(s.bag[idx]!.enh).toBe(10);
     expect(s.gold).toBe(1e6 - t.cost * 2);
+  });
+  it('강화·수리에 주괴가 듦 (+0~4 녹슨 1 · +5~9 녹슨 2 · +10~ 철 1, 수리 철 1), 없으면 못 함', async () => {
+    const { countItem, removeItem } = await import('../shared/rules/inventory');
+    const { s, uid, idx } = withGear('slime_armor');
+    enhance(s, uid, false, fixed(0));
+    expect(countItem(s, 'ingot_rusty')).toBe(19);
+    s.bag[idx]!.enh = 5;
+    enhance(s, uid, false, fixed(0));
+    expect(countItem(s, 'ingot_rusty')).toBe(17);
+    expect(countItem(s, 'ingot_iron')).toBe(20);
+    s.bag[idx]!.enh = 10;
+    enhance(s, uid, false, fixed(0));
+    expect(countItem(s, 'ingot_iron')).toBe(19);
+    s.bag[idx]!.broken = true;
+    expect(repair(s, uid).ok).toBe(true);
+    expect(countItem(s, 'ingot_iron')).toBe(18);
+    removeItem(s, 'ingot_rusty', 17);
+    s.bag[idx]!.enh = 0;
+    const g = s.gold;
+    expect(enhance(s, uid, false, fixed(0)).ok).toBe(false);
+    expect(s.gold).toBe(g);
   });
   it('15강 넘게는 안 됨', () => {
     const { s, uid, idx } = withGear('slime_armor');
@@ -202,5 +225,39 @@ describe('장비 비교', () => {
     addItem(s, 'test_ring'); addItem(s, 'slime_ring');
     toggleEquip(s, s.bag.findIndex(e => e?.id === 'test_ring'));
     expect(compareGear(s, s.bag.find(e => e?.id === 'slime_ring')!)).toEqual([{ k: 'hp', v: 15 }, { k: 'mp', v: 10 }]);
+  });
+});
+
+describe('대장장이 제작', () => {
+  it('맡기면 재료·형판·골드를 가져가고 30초마다 하나씩, 받으면 가방에. 게임을 꺼도(시간만 지나면) 완성', async () => {
+    const { craftOrder, craftCollect, craftStatus } = await import('../shared/rules/craft');
+    const { CRAFT, recipeDef } = await import('../shared/data/craft');
+    const { countItem } = await import('../shared/rules/inventory');
+    const s = newSave('t', 'warrior', 'M');
+    s.gold = 1000;
+    addItem(s, 'scrap_rusty', 25); addItem(s, 'mold_rusty', 3);
+    const r = recipeDef('ingot_rusty')!, T = CRAFT.time * 1000;
+    expect(craftOrder(s, 'ingot_rusty', 0).ok).toBe(true);
+    expect(craftOrder(s, 'ingot_rusty', 0).ok).toBe(true);
+    expect(craftOrder(s, 'ingot_rusty', 0).ok).toBe(false); // 고철 5개 남음
+    expect(countItem(s, 'scrap_rusty')).toBe(5);
+    expect(countItem(s, 'mold_rusty')).toBe(1);
+    expect(s.gold).toBe(1000 - r.gold * 2);
+    expect(craftStatus(s, T - 1)).toEqual({ done: 0, left: 1 });
+    expect(craftCollect(s, T - 1).ok).toBe(false);
+    expect(craftStatus(s, T * 5).done).toBe(2);
+    expect(craftCollect(s, T * 5).ok).toBe(true);
+    expect(countItem(s, 'ingot_rusty')).toBe(2);
+    expect(s.craft.queue).toEqual([]);
+  });
+  it('대기열은 최대 개수까지, 형판은 대장장이에게 삼', async () => {
+    const { CRAFT } = await import('../shared/data/craft');
+    const s = newSave('t', 'warrior', 'M');
+    s.gold = 1e6;
+    expect(applyAction(s, { type: 'buyMold', item: 'mold_iron', n: 12 }, 0).ok).toBe(true);
+    addItem(s, 'scrap_good', 100);
+    for (let i = 0; i < CRAFT.queueMax; i++) expect(applyAction(s, { type: 'craftOrder', recipe: 'ingot_iron' }, 0).ok).toBe(true);
+    expect(applyAction(s, { type: 'craftOrder', recipe: 'ingot_iron' }, 0).ok).toBe(false);
+    expect(applyAction(s, { type: 'buyMold', item: 'hp', n: 1 }, 0).ok).toBe(false);
   });
 });

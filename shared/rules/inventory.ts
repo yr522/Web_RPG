@@ -2,7 +2,7 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { OptionId } from '../data/gear';
 import { itemBonus } from './gear';
@@ -22,6 +22,41 @@ export const BAG_FULL = '가방이 가득 찼어';
 
 export const stackable = (id: string) => itemDef(id)?.kind !== 'equip';
 export const emptyBag = (): Bag => Array.from({ length: BAG_SIZE }, () => null);
+export const emptyStorage = (): Bag => Array.from({ length: STORAGE_SIZE }, () => null);
+
+/**
+ * 창고에 맡기기: 가방 index 칸을 통째로 창고(box)에 (쌓이는 물건은 같은 것이 있으면 합침).
+ * 끼고 있는 장비는 못 맡김. box 는 개인 창고(s.storage) 또는 공용 창고(캐릭터끼리 같이 씀)
+ */
+export function depositItem(s: SaveData, box: Bag, index: number): { ok: boolean; msg?: string } {
+  const e = s.bag[index];
+  if (!e) return { ok: false };
+  if (e.uid !== undefined && equippedSlot(s, e.uid)) return { ok: false, msg: '끼고 있는 장비는 못 맡겨' };
+  const same = stackable(e.id) ? box.find(x => x?.id === e.id) : undefined;
+  if (same) same.n += e.n;
+  else {
+    const free = box.indexOf(null);
+    if (free < 0) return { ok: false, msg: '창고가 가득 찼어' };
+    box[free] = { ...e };
+  }
+  s.bag[index] = null;
+  return { ok: true };
+}
+
+/** 창고에서 꺼내기: 창고 index 칸을 통째로 가방에. 장비는 이 캐릭터의 새 번호(uid)를 받음 (공용 창고에서 다른 캐릭터 장비를 꺼낼 때 번호가 겹치지 않게) */
+export function withdrawItem(s: SaveData, box: Bag, index: number): { ok: boolean; msg?: string } {
+  const e = box[index];
+  if (!e) return { ok: false };
+  if (stackable(e.id)) {
+    if (!addItem(s, e.id, e.n)) return { ok: false, msg: BAG_FULL };
+  } else {
+    const free = s.bag.indexOf(null);
+    if (free < 0) return { ok: false, msg: BAG_FULL };
+    s.bag[free] = { ...e, uid: s.nextUid++ };
+  }
+  box[index] = null;
+  return { ok: true };
+}
 
 export function countItem(s: SaveData, id: string) {
   let n = 0;

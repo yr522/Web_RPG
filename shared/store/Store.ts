@@ -23,6 +23,15 @@ export class LocalStore implements Store {
   }
 }
 
+/** 공용 창고 (캐릭터 슬롯끼리 같이 씀): 계정 하나에 하나, 캐릭터 저장과 따로 */
+const SHARED_KEY = 'mgs_phaser_v1_shared_storage';
+export function loadSharedStorage(): (import('../rules/inventory').BagEntry | null)[] | null {
+  try { const raw = localStorage.getItem(SHARED_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+export function saveSharedStorage(box: (import('../rules/inventory').BagEntry | null)[]) {
+  try { localStorage.setItem(SHARED_KEY, JSON.stringify(box)); } catch { /* 저장 불가 환경은 무시 */ }
+}
+
 /** 캐릭터 슬롯 저장소 키 (슬롯마다 따로 저장) */
 export const slotKey = (i: number) => `mgs_phaser_v1_s${i}`;
 

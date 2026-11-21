@@ -96,21 +96,24 @@ describe('성장', () => {
 });
 
 describe('퀘스트', () => {
-  it('교수님 처치 퀘스트: 받기 → 잡기 → 보고 → 다시 받기', () => {
+  it('교수님 일일 퀘스트: 아무 몬스터 50 → 보고하면 미션 주화 5개 → 그날은 끝 → 다음 날 다시 받기', () => {
     const s = fresh();
-    expect(acceptQuest(s, 'q1').ok).toBe(true);
-    expect(questState(s, 'q1')).toBe('active');
-    for (let i = 0; i < 7; i++) questsOnKill(s, 'slime');
-    expect(questState(s, 'q1')).toBe('active');
-    questsOnKill(s, 'slime_elem');
-    expect(questState(s, 'q1')).toBe('active');
-    expect(questsOnKill(s, 'slime').map(q => q.id)).toContain('q1');
-    expect(questState(s, 'q1')).toBe('ready');
+    s.dailyDay = '2026-11-21';
+    expect(acceptQuest(s, 'd_hunt').ok).toBe(true);
+    expect(questState(s, 'd_hunt')).toBe('active');
+    for (let i = 0; i < 49; i++) questsOnKill(s, i % 2 ? 'slime' : 'guard_a');
+    expect(questState(s, 'd_hunt')).toBe('active');
+    expect(questsOnKill(s, 'honey_slime').map(q => q.id)).toContain('d_hunt');
+    expect(questState(s, 'd_hunt')).toBe('ready');
     const exp0 = s.exp + s.level * 1e6;
-    expect(reportQuest(s, 'q1').ok).toBe(true);
+    expect(reportQuest(s, 'd_hunt').ok).toBe(true);
     expect(s.exp + s.level * 1e6).toBeGreaterThan(exp0);
-    expect(questState(s, 'q1')).toBe('none');
-    expect(acceptQuest(s, 'q1').ok).toBe(true);
+    expect(countItem(s, 'mission_coin')).toBe(5);
+    expect(questState(s, 'd_hunt')).toBe('done');
+    expect(acceptQuest(s, 'd_hunt').ok).toBe(false);
+    s.dailyDay = '2026-11-22';
+    expect(questState(s, 'd_hunt')).toBe('none');
+    expect(acceptQuest(s, 'd_hunt').ok).toBe(true);
   });
   it('모으기 퀘스트는 보고할 때 물건을 가져가고 보상 물건을 줌', () => {
     const s = fresh();
@@ -125,13 +128,13 @@ describe('퀘스트', () => {
   });
   it('덜 했으면 보고 못 함, 이미 받았으면 또 못 받음', () => {
     const s = fresh();
-    acceptQuest(s, 'q1');
-    expect(acceptQuest(s, 'q1').ok).toBe(false);
-    expect(reportQuest(s, 'q1').ok).toBe(false);
+    acceptQuest(s, 'd_hunt');
+    expect(acceptQuest(s, 'd_hunt').ok).toBe(false);
+    expect(reportQuest(s, 'd_hunt').ok).toBe(false);
   });
   it('핀은 하는 중인 퀘스트만, 보고하면 빠짐', () => {
     const s = fresh();
-    expect(togglePin(s, 'q1').ok).toBe(false);
+    expect(togglePin(s, 'd_hunt').ok).toBe(false);
     acceptQuest(s, 'test_gel');
     expect(togglePin(s, 'test_gel').ok).toBe(true);
     addItem(s, 'slime_gel', 3);
@@ -158,9 +161,9 @@ describe('저장', () => {
   it('예전 1번 형태(퀘스트 count 하나)도 불러옴', () => {
     const s = fresh() as unknown as Record<string, unknown>;
     s.version = 1;
-    s.quests = { q1: { active: true, count: 3 } };
+    s.quests = { d_hunt: { active: true, count: 3 } };
     const back = normalizeSave(s as never);
-    expect(back.quests.q1.counts).toEqual([3]);
+    expect(back.quests.d_hunt.counts).toEqual([3]);
   });
 });
 
@@ -197,5 +200,45 @@ describe('매점 팔기', () => {
     toggleEquip(s, a);
     expect(applyAction(s, { type: 'sell', index: a, n: 1 }, 0).ok).toBe(true);
     expect(s.gold).toBe(100);
+  });
+});
+
+describe('창고 · 업적 · 칭호', () => {
+  it('개인 창고: 맡기면 가방에서 빠지고 쌓이는 건 합쳐짐, 꺼내면 돌아옴. 끼고 있는 장비는 못 맡김', async () => {
+    const { depositItem, withdrawItem } = await import('../shared/rules/inventory');
+    const s = fresh();
+    addItem(s, 'slime_gel', 4);
+    const g = s.bag.findIndex(e => e?.id === 'slime_gel');
+    expect(applyAction(s, { type: 'deposit', index: g }, 0).ok).toBe(true);
+    expect(countItem(s, 'slime_gel')).toBe(0);
+    addItem(s, 'slime_gel', 2);
+    applyAction(s, { type: 'deposit', index: s.bag.findIndex(e => e?.id === 'slime_gel') }, 0);
+    expect(s.storage.filter(e => e?.id === 'slime_gel')).toEqual([{ id: 'slime_gel', n: 6 }]);
+    expect(applyAction(s, { type: 'withdraw', index: s.storage.findIndex(e => e?.id === 'slime_gel') }, 0).ok).toBe(true);
+    expect(countItem(s, 'slime_gel')).toBe(6);
+    addItem(s, 'test_hat');
+    const h = s.bag.findIndex(e => e?.id === 'test_hat');
+    toggleEquip(s, h);
+    expect(applyAction(s, { type: 'deposit', index: h }, 0).ok).toBe(false);
+    // 공용 창고: 다른 캐릭터가 꺼내면 새 번호
+    toggleEquip(s, h);
+    const shared: (import('../shared/rules/inventory').BagEntry | null)[] = Array(40).fill(null);
+    expect(depositItem(s, shared, h).ok).toBe(true);
+    const other = newSave('o', 'mage', 'F');
+    other.nextUid = 50;
+    expect(withdrawItem(other, shared, 0).ok).toBe(true);
+    expect(other.bag.find(e => e?.id === 'test_hat')?.uid).toBe(50);
+  });
+  it('업적: 조건을 채우면 달성, 달성한 것만 칭호로', async () => {
+    const { checkAchievements } = await import('../shared/rules/achievements');
+    const s = fresh();
+    expect(applyAction(s, { type: 'title', id: 'first_hunt' }, 0).ok).toBe(false);
+    s.kills = 1; s.mobKills.slime = 1;
+    expect(checkAchievements(s).map(a => a.id)).toContain('first_hunt');
+    expect(checkAchievements(s)).toEqual([]);
+    expect(applyAction(s, { type: 'title', id: 'first_hunt' }, 0).ok).toBe(true);
+    expect(s.title).toBe('first_hunt');
+    applyAction(s, { type: 'title', id: null }, 0);
+    expect(s.title).toBeNull();
   });
 });

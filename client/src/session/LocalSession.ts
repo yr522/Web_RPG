@@ -1,3 +1,8 @@
+import { dayKey } from '@shared/data/quests';
+import { STORAGE_SIZE } from '@shared/data/items';
+import { checkAchievements } from '@shared/rules/achievements';
+import { depositItem, withdrawItem, type Bag } from '@shared/rules/inventory';
+import { loadSharedStorage, saveSharedStorage } from '@shared/store/Store';
 // 세션 교체 구조: 지금은 LocalSession(브라우저에서 시뮬레이션), 나중에 RemoteSession(서버 연결).
 // 화면은 Session 인터페이스만 보고, 시뮬레이션이 어디서 돌아가는지 모른다.
 import { World, TICK, type PlayerState } from '@shared/sim/World';
@@ -26,6 +31,8 @@ export interface Session {
   update(realDt: number, readCommand: () => Command): GameEvent[];
   /** 메뉴 행동 (상점, 퀘스트, 수업 등) */
   act(action: MenuAction): ActionResult;
+  sharedBox(): Bag;
+  shareMove(kind: 'deposit' | 'withdraw', index: number): ActionResult;
   /** 게임 안 시계 (테스트용 시간 당기기 포함) */
   nowMs(): number;
   returnHome(): boolean;
@@ -49,6 +56,7 @@ export class LocalSession implements Session {
   world!: World;
   alpha = 0;
   private acc = 0;
+  private shared: Bag | null = null;
   private prev = { x: 0, y: 0 };
   private saveTimer = 0;
   private pending: GameEvent[] = [];
@@ -109,6 +117,19 @@ export class LocalSession implements Session {
       if (action.type === 'useReset') this.world.resetCombat(this.me());
       void this.store.save(this.save);
     }
+    return r;
+  }
+
+  /** 공용 창고 (캐릭터끼리 같이 씀) */
+  sharedBox(): Bag {
+    if (!this.shared) this.shared = Array.from({ length: STORAGE_SIZE }, (_, i) => loadSharedStorage()?.[i] ?? null);
+    return this.shared;
+  }
+  /** 공용 창고에 맡기기 / 꺼내기: 캐릭터 저장과 공용 창고를 같이 저장 */
+  shareMove(kind: 'deposit' | 'withdraw', index: number): ActionResult {
+    const box = this.sharedBox();
+    const r = kind === 'deposit' ? depositItem(this.save, box, index) : withdrawItem(this.save, box, index);
+    if (r.ok) { this.world.refreshStats(this.me()); saveSharedStorage(box); void this.store.save(this.save); }
     return r;
   }
 
@@ -191,6 +212,11 @@ export class LocalSession implements Session {
       }
     }
     this.checkBecomes();
+    // 일일 퀘스트 날짜 (내 컴퓨터 날짜가 바뀌면 일일 퀘스트를 다시 받을 수 있음)
+    const day = dayKey(Date.now());
+    if (this.save.dailyDay !== day) this.save.dailyDay = day;
+    // 업적 달성 → 큰 글씨 알림
+    for (const a of checkAchievements(this.save)) out.push({ type: 'banner', playerId: this.playerId, text: `업적 달성! 「${a.name}」`, color: a.color ?? '#ffe066' });
     out.push(...this.pending.splice(0));
     this.alpha = this.acc / TICK;
     this.saveTimer += realDt;

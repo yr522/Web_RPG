@@ -1,12 +1,14 @@
 // 게임 화면. Session 의 상태를 읽어서 그리기만 한다 (게임 규칙은 shared/ 에).
 import Phaser from 'phaser';
-import { GROUND_Y } from '@shared/data/maps';
+import { GROUND_Y, MAP_BGM } from '@shared/data/maps';
 import { CLASSES, DOYAK, GIDUNG, HINT, SOYONG_VISUAL_R } from '@shared/data/classes';
 import type { Session } from '../session/LocalSession';
 import type { Input } from '../input/Input';
 import type { Hud } from '../hud/Hud';
 import { palette, type Palette } from './palette';
 import { professorMark } from '@shared/rules/progress';
+import { playBgm } from '../audio/bgm';
+import { achievementDef } from '@shared/data/achievements';
 import { ELEMENTS, type Element } from '@shared/data/elements';
 import type { Fx } from '@shared/sim/types';
 import type { Enemy } from '@shared/sim/entities';
@@ -129,6 +131,8 @@ export class GameScene extends Phaser.Scene implements Stage {
   private edgeMask: Phaser.GameObjects.Graphics | null = null;
   private player!: PlayerAvatar;
   private nameTag!: Phaser.GameObjects.Text;
+  /** 칭호 (이름 위, 달고 있을 때만) */
+  private titleTag!: Phaser.GameObjects.Text;
   private bubble!: Phaser.GameObjects.Text;
   private floats: { t: Phaser.GameObjects.Text; age: number; life: number }[] = [];
   /** 내 머리 위 [?]·[✔] 말풍선 (혼자 하는 퀘스트, 누르면 혼잣말 대화) */
@@ -220,6 +224,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.guideG = this.add.graphics().setDepth(7.2);
     this.cut = new CutscenePlayer(this, this.deps.session, this.deps.input, this.deps.talk);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
+    this.titleTag = this.text('', 10, '#ffe066').setOrigin(0.5, 0).setDepth(6).setVisible(false);
     this.bubble = this.add.text(0, 0, '', {
       fontFamily: FONT, fontSize: '13px', color: '#222', backgroundColor: 'rgba(255,255,255,0.92)', padding: { x: 8, y: 4 },
     }).setOrigin(0.5, 1).setDepth(7).setVisible(false).setResolution(this.zoom);
@@ -289,6 +294,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     for (const l of this.tornadoSprites.values()) l.forEach(sp => sp.destroy());
     this.tornadoSprites.clear();
     const { world, save } = this.deps.session, map = world.map;
+    // 배경 음악 (같은 곡이면 이어서)
+    playBgm(MAP_BGM[world.mapId]);
     // 배경 그림이 없는 맵, 시간대 배경이 있어도 화면보다 짧은 맵: 맵 밖(양옆)은 검정
     if (!map.bg && (!map.bgTime || map.width < VIEW_MAX_W)) {
       const top = (map.top ?? 0) - 3000;
@@ -388,6 +395,17 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
         if (talk.tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(talk.tint);
+        this.mapLayer.add(root);
+        this.mapLayer.add(label);
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+        continue;
+      }
+      if (n.id === 'storage') {
+        // 창고지기 (임시): 상자 + 뼈대 그림
+        g.fillStyle(0x6b4a2a).fillRect(x - 78, y - 34, 40, 34).fillRect(x + 40, y - 26, 30, 26);
+        g.fillStyle(0x8a6438).fillRect(x - 80, y - 38, 44, 6);
+        const root = makeStaticAvatar(this, x, y, -1), label = this.text('창고지기', 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(0xa0b0c8);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
         this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
@@ -513,6 +531,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const nowMs = performance.now();
     const dt = Math.min(0.25, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
+    hud.minimap.draw(session.world, session.save, session.nowMs(), dt);
     // 타격감: 맞는 순간 아주 잠깐 멈칫(hitstop)
     this.cut.update(dt);
     const events = this.hitstop > 0 ? [] : session.update(dt, () => this.cut.command() ?? input.readCommand());
@@ -570,7 +589,17 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.player.update(dt, me, px + me.w / 2 + lunge, py + me.h);
     // 텔레포트로 사라진 동안은 안 보임
     this.player.setVisible(me.action?.name !== 'blink' && (me.downT > 0 || !(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0)));
-    this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
+    // 칭호: 이름 위에 「칭호」, 이름은 한 줄 아래로
+    const title = achievementDef(this.deps.session.save.title);
+    if (title) {
+      const t = `「${title.name}」`;
+      if (this.titleTag.text !== t) this.titleTag.setText(t);
+      this.titleTag.setColor(title.color ?? '#ffe066').setPosition(px + me.w / 2, py + me.h + 6).setVisible(true);
+      this.nameTag.setPosition(px + me.w / 2, py + me.h + 20);
+    } else {
+      this.titleTag.setVisible(false);
+      this.nameTag.setPosition(px + me.w / 2, py + me.h + 6);
+    }
 
     // 퀘스트 진행으로 NPC 자리·포탈이 바뀌면 다시 그림
     if (this.visibleSig() !== this.mapSig) this.buildMap(true);
@@ -753,7 +782,7 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (tx !== null) break;
     }
     // 하는 퀘스트가 없으면: 다음 퀘스트를 줄 이야기 NPC 쪽으로
-    if (tx === null && !QUESTS.some(q => save.quests[q.id]?.active && !q.repeat)) {
+    if (tx === null && !QUESTS.some(q => save.quests[q.id]?.active && !q.repeat && !q.daily)) {
       for (const id of Object.keys(TALK_NPCS)) {
         if (!TALK_NPCS[id].guide || !offersQuest(save, id, session.nowMs())) continue;
         const t = npcPlace(id, save);
