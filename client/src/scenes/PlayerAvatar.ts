@@ -17,6 +17,8 @@ import bowArm from '../../../assets/img/sprites/bones/attack_bow/player_bone_att
 import staffBody from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_body.png';
 import staffHead from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_head.png';
 import staffArm from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_frontarm.png';
+import swordsmanFace from '../../../assets/img/sprites/players/faces/001_swordsman/swordsman_face.png';
+import swordsmanHair from '../../../assets/img/sprites/players/hairs/001_swordsman/swordsman_hair.png';
 
 /** 파츠 한 칸 크기 (에셋 규격: 96×96) */
 export const CELL = 96;
@@ -46,6 +48,15 @@ export const SHEETS = {
   staff: { body: staffBody, head: staffHead, front_arm: staffArm },
 } as const satisfies Record<string, Record<Part, string>>;
 export type SheetName = keyof typeof SHEETS;
+
+/**
+ * 직업별 얼굴·머리 (2026-11-21, 검사만 그림 있음). 기본 모션(walk 시트)과 같은 프레임 순서.
+ * 공격 모션 그림은 아직 없어서 공격하는 동안은 숨김 (뼈대만). 레이어: 머리(뼈대) 위 → 얼굴 → 앞머리 → 앞팔 아래
+ */
+const LOOKS: Partial<Record<ClassId, { face: string; hair: string }>> = {
+  warrior: { face: swordsmanFace, hair: swordsmanHair },
+};
+const lookKey = (cls: ClassId, part: 'face' | 'hair') => `pl_look_${cls}_${part}`;
 
 /** 직업별 공격 그림 */
 export const ATTACK_SHEET: Record<ClassId, SheetName> = { warrior: 'sword', mage: 'staff', archer: 'bow' };
@@ -110,6 +121,10 @@ export function preloadAvatar(scene: Phaser.Scene) {
   for (const sheet of Object.keys(SHEETS) as SheetName[]) {
     for (const part of PARTS) scene.load.spritesheet(texKey(sheet, part), SHEETS[sheet][part], { frameWidth: CELL, frameHeight: CELL });
   }
+  for (const [cls, l] of Object.entries(LOOKS) as [ClassId, { face: string; hair: string }][]) {
+    scene.load.spritesheet(lookKey(cls, 'face'), l.face, { frameWidth: CELL, frameHeight: CELL });
+    scene.load.spritesheet(lookKey(cls, 'hair'), l.hair, { frameWidth: CELL, frameHeight: CELL });
+  }
 }
 
 /** 움직이지 않는 캐릭터 그림 (대화 NPC 임시 모습: 뼈대 기본 자세). (x, y) = 발 기준점 */
@@ -132,6 +147,9 @@ export function poseStaticAvatar(root: Phaser.GameObjects.Container, t: number |
 export class PlayerAvatar {
   readonly root: Phaser.GameObjects.Container;
   private parts: Phaser.GameObjects.Sprite[];
+  /** 얼굴·앞머리 (직업 그림이 있을 때만 보임) */
+  private face: Phaser.GameObjects.Sprite;
+  private hair: Phaser.GameObjects.Sprite;
   private loop: LoopName = 'idle';
   private t = 0;
   /** 마지막으로 보여 준 공격 그림 (공격 직후 쉬는 시간 동안 유지) */
@@ -143,9 +161,17 @@ export class PlayerAvatar {
     for (const sheet of Object.keys(SHEETS) as SheetName[]) {
       for (const part of PARTS) scene.textures.get(texKey(sheet, part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
+    for (const cls of Object.keys(LOOKS) as ClassId[]) {
+      for (const p of ['face', 'hair'] as const) scene.textures.get(lookKey(cls, p)).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
     this.parts = PARTS.map(part => scene.add.sprite(0, 0, texKey('walk', part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL));
+    const blank = (Object.keys(LOOKS) as ClassId[])[0];
+    this.face = scene.add.sprite(0, 0, lookKey(blank, 'face'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
+    this.hair = scene.add.sprite(0, 0, lookKey(blank, 'hair'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
     // 컨테이너의 (0,0) = 발 기준점. 좌우 반전은 컨테이너 배율을 뒤집어서 기준점 그대로 뒤집는다.
-    this.root = scene.add.container(0, 0, this.parts).setScale(AVATAR_SCALE);
+    // 순서: 몸 · 머리(뼈대) · 얼굴 · 앞머리 · 앞팔
+    const [body, head, arm] = this.parts;
+    this.root = scene.add.container(0, 0, [body, head, this.face, this.hair, arm]).setScale(AVATAR_SCALE);
   }
 
   setDepth(d: number) { this.root.setDepth(d); return this; }
@@ -172,6 +198,16 @@ export class PlayerAvatar {
       if (sp.texture.key !== key) sp.setTexture(key, pose.frame);
       else sp.setFrame(pose.frame);
     });
+    // 얼굴·앞머리: 기본 모션일 때만 (공격 그림은 아직 없음 → 뼈대만)
+    const look = pose.sheet === 'walk' && LOOKS[me.data.cls] ? me.data.cls : null;
+    for (const p of ['face', 'hair'] as const) {
+      const sp = this[p];
+      sp.setVisible(!!look);
+      if (!look) continue;
+      const key = lookKey(look, p);
+      if (sp.texture.key !== key) sp.setTexture(key, pose.frame);
+      else sp.setFrame(pose.frame);
+    }
     // 마법 쏘기 전(지팡이 1번 그림, 동작 중)에는 부들부들 떨림
     if (pose.sheet === 'staff' && pose.frame === 0 && me.action) {
       this.shakeT += dt;
@@ -187,7 +223,8 @@ export class PlayerAvatar {
   ghost(color: number, life: number, alpha = 0.55) {
     if (!this.root.visible) return;
     const scene = this.root.scene;
-    const parts = this.parts.map(sp => scene.add.sprite(0, 0, sp.texture.key, sp.frame.name).setOrigin(sp.originX, sp.originY).setTintFill(color));
+    const shown = (this.root.list as Phaser.GameObjects.Sprite[]).filter(sp => sp.visible);
+    const parts = shown.map(sp => scene.add.sprite(0, 0, sp.texture.key, sp.frame.name).setOrigin(sp.originX, sp.originY).setTintFill(color));
     const c = scene.add.container(this.root.x, this.root.y, parts).setScale(this.root.scaleX, this.root.scaleY).setDepth(this.root.depth - 0.1).setAlpha(alpha);
     scene.tweens.add({ targets: c, alpha: 0, duration: life * 1000, onComplete: () => c.destroy() });
   }
