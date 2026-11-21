@@ -100,6 +100,19 @@ export class NpcDialog {
     this.host.open(box);
   }
 
+  /** 선택지만 있는 창 (갈 곳 고르는 포탈 등) */
+  choose(opts: { label: string; go: () => void }[]) {
+    const box = el('div', 'npc-dlg');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    const list = el('div', 'opts');
+    for (const o of opts) list.appendChild(el('button', 'opt', esc(o.label), () => { this.host.close(); o.go(); }));
+    body.appendChild(list);
+    panel.appendChild(body);
+    panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
+    box.appendChild(panel);
+    this.host.open(box);
+  }
+
   /** 보스 입장 포탈: 난이도 고르기 (열리지 않은 난이도는 못 누름) */
   openDifficulty(bossId: string, text?: string) {
     const b = bossDef(bossId);
@@ -121,6 +134,9 @@ export class NpcDialog {
     this.host.open(box);
   }
 
+  /** 메뉴의 [제작] → 제작 창 */
+  onCraft = () => {};
+
   /** Esc 메뉴 */
   openMenu(onCharSelect: () => void) {
     const box = el('div', 'npc-dlg');
@@ -128,6 +144,7 @@ export class NpcDialog {
     panel.appendChild(el('div', 'npc-name', '메뉴'));
     const opts = el('div', 'opts');
     opts.appendChild(el('button', 'opt', '설정', () => { this.host.close(); this.openSettings(); }));
+    opts.appendChild(el('button', 'opt', '제작', () => { this.host.close(); this.onCraft(); }));
     opts.appendChild(el('button', 'opt', '🧪 테스트용 기능', () => { this.host.close(); this.openTest(); }));
     opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
     body.appendChild(opts);

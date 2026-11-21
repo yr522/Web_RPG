@@ -4,7 +4,7 @@ import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { GIDUNG, SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { POTION, POTIONS, itemDef, potionIds, type PotionKind } from '../data/items';
-import { BAG_FULL, addItem, countItem, removeItem } from '../rules/inventory';
+import { BAG_FULL, addItem, countItem, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
 import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
@@ -257,7 +257,7 @@ export class World implements SkillWorld {
       if (npc) { this.events.push({ type: 'interact', playerId: p.id, npc: npc.id }); return; }
       const portal = this.portalNear(p);
       if (portal?.closed && p.onGround) { this.warn(p, portal.closed); return; }
-      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss }); return; }
+      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss, choose: portal.choose }); return; }
     }
 
     // 스킬 입력. 공격이 완전히 끝나기 전 입력은 무효, 끝나기 0.2초 전 입력만 끝나자마자 실행(버퍼)
@@ -1280,6 +1280,15 @@ export class World implements SkillWorld {
     });
   }
 
+  /** 플레이어가 가방 칸을 바닥에 버림: 캐릭터 발밑에 그대로 떨어짐, ITEM_DROP.lock 초 동안 못 주움 */
+  dropEntry(p: PlayerState, e: BagEntry) {
+    const sz = ITEM_DROP.size;
+    this.coins.push({
+      id: `c${this.nextId++}`, x: cx(p) - sz / 2, y: p.y + p.h - sz, w: sz, h: sz,
+      vx: 0, vy: 0, onGround: false, drop: 0, plat: null, amt: e.n, item: e.id, entry: e, lock: ITEM_DROP.lock, t: 0,
+    });
+  }
+
   private stepCoins(dt: number) {
     const players = [...this.players.values()];
     this.coins = this.coins.filter(c => {
@@ -1287,9 +1296,19 @@ export class World implements SkillWorld {
       stepBody(c, dt, this.solids, this.bounds);
       if (c.onGround) c.vx *= 1 - 8 * dt;
       // 캐릭터 몸이 닿아야 획득 (자동 줍기 없음)
-      const p = players.find(pl => overlaps(pl, c));
+      if (c.lock !== undefined) {
+        c.lock -= dt;
+        if (c.lock <= 0) c.lock = undefined;
+      }
+      const p = c.lock === undefined ? players.find(pl => overlaps(pl, c)) : undefined;
       if (p) {
-        if (c.item) {
+        if (c.entry) {
+          let added = false;
+          const ready = newlyReady(p.data, () => { added = putBagEntry(p.data, c.entry!); });
+          if (!added) { this.warn(p, BAG_FULL); return c.t < COIN.life; }
+          for (const q of ready) this.questReady(p, q);
+          this.float(cx(c), c.y - 6, `+${itemDef(c.item!)?.name ?? c.item}`, '#ffffff', 15, 0.8);
+        } else if (c.item) {
           // 가방이 가득 차면 줍지 않고 바닥에 남는다
           let added = false;
           const ready = newlyReady(p.data, () => { added = addItem(p.data, c.item!, c.amt); });

@@ -156,6 +156,10 @@ export interface Coin {
   amt: number;
   /** 떨어진 물건 (없으면 골드) */
   item?: string;
+  /** 플레이어가 버린 가방 칸 (장비 강화·부가효과 그대로 다시 주움) */
+  entry?: import('../rules/inventory').BagEntry;
+  /** 플레이어가 버린 물건: 남은 시간(초) 동안 아무도 못 주움 */
+  lock?: number;
   t: number;
 }
 

@@ -1,7 +1,7 @@
 import { dayKey } from '@shared/data/quests';
 import { STORAGE_SIZE } from '@shared/data/items';
 import { checkAchievements } from '@shared/rules/achievements';
-import { depositItem, withdrawItem, type Bag } from '@shared/rules/inventory';
+import { depositItem, takeBagEntry, withdrawItem, type Bag } from '@shared/rules/inventory';
 import { loadSharedStorage, saveSharedStorage } from '@shared/store/Store';
 // 세션 교체 구조: 지금은 LocalSession(브라우저에서 시뮬레이션), 나중에 RemoteSession(서버 연결).
 // 화면은 Session 인터페이스만 보고, 시뮬레이션이 어디서 돌아가는지 모른다.
@@ -46,6 +46,8 @@ export interface Session {
   takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: string): void;
+  /** 인벤토리 칸을 캐릭터 자리 바닥에 버리기 */
+  dropBag(index: number, n?: number): boolean;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
   spawnStory(x: number, elem: Element | null, tag?: string): void;
   releaseHeld(): void;
@@ -140,6 +142,16 @@ export class LocalSession implements Session {
   }
 
   usePotion(kind: string) { this.world.usePotion(this.me(), kind); }
+  dropBag(index: number, n?: number) {
+    const p = this.me();
+    if (p.hp <= 0) return false;
+    const e = takeBagEntry(this.save, index, n);
+    if (!e) return false;
+    this.world.dropEntry(p, e);
+    this.world.refreshStats(p);
+    void this.store.save(this.save);
+    return true;
+  }
   spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
   releaseHeld() { this.world.releaseHeld(); }
 
@@ -195,7 +207,7 @@ export class LocalSession implements Session {
         }
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
           // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
-          if (ev.confirm || ev.boss) continue;
+          if (ev.confirm || ev.boss || ev.choose) continue;
           const { hp, mp } = this.me();
           this.enter(ev.to, ev.toX, { hp, mp }, ev.toY);
           out.push({ type: 'mapEnter', playerId: this.playerId, map: ev.to });
