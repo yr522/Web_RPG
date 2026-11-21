@@ -12,9 +12,9 @@ import { decorateGear, itemIcon } from './icons';
 import { ItemTip } from './ItemTip';
 import { clampToStage } from './stage';
 import { SLOT_ICONS, gradeBorder } from './InventoryWindow';
-import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
-import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
-import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
+import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
+import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
+import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm_true.png';
 
 /** 두 번 터치 인정 시간 (ms) */
 const DOUBLE_TAP = 350;
