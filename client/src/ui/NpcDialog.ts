@@ -26,13 +26,14 @@ import teacherMagic from '../../../assets/img/portrait/teacher_magic.png';
 import teacherBow from '../../../assets/img/portrait/teacher_bow.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 import smithPortrait from '../../../assets/img/portrait/blacksmith_school.png';
+import smithDaughterPortrait from '../../../assets/img/portrait/blacksmith_daughter.png';
 
 /** 교수님 포트레이트 (assets/img/portrait). 검술과는 그림이 아직 없어서 빈 칸 */
 const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teacherMagic, archer: teacherBow };
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 /** NPC 포트레이트 (교수님 빼고, 대화 NPC id → 그림) */
-const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait };
+const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
 

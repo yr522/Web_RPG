@@ -93,6 +93,8 @@ interface Actor {
   home: number; x: number; face: 1 | -1; to: number | null; speed: number; pose: Motion | null; t: number;
   /** 점프 중 경과 시간 (null = 땅) */
   jumpT: number | null;
+  /** 그림 크기 배율 (대화 NPC 의 scale, 없으면 1) */
+  scale?: number;
 }
 /** 컷신 점프: 높이(px), 시간(초) / 연출용 몬스터 머리 높이 (말풍선 위치) */
 const ACTOR_JUMP = { h: 50, time: 0.5 };
@@ -401,9 +403,10 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
         if (talk.tint !== undefined) for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setTint(talk.tint);
+        if (talk.scale) root.setScale(AVATAR_SCALE * -1 * talk.scale, AVATAR_SCALE * talk.scale);
         this.mapLayer.add(root);
         this.mapLayer.add(label);
-        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null, scale: talk.scale });
         continue;
       }
       if (n.id === 'storage') {
@@ -770,7 +773,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         (a.root as Phaser.GameObjects.Sprite).setFrame(frame).setPosition(a.x, y + 1).setFlipX(a.face > 0);
       } else {
         const root = a.root as Phaser.GameObjects.Container;
-        root.setPosition(a.x, y).setScale(AVATAR_SCALE * a.face, AVATAR_SCALE);
+        root.setPosition(a.x, y).setScale(AVATAR_SCALE * a.face * (a.scale ?? 1), AVATAR_SCALE * (a.scale ?? 1));
         for (const sp of root.list as Phaser.GameObjects.Sprite[]) sp.setFrame(frame);
       }
       a.label.setPosition(a.x, GROUND_Y + 6);

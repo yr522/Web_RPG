@@ -67,6 +67,8 @@ export interface TalkNpcDef {
   prop?: 'bed';
   /** 그림 색 (임시 그림을 어둡게 등) */
   tint?: number;
+  /** 그림 크기 배율 (작은 NPC 등, 없으면 1) */
+  scale?: number;
   /** 이 NPC 가 줄 퀘스트가 있으면(지금 대사에 퀘스트 주기가 있으면) 길 안내 화살표가 이 NPC 를 가리킴 */
   guide?: boolean;
 }
@@ -359,6 +361,13 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     tint: 0x3a3048,
   },
   // 교수님 (특수 NPC): 이야기 대사가 있으면 교수님 메뉴 대신 대화창
+  // 대장장이의 딸 (2026-11-21): 대장장이 옆, 대화만 (준비 중)
+  smith_daughter: {
+    name: '대 장부',
+    icon: '🔨',
+    scale: 0.8,
+    dialogue: [{ line: '할 얘기 있어?' }],
+  },
   prof: {
     name: '교수님',
     icon: '🧙',
