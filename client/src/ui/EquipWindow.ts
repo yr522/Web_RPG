@@ -187,12 +187,12 @@ export class EquipWindow {
 
   /** 헤어 칸 = 헤어만, 얼굴 칸 = 피부색 머리 + 얼굴 (첫 칸 = 기본 자세). 그림이 없는 직업은 null */
   private lookIcon(cls: ClassId, slot: 'hair' | 'face'): string | null {
-    const look = LOOKS[cls];
-    if (!look) return null;
+    const look = LOOKS[cls], own = look?.[slot];
+    if (!look || !own) return null;
     const key = `${cls}:${slot}`, got = this.lookIcons.get(key);
     if (got !== undefined) return got || null;
     this.lookIcons.set(key, '');
-    const srcs = slot === 'hair' ? [look.hair] : [PART_FILES.head, look.face];
+    const srcs = slot === 'hair' ? [own] : [PART_FILES.head, own];
     void Promise.all(srcs.map(src => new Promise<HTMLImageElement>(res => { const im = new Image(); im.onload = () => res(im); im.src = src; }))).then(ims => {
       const { x, y, size } = HEAD_CROP, c = document.createElement('canvas');
       c.width = c.height = size;
