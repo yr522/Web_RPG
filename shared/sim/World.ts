@@ -1280,12 +1280,12 @@ export class World implements SkillWorld {
     });
   }
 
-  /** 플레이어가 가방 칸을 바닥에 버림: 캐릭터 자리에서 앞쪽으로 살짝 튀어나옴 */
+  /** 플레이어가 가방 칸을 바닥에 버림: 캐릭터 발밑에 그대로 떨어짐, ITEM_DROP.lock 초 동안 못 주움 */
   dropEntry(p: PlayerState, e: BagEntry) {
     const sz = ITEM_DROP.size;
     this.coins.push({
-      id: `c${this.nextId++}`, x: cx(p) - sz / 2, y: cy(p) - sz / 2, w: sz, h: sz,
-      vx: p.face * ITEM_DROP.tossX, vy: -ITEM_DROP.tossY, onGround: false, drop: 0, plat: null, amt: e.n, item: e.id, entry: e, keep: p.id, t: 0,
+      id: `c${this.nextId++}`, x: cx(p) - sz / 2, y: p.y + p.h - sz, w: sz, h: sz,
+      vx: 0, vy: 0, onGround: false, drop: 0, plat: null, amt: e.n, item: e.id, entry: e, lock: ITEM_DROP.lock, t: 0,
     });
   }
 
@@ -1296,12 +1296,11 @@ export class World implements SkillWorld {
       stepBody(c, dt, this.solids, this.bounds);
       if (c.onGround) c.vx *= 1 - 8 * dt;
       // 캐릭터 몸이 닿아야 획득 (자동 줍기 없음)
-      if (c.keep !== undefined) {
-        const owner = this.players.get(c.keep);
-        // 옆으로 벗어나야 풀림 (제자리 점프로는 안 풀림)
-        if (!owner || (c.onGround && (owner.x + owner.w <= c.x || c.x + c.w <= owner.x))) c.keep = undefined;
+      if (c.lock !== undefined) {
+        c.lock -= dt;
+        if (c.lock <= 0) c.lock = undefined;
       }
-      const p = players.find(pl => pl.id !== c.keep && overlaps(pl, c));
+      const p = c.lock === undefined ? players.find(pl => overlaps(pl, c)) : undefined;
       if (p) {
         if (c.entry) {
           let added = false;

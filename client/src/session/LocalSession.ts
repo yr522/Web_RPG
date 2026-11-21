@@ -47,7 +47,7 @@ export interface Session {
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: string): void;
   /** 인벤토리 칸을 캐릭터 자리 바닥에 버리기 */
-  dropBag(index: number): boolean;
+  dropBag(index: number, n?: number): boolean;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
   spawnStory(x: number, elem: Element | null, tag?: string): void;
   releaseHeld(): void;
@@ -142,10 +142,10 @@ export class LocalSession implements Session {
   }
 
   usePotion(kind: string) { this.world.usePotion(this.me(), kind); }
-  dropBag(index: number) {
+  dropBag(index: number, n?: number) {
     const p = this.me();
     if (p.hp <= 0) return false;
-    const e = takeBagEntry(this.save, index);
+    const e = takeBagEntry(this.save, index, n);
     if (!e) return false;
     this.world.dropEntry(p, e);
     this.world.refreshStats(p);

@@ -36,6 +36,7 @@ const h = <K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = '') =
 const MENU = [
   { id: 'char', label: '캐릭터', key: 'C', icon: icoProfile },
   { id: 'inv', label: '인벤토리', key: 'I', icon: icoInventory },
+  { id: 'equip', label: '장비', key: 'U', icon: '' },
   { id: 'skill', label: '스킬', key: 'K', icon: icoSkill },
   { id: 'quest', label: '퀘스트', key: '', icon: icoSpell },
   { id: 'boss', label: '보스', key: '', icon: icoBattle },

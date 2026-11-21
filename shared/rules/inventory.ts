@@ -153,10 +153,13 @@ export function equipTo(s: SaveData, index: number, slot: EquipSlot): string | n
   return null;
 }
 
-/** 가방 index 칸을 통째로 꺼낸다 (바닥에 버리기). 끼고 있는 장비는 못 꺼냄 (null) */
-export function takeBagEntry(s: SaveData, index: number): BagEntry | null {
+/** 가방 index 칸에서 n 개 꺼낸다 (바닥에 버리기, 없으면 전부). 끼고 있는 장비는 못 꺼냄 (null) */
+export function takeBagEntry(s: SaveData, index: number, n?: number): BagEntry | null {
   const e = Number.isInteger(index) ? s.bag[index] : null;
   if (!e || equippedSlot(s, e.uid)) return null;
+  const k = n === undefined ? e.n : Math.floor(n);
+  if (!(k >= 1)) return null;
+  if (k < e.n) { e.n -= k; return { id: e.id, n: k }; }
   s.bag[index] = null;
   return e;
 }

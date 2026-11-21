@@ -1,11 +1,12 @@
 // 인벤토리 창 (I). 게임을 멈추지 않는 떠 있는 창.
-// 가방 (전체·장비·소비·기타 탭). 왼쪽 위 버튼으로 장비창(EquipWindow, 따로 떠 있는 창)을 열고 닫는다.
+// 가방 (전체·장비·소비·기타 탭). 장비창(EquipWindow, U)은 따로 떠 있는 창: 여기서 장착·해제하면 자동으로 열린다.
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
 // 가방 칸 끌어다 놓기: 가방 칸이면 옮기기(물건이 있으면 자리 바꿈), 장비창 칸이면 장착(부위가 안 맞으면 아무 일 없음),
-// 게임 화면(창 밖)이면 캐릭터 자리 바닥에 버리기. 아래 정렬 버튼으로 자동 정렬.
+// 게임 화면(창 밖)이면 캐릭터 자리 바닥에 버리기 (2개 이상이면 개수를 묻는 작은 창). 아래 정렬 버튼으로 자동 정렬.
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
 import { BAG_SIZE, GRADES, ITEM_TABS, POTIONS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
 import { equippedSlot, type BagEntry } from '@shared/rules/inventory';
+import type { DialogHost } from './Dialog';
 import { compareGear } from '@shared/rules/gear';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -42,7 +43,6 @@ export class InventoryWindow {
   private root = el('div', 'inv invwin');
   private grid = el('div', 'inv-grid');
   private tabsEl = el('div', 'inv-tabs');
-  private toggleBtn: HTMLButtonElement;
   private tab: Tab = 'all';
   private sig = '';
   private tip = new ItemTip();
@@ -53,12 +53,10 @@ export class InventoryWindow {
   /** 끌기 중: 집은 칸(가방 번호), 따라다니는 아이콘 */
   private drag: { pid: number; from: number; x: number; y: number; on: boolean; ghost: HTMLElement | null } | null = null;
 
-  constructor(private session: Session, private hud: Hud, private equipWin: EquipWindow) {
+  constructor(private session: Session, private hud: Hud, private equipWin: EquipWindow, private dialogs: DialogHost) {
     const main = el('div', 'inv-panel inv-main');
     const bar = el('div', 'inv-bar');
     this.bindDrag(bar);
-    this.toggleBtn = el('button', 'inv-btn', '◀', () => this.toggleEquip()) as HTMLButtonElement;
-    bar.appendChild(this.toggleBtn);
     bar.appendChild(el('span', 'inv-title', 'inventory'));
     bar.appendChild(el('button', 'inv-btn inv-close', '✕', () => this.close()));
     main.appendChild(bar);
@@ -93,7 +91,6 @@ export class InventoryWindow {
     addEventListener('pointermove', e => this.dragMove(e));
     addEventListener('pointerup', e => this.dragEnd(e));
     addEventListener('pointercancel', e => { if (this.drag?.pid === e.pointerId) this.dragCancel(); });
-    equipWin.onToggle = () => { this.toggleBtn.textContent = equipWin.isOpen ? '▶' : '◀'; };
     // 화면 크기가 바뀌면 창이 화면 밖으로 나가지 않게
     addEventListener('resize', () => this.keepInside());
   }
@@ -144,10 +141,10 @@ export class InventoryWindow {
 
   close() { this.root.classList.remove('open'); this.tip.hide(); }
 
-  /** 장비창 열고 닫기: 처음 열 때는 인벤토리 왼쪽에 붙여서 */
-  private toggleEquip() {
-    if (this.equipWin.isOpen) this.equipWin.close();
-    else this.equipWin.open(this.equipWin.root.classList.contains('moved') ? undefined : this.root.getBoundingClientRect());
+  /** 장착·해제했을 때 장비창이 닫혀 있으면 띄움 (옮긴 적 없으면 인벤토리 왼쪽에 붙여서) */
+  private showEquip() {
+    if (this.equipWin.isOpen) return;
+    this.equipWin.open(this.equipWin.root.classList.contains('moved') ? undefined : this.root.getBoundingClientRect());
   }
 
   /** 매 프레임: 가방·장비가 바뀌었을 때만 다시 그린다 */
@@ -246,7 +243,7 @@ export class InventoryWindow {
         // 장비 칸에 놓기: 부위가 안 맞으면 아무 일 없음
         this.result(this.session.act({ type: 'equipTo', index: d.from, slot: eq.slot }));
         this.equipWin.update();
-      } else if (overGame(e)) this.session.dropBag(d.from);
+      } else if (overGame(e)) this.askDrop(d.from);
     } else this.drag = null;
   }
 
@@ -333,7 +330,11 @@ export class InventoryWindow {
   private useBag(index: number, id: string) {
     const d = itemDef(id);
     if (!d) return;
-    if (d.kind === 'equip') return this.result(this.session.act({ type: 'equip', index }));
+    if (d.kind === 'equip') {
+      const r = this.session.act({ type: 'equip', index });
+      if (r.ok) this.showEquip();
+      return this.result(r);
+    }
     if (POTIONS[id]) return this.session.usePotion(id);
     if (id === 'reset') {
       // 한 번 더 눌러야 사용 (캐릭터 창과 같은 방식)
@@ -342,6 +343,40 @@ export class InventoryWindow {
       this.resetArmed = 0;
       this.result(this.session.act({ type: 'useReset' }));
     }
+  }
+
+  /** 바닥에 버리기: 끼고 있는 장비면 안내 창, 2개 이상이면 개수 묻기 (처음 값 = 전부) */
+  private askDrop(index: number) {
+    const e = this.session.save.bag[index];
+    if (!e) return;
+    if (equippedSlot(this.session.save, e.uid)) return this.popup(el('div', 'mini-msg', '먼저 장비 착용을 해제해주세요'));
+    if (e.n < 2) { this.session.dropBag(index); return; }
+    const box = el('div', 'mini-row');
+    box.appendChild(itemIcon(e.id));
+    const inp = el('input', 'mini-num') as HTMLInputElement;
+    inp.type = 'number'; inp.min = '1'; inp.max = String(e.n); inp.value = inp.placeholder = String(e.n);
+    box.appendChild(inp);
+    const ok = () => {
+      const n = Math.floor(Number(inp.value || inp.placeholder));
+      const cur = this.session.save.bag[index];
+      if (cur !== e || !(n >= 1)) return;
+      this.dialogs.close();
+      this.session.dropBag(index, Math.min(n, cur.n));
+    };
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); ok(); } });
+    this.popup(box, ok);
+    inp.focus(); inp.select();
+  }
+
+  /** 작은 창: 내용 + [확인] (+ onOk 가 있으면 [취소]) */
+  private popup(content: HTMLElement, onOk?: () => void) {
+    const root = el('div', 'mini-dlg');
+    root.appendChild(content);
+    const btns = el('div', 'mini-btns');
+    btns.appendChild(el('button', 'mini-btn', '확인', onOk ?? (() => this.dialogs.close())));
+    if (onOk) btns.appendChild(el('button', 'mini-btn', '취소', () => this.dialogs.close()));
+    root.appendChild(btns);
+    this.dialogs.open(root);
   }
 
   private result(r: ActionResult) {

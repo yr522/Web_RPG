@@ -86,7 +86,7 @@ async function boot() {
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
   const equipWindow = new EquipWindow(session, hud);
-  const invWindow = new InventoryWindow(session, hud, equipWindow);
+  const invWindow = new InventoryWindow(session, hud, equipWindow, dialogs);
   hud.onUpdate.push(() => { invWindow.update(); equipWindow.update(); });
   const questWindow = new QuestWindow(session, hud);
   const skillWindow = new SkillWindow(session, hud);
@@ -113,6 +113,7 @@ async function boot() {
     if (id === 'full') toggleFullscreen();
     else if (id === 'char') charWindow.toggle();
     else if (id === 'inv') invWindow.toggle();
+    else if (id === 'equip') equipWindow.toggle();
     else if (id === 'quest') questWindow.toggle();
     else if (id === 'skill') skillWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
@@ -125,6 +126,7 @@ async function boot() {
   input.onHotkey = code => {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
+    if (code === 'KeyU') hud.onMenu('equip');
     if (code === 'KeyK') hud.onMenu('skill');
     if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
   };

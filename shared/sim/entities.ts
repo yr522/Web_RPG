@@ -158,8 +158,8 @@ export interface Coin {
   item?: string;
   /** 플레이어가 버린 가방 칸 (장비 강화·부가효과 그대로 다시 주움) */
   entry?: import('../rules/inventory').BagEntry;
-  /** 버린 사람: 땅에 떨어진 뒤 옆으로 한 번 벗어났다가 다시 닿아야 주움 (버리자마자 다시 줍지 않게) */
-  keep?: EntityId;
+  /** 플레이어가 버린 물건: 남은 시간(초) 동안 아무도 못 주움 */
+  lock?: number;
   t: number;
 }
 

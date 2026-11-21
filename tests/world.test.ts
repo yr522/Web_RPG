@@ -392,23 +392,28 @@ describe('영주님의 생일잔치', () => {
 });
 
 describe('인벤토리에서 바닥에 버리기', () => {
-  it('캐릭터 자리에 떨어지고, 바로 다시 줍지 않으며, 떨어졌다 다시 닿으면 강화 그대로 주움', () => {
+  it('캐릭터 발밑에 떨어지고, 2초 동안 못 줍고, 그 뒤에 닿으면 강화 그대로 주움', () => {
     const { w, s, p } = fieldWithPlayer();
+    w.enemies.length = 0;
     addItem(s, 'slime_armor');
     const idx = s.bag.findIndex(e => e?.id === 'slime_armor');
     s.bag[idx]!.enh = 7;
-    const e = takeBagEntry(s, idx)!;
-    w.dropEntry(p, e);
+    w.dropEntry(p, takeBagEntry(s, idx)!);
     expect(w.coins).toHaveLength(1);
     expect(Math.abs(w.coins[0].x + w.coins[0].w / 2 - (p.x + p.w / 2))).toBeLessThan(1);
-    run(w, 1);
+    run(w, 1.9);
     expect(s.bag.some(x => x?.id === 'slime_armor')).toBe(false);
-    // 멀리 떨어뜨렸다가 다시 발밑으로
-    const c = w.coins[0];
-    c.x = p.x + 500; w.step(new Map());
+    run(w, 0.3);
     pickAll(w, p);
-    const back = s.bag.find(x => x?.id === 'slime_armor');
-    expect(back?.enh).toBe(7);
+    expect(s.bag.find(x => x?.id === 'slime_armor')?.enh).toBe(7);
+  });
+  it('쌓인 물건은 개수만큼 나눠서 버림', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'honey', 5);
+    const idx = s.bag.findIndex(e => e?.id === 'honey');
+    expect(takeBagEntry(s, idx, 2)).toEqual({ id: 'honey', n: 2 });
+    expect(s.bag[idx]?.n).toBe(3);
+    expect(takeBagEntry(s, idx, 0)).toBeNull();
   });
   it('끼고 있는 장비는 못 버림', () => {
     const s = newSave('t', 'warrior', 'M');

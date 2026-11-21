@@ -1,4 +1,4 @@
-// 장비창. 인벤토리 창과 따로 떠 있는 창 (인벤토리 왼쪽 위 버튼으로 열고 닫음, 따로 끌어서 옮김).
+// 장비창 (U). 인벤토리 창과 따로 떠 있는 창 (따로 끌어서 옮김). 인벤토리에서 장착·해제하면 자동으로 열림.
 // 캐릭터 그림 위에 장비 칸. PC: 마우스를 올리면 설명, 우클릭으로 해제. 모바일: 터치 = 설명, 두 번 터치 = 해제.
 // 인벤토리 칸을 끌어다 장비 칸에 놓으면 장착 (부위가 안 맞으면 아무 일도 없음) — 놓는 처리는 InventoryWindow.
 import { EQUIP_SLOTS, type EquipSlot } from '@shared/data/items';
@@ -33,8 +33,6 @@ export class EquipWindow {
   private tip = new ItemTip();
   private lastTap = { key: '', t: 0 };
   private lastPointer = 'mouse';
-  /** 열리고 닫힐 때 (인벤토리 버튼 모양 맞추기) */
-  onToggle = () => {};
 
   constructor(private session: Session, private hud: Hud) {
     const panel = el('div', 'inv-panel inv-equip');
@@ -77,10 +75,11 @@ export class EquipWindow {
       const r = this.root.getBoundingClientRect();
       this.moveTo(beside.left - r.width - 4, beside.top + (beside.height - r.height) / 2);
     } else this.keepInside();
-    this.onToggle();
   }
 
-  close() { this.root.classList.remove('open'); this.tip.hide(); this.onToggle(); }
+  close() { this.root.classList.remove('open'); this.tip.hide(); }
+
+  toggle() { if (this.isOpen) this.close(); else this.open(); }
 
   /** 포인터 아래의 장비 칸 */
   slotAt(x: number, y: number): { cell: HTMLElement; slot: EquipSlot } | null {

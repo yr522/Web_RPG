@@ -209,6 +209,6 @@ export const COIN_ANIM = { frames: 6, fps: 6, scale: 2 };
 /** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */
 export const ITEM_DROP = {
   size: 24,
-  /** 인벤토리에서 바닥에 버릴 때 튀어나가는 속도 (앞쪽, 위쪽) */
-  tossX: 90, tossY: 300,
+  /** 인벤토리에서 버린 물건: 이 시간(초) 동안 아무도 못 주움 (붉은 틴트) */
+  lock: 2,
 };

@@ -949,3 +949,17 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 /* 대장장이 제작 진행 막대 */
 .craft-prog { --s: 1px; width: 100%; height: 18px; margin: 4px 0; }
 .craft-prog span { line-height: 18px; font-size: 12px; }
+
+/* 인벤토리 작은 창 (버릴 개수 묻기·안내): 화면 가운데 */
+.dlg-overlay:has(.mini-dlg) { align-items: center; }
+.mini-dlg {
+  zoom: var(--ui);
+  background: var(--c-paper); color: var(--c-brown); border: 2px solid var(--c-brown); border-radius: 8px;
+  padding: 14px 18px 12px; min-width: 220px; display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 15px;
+}
+.mini-row { display: flex; align-items: center; gap: 10px; }
+.mini-row .item-ico { --ico: 32px; }
+.mini-num { width: 80px; font: inherit; font-size: 16px; padding: 4px 6px; border: 1px solid var(--c-latte); border-radius: 4px; background: var(--c-paper-hi); color: var(--c-brown); text-align: right; }
+.mini-btns { display: flex; gap: 8px; }
+.mini-btn { font: inherit; font-size: 14px; padding: 4px 16px; border: 1px solid var(--c-brown); border-radius: 4px; background: var(--c-brown); color: var(--c-cream); cursor: pointer; }
+.mini-btn:hover { background: var(--c-latte); }

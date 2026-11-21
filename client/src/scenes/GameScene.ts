@@ -16,6 +16,8 @@ import type { Enemy } from '@shared/sim/entities';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 /** 바닥에 떨어진 물건 그림의 화면 크기 (원본이 16·32·64 여도 이 크기로 맞춤) */
 const DROP_ICON_PX = 32;
+/** 버린 지 얼마 안 돼 못 줍는 물건 틴트 (살짝 붉게) */
+const DROP_LOCK_TINT = 0xff9a9a;
 
 import { ICON_URLS } from '../ui/icons';
 import { itemDef } from '@shared/data/items';
@@ -982,7 +984,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     const frame = Math.floor(this.time.now / 1000 * COIN_ANIM.fps) % COIN_ANIM.frames;
     for (const c of world.coins) {
       const blink = c.t > COIN.life - COIN.blinkLast && Math.floor(c.t * 8) % 2 === 1;
-      if (c.item) { drops.add(c.id); this.drawDrop(c.id, c.item, c.x + c.w / 2, c.y + c.h, c.t, blink); continue; }
+      if (c.item) { drops.add(c.id); this.drawDrop(c.id, c.item, c.x + c.w / 2, c.y + c.h, c.t, blink, c.lock !== undefined); continue; }
       coins.add(c.id);
       const key = `coin:${coinKind(c.amt)}`;
       let sp = this.coinSprites.get(c.id);
@@ -1018,7 +1020,7 @@ export class GameScene extends Phaser.Scene implements Stage {
   }
 
   /** 떨어진 물건: 아이콘 그림(없으면 이모지)이 바닥 위에서 살짝 위아래로 흔들림. (x, y) = 아래 가운데 */
-  private drawDrop(id: string, item: string, x: number, y: number, t: number, blink: boolean) {
+  private drawDrop(id: string, item: string, x: number, y: number, t: number, blink: boolean, locked = false) {
     let d = this.dropSprites.get(id);
     if (!d || d.item !== item) {
       d?.obj.destroy();
@@ -1034,6 +1036,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       this.dropSprites.set(id, d);
     }
     d.obj.setPosition(x, y - 2 - 3 * (1 + Math.sin(t * 4))).setVisible(!blink);
+    // 버린 지 얼마 안 돼 못 줍는 물건: 살짝 붉게
+    if (locked) d.obj.setTint(DROP_LOCK_TINT); else d.obj.clearTint();
   }
 
   /** 투사체·소용돌이 + 내 캐릭터 주변 표시 (마법진, 충전 바, 조준, 사슬) */
