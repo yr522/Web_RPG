@@ -2,9 +2,11 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { ITEMS, SHOP_ITEMS, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, addItem, canAdd, depositItem, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
+import { craftCollect, craftOrder } from './craft';
+import { SMITH_SHOP } from '../data/craft';
 import { QUESTS, questDef } from '../data/quests';
 import { enhance, optionUp, repair, reroll } from './gear';
 import { acceptQuest, profQuests, questState, reportQuest, togglePin } from './quests';
@@ -44,6 +46,10 @@ export type MenuAction =
   | { type: 'withdraw'; index: number }
   /** 칭호 달기 (null = 떼기) */
   | { type: 'title'; id: string | null }
+  /** 대장장이 제작: 맡기기 / 다 된 것 받기 / 형판 사기 */
+  | { type: 'craftOrder'; recipe: string }
+  | { type: 'craftCollect' }
+  | { type: 'buyMold'; item: string; n: number }
   /** 대화 중 효과 (퀘스트 주기·보고, 플래그). 위치는 story.ts 의 findEffect 참고 */
   | { type: 'storyDo'; npc: string; talk: number; path: number[] }
   /** 컷신 안의 { do } 단계 (데이터에서 직접 찾음) */
@@ -277,6 +283,17 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
     case 'deposit': return depositItem(s, s.storage, a.index);
     case 'withdraw': return withdrawItem(s, s.storage, a.index);
     case 'title': return setTitle(s, a.id);
+    case 'craftOrder': return craftOrder(s, a.recipe, Date.now());
+    case 'craftCollect': return craftCollect(s, Date.now());
+    case 'buyMold': {
+      const d = itemDef(a.item);
+      if (!SMITH_SHOP.includes(a.item) || !d?.price || a.n < 1) return fail('없는 물건이야');
+      if (s.gold < d.price * a.n) return fail('골드가 부족해');
+      if (!canAdd(s, a.item, a.n)) return fail(BAG_FULL);
+      s.gold -= d.price * a.n;
+      addItem(s, a.item, a.n);
+      return { ok: true, msg: `${d.name} ×${a.n}` };
+    }
     case 'storyDo': {
       const e = findEffect(a.npc, a.talk, a.path);
       return e ? applyEffect(s, e) : fail('없는 대사야');

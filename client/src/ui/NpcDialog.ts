@@ -6,6 +6,8 @@ import { GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/it
 import { countItem, equippedSlot } from '@shared/rules/inventory';
 import { questTitle } from '@shared/data/quests';
 import { settings, setSettings } from '../settings';
+import { CRAFT, RECIPES, REPAIR_INGOT, SMITH_SHOP, enhanceIngot, recipeDef } from '@shared/data/craft';
+import { craftStatus } from '@shared/rules/craft';
 import { profQuests, questProgressText, questState } from '@shared/rules/quests';
 import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
 import { checkCond, pickTalk } from '@shared/rules/story';
@@ -34,8 +36,8 @@ const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', arc
 const mmss = (ms: number) => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 type ProfView = 'main' | 'learn' | 'class' | 'quest';
-type SmithView = 'enhance' | 'repair' | 'option';
-const SMITH_TABS: { id: SmithView; label: string }[] = [{ id: 'enhance', label: '강화' }, { id: 'repair', label: '수리' }, { id: 'option', label: '옵션' }];
+type SmithView = 'enhance' | 'repair' | 'option' | 'craft';
+const SMITH_TABS: { id: SmithView; label: string }[] = [{ id: 'enhance', label: '강화' }, { id: 'repair', label: '수리' }, { id: 'option', label: '옵션' }, { id: 'craft', label: '제작' }];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 export class NpcDialog {
@@ -207,7 +209,9 @@ export class NpcDialog {
     let view: SmithView = 'enhance', pick: number | null = null;
     this.refresh = () => this.renderSmith(view, pick, v => { view = v; pick = null; this.refresh!(); }, uid => { pick = uid; this.refresh!(); });
     this.refresh();
-    this.host.open(box, () => { this.refresh = null; });
+    // 제작 탭: 남은 시간이 흐르니 1초마다 다시 그림
+    const timer = window.setInterval(() => { if (view === 'craft') this.tickCraft(); }, 500);
+    this.host.open(box, () => { this.refresh = null; clearInterval(timer); });
   }
 
   /**
@@ -413,6 +417,7 @@ export class NpcDialog {
       tabs.appendChild(c);
     }
     b.appendChild(tabs);
+    if (view === 'craft') return this.renderCraft(b);
     // 고를 수 있는 장비
     const fits = (e: BagEntry) => view === 'repair' ? !!e.broken : view === 'option' ? !!e.opts?.length : !e.broken;
     const list = s.bag.filter((e): e is BagEntry => !!e && e.uid !== undefined && itemDef(e.id)?.kind === 'equip' && fits(e));
@@ -434,9 +439,11 @@ export class NpcDialog {
     card.appendChild(el('b', '', `<span${g ? ` style="color:${GRADES[g].color}"` : ''}>${lv ? `+${lv} ` : ''}${esc(d.name)}</span>`));
     const base = baseBonus(e);
     card.appendChild(el('div', 'note', (Object.keys(base) as BonusId[]).map(k => esc(bonusLine(k, base[k] ?? 0))).join(' · ')));
-    const btn = (label: string, cost: number, a: MenuAction, cls = 'sm go') => {
-      const x = el('button', cls, `${label} <span class="cost">${cost} G</span>`, () => this.act(a)) as HTMLButtonElement;
-      x.disabled = s.gold < cost;
+    const btn = (label: string, cost: number, a: MenuAction, cls = 'sm go', ingot?: { item: string; n: number }) => {
+      const have = ingot ? countItem(s, ingot.item) : 0;
+      const mat = ingot ? ` · ${esc(itemDef(ingot.item)?.name ?? ingot.item)} ${have}/${ingot.n}` : '';
+      const x = el('button', cls, `${label} <span class="cost">${cost} G${mat}</span>`, () => this.act(a)) as HTMLButtonElement;
+      x.disabled = s.gold < cost || (!!ingot && have < ingot.n);
       return x;
     };
     const row = el('div', 'smith-row');
@@ -446,11 +453,11 @@ export class NpcDialog {
         const t = ENHANCE[lv];
         card.appendChild(el('div', 'line', `+${lv} → +${lv + 1}`));
         card.appendChild(el('div', 'note', `성공 ${pct(t.ok)} · 실패 ${pct(1 - t.ok - t.boom)} · 파괴 ${pct(t.boom)}`));
-        row.appendChild(btn('강화', t.cost, { type: 'smithEnhance', uid, protect: false }));
-        if (t.boom > 0) row.appendChild(btn('파괴 방지 강화', t.cost * ENHANCE_PROTECT, { type: 'smithEnhance', uid, protect: true }, 'sm'));
+        row.appendChild(btn('강화', t.cost, { type: 'smithEnhance', uid, protect: false }, 'sm go', enhanceIngot(lv)));
+        if (t.boom > 0) row.appendChild(btn('파괴 방지 강화', t.cost * ENHANCE_PROTECT, { type: 'smithEnhance', uid, protect: true }, 'sm', enhanceIngot(lv)));
       }
     } else if (view === 'repair') {
-      row.appendChild(btn('수리', repairCost(lv), { type: 'smithRepair', uid }));
+      row.appendChild(btn('수리', repairCost(lv), { type: 'smithRepair', uid }, 'sm go', REPAIR_INGOT));
     } else {
       (e.opts ?? []).forEach((o, i) => {
         const r = el('div', 'smith-opt');
@@ -462,6 +469,65 @@ export class NpcDialog {
     }
     card.appendChild(row);
     b.appendChild(card);
+  }
+
+  /** 제작 탭이 열려 있는 동안: 남은 시간만 그 자리에서 바꾸고, 하나가 완성되면 다시 그림 (다시 그리면 스크롤이 튀어서) */
+  private craftDone = -1;
+  private tickCraft() {
+    const s = this.session.save, st = craftStatus(s, Date.now());
+    if (st.done !== this.craftDone) { this.refresh?.(); return; }
+    const bar = this.body?.querySelector<HTMLElement>('.craft-prog');
+    if (!bar) return;
+    (bar.querySelector('i') as HTMLElement).style.width = `${Math.max(0, Math.min(1, 1 - st.left / CRAFT.time)) * 100}%`;
+    (bar.querySelector('span') as HTMLElement).textContent = `${st.left}초 남음`;
+  }
+
+  /** 대장장이 제작: 형판 사기 · 맡기기 · 대기열 · 받기 */
+  private renderCraft(b: HTMLElement) {
+    const s = this.session.save, now = Date.now(), st = craftStatus(s, now);
+    this.craftDone = st.done;
+    // 대기열
+    const q = el('div', 'card');
+    q.appendChild(el('b', '', `제작 대기열 ${s.craft.queue.length} / ${CRAFT.queueMax}`));
+    if (!s.craft.queue.length) q.appendChild(el('div', 'note', '맡긴 게 없어'));
+    else {
+      const names = s.craft.queue.map((id, i) => `${i < st.done ? '✔' : i === st.done ? '⏳' : '·'} ${esc(itemDef(recipeDef(id)?.out ?? id)?.name ?? id)}`);
+      q.appendChild(el('div', 'note', names.join('  ')));
+      if (st.done < s.craft.queue.length) {
+        const k = 1 - st.left / CRAFT.time;
+        q.appendChild(el('div', 'ac-prog craft-prog', `<i style="width:${Math.max(0, Math.min(1, k)) * 100}%"></i><span>${st.left}초 남음</span>`));
+      }
+      const get = el('button', 'sm go', `받기 (${st.done})`, () => this.act({ type: 'craftCollect' })) as HTMLButtonElement;
+      get.disabled = st.done === 0;
+      q.appendChild(get);
+    }
+    b.appendChild(q);
+    // 레시피
+    for (const r of RECIPES) {
+      const card = el('div', 'card');
+      const mats = r.mats.map(m => `${esc(itemDef(m.item)?.name ?? m.item)} ${countItem(s, m.item)}/${m.n}`).join(' · ');
+      card.appendChild(el('div', '', `<b>${esc(itemDef(r.out)?.name ?? r.out)}</b> <span class="note">${CRAFT.time}초</span><br><span class="note">${mats} · ${r.gold} G</span>`));
+      const ok = r.mats.every(m => countItem(s, m.item) >= m.n) && s.gold >= r.gold && s.craft.queue.length < CRAFT.queueMax;
+      const x = el('button', 'sm go', '맡기기', () => this.act({ type: 'craftOrder', recipe: r.id })) as HTMLButtonElement;
+      x.disabled = !ok;
+      card.appendChild(x);
+      b.appendChild(card);
+    }
+    // 형판 사기
+    const shop = el('div', 'card');
+    shop.appendChild(el('b', '', '형판'));
+    const row = el('div', 'smith-row');
+    for (const id of SMITH_SHOP) {
+      const d = itemDef(id)!;
+      for (const n of [1, 10]) {
+        const x = el('button', 'sm', `${esc(d.name)} ×${n} <span class="cost">${d.price! * n} G</span>`, () => this.act({ type: 'buyMold', item: id, n })) as HTMLButtonElement;
+        x.disabled = s.gold < d.price! * n;
+        row.appendChild(x);
+      }
+    }
+    shop.appendChild(row);
+    shop.appendChild(el('div', 'note', `가진 형판: ${SMITH_SHOP.map(id => `${esc(itemDef(id)!.name)} ${countItem(s, id)}`).join(' · ')}`));
+    b.appendChild(shop);
   }
 
   // ---------- 매점 ----------
