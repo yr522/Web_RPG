@@ -121,6 +121,8 @@ const ITEM_LIST = {
   mold_iron: { name: '철 주괴 형판', kind: 'etc', icon: '🧱', price: 100, desc: '쓸만한 고철을 녹여 철 주괴로 굳히는 틀 (제작할 때 하나씩 씀)', bulk: [1, 10] },
   ingot_rusty: { name: '녹슨 주괴', kind: 'etc', icon: '🟫', desc: '녹슨 고철을 녹여 만든 주괴. 강화 재료 (+0 ~ +9)', sell: 180 },
   ingot_iron: { name: '철 주괴', kind: 'etc', icon: '⬜', desc: '쓸만한 고철을 녹여 만든 주괴. 강화(+10 이상)·수리 재료', sell: 600 },
+  // 2026-11-21 유저: 연금술 테스트 (아무 효과 없음, 아이콘은 임시로 초대형 HP 포션)
+  honey_shake: { name: '100번 저은 꿀 쉐이크', kind: 'etc', icon: '🥤', img: 'item/potion/red_large', desc: '' },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
   scrap_rusty: { name: '녹슨 고철', kind: 'etc', icon: '🔩', img: 'item/material/bad_slate', desc: '경비기계에서 떨어진 녹슨 쇳조각', sell: 5 },
   scrap_good: { name: '쓸만한 고철', kind: 'etc', icon: '⚙️', img: 'item/material/good_slate', desc: '경비기계에서 떨어진 아직 쓸 만한 쇳조각', sell: 30 },

@@ -963,3 +963,63 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .mini-btns { display: flex; gap: 8px; }
 .mini-btn { font: inherit; font-size: 14px; padding: 4px 16px; border: 1px solid var(--c-brown); border-radius: 4px; background: var(--c-brown); color: var(--c-cream); cursor: pointer; }
 .mini-btn:hover { background: var(--c-latte); }
+
+/* 제작 창 (J): 퀘스트 창의 1.5배쯤 */
+.craft .pw-body { padding: calc(6 * var(--s)); }
+.cr-wrap { display: flex; gap: calc(6 * var(--s)); width: calc(640 * var(--s)); height: calc(420 * var(--s)); font-size: max(10px, 12 * var(--s)); }
+.cr-left {
+  position: relative; flex: none; width: calc(320 * var(--s)); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(8 * var(--s));
+  background: var(--c-paper-hi); border-radius: calc(4 * var(--s)); overflow: hidden;
+}
+/* 뒤 배경: 연금술 그림 크게, 흐리게 (장비창 캐릭터 그림처럼) */
+.cr-left::before {
+  content: ''; position: absolute; inset: 0; background: var(--bg) center 40% / calc(256 * var(--s)) no-repeat;
+  image-rendering: pixelated; opacity: .14; pointer-events: none;
+}
+.cr-area { position: relative; width: calc(312 * var(--s)); height: calc(230 * var(--s)); }
+.cr-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cr-lines polyline { fill: none; stroke: var(--c-brown); stroke-width: 2; stroke-linejoin: round; }
+.cr-lines polyline.lack { stroke: var(--c-latte); }
+.cr-slot { position: absolute; width: calc(48 * var(--s)); height: calc(48 * var(--s)); background: var(--c-paper); border: calc(2 * var(--s)) solid var(--c-brown); border-radius: calc(8 * var(--s)); }
+.cr-slot.empty { border-color: var(--c-latte); border-style: dashed; background: transparent; }
+.cr-need { position: absolute; left: 0; right: 0; bottom: calc(-16 * var(--s)); text-align: center; font-size: max(9px, 11 * var(--s)); font-weight: 700; }
+.cr-slot.lack .cr-need { color: #b04030; }
+.cr-result {
+  position: absolute; left: calc(126 * var(--s)); top: calc(158 * var(--s)); width: calc(60 * var(--s)); height: calc(60 * var(--s));
+  background: var(--c-paper); border: calc(2 * var(--s)) solid var(--c-brown); border-radius: calc(10 * var(--s)); --ico: calc(40 * var(--s));
+}
+.cr-aux { position: absolute; left: calc(198 * var(--s)); top: calc(182 * var(--s)); width: calc(36 * var(--s)); height: calc(36 * var(--s)); background: transparent; border: calc(2 * var(--s)) dashed var(--c-latte); border-radius: calc(6 * var(--s)); }
+/* 재료 미달: 그 칸 아이콘 + 결과물 흑백 */
+.cr-slot.lack .item-ico, .cr-result.lack .item-ico { filter: grayscale(1); opacity: .55; }
+.cr-name { position: relative; font-weight: 700; font-size: max(11px, 14 * var(--s)); min-height: 1.2em; }
+.cr-act { position: relative; display: flex; gap: calc(6 * var(--s)); align-items: center; }
+.cr-make {
+  font: inherit; font-weight: 700; font-size: max(11px, 13 * var(--s)); padding: calc(4 * var(--s)) calc(18 * var(--s));
+  background: var(--c-paper); color: var(--c-brown); border: calc(2 * var(--s)) solid var(--c-brown); border-radius: calc(8 * var(--s)); cursor: pointer;
+}
+.cr-make:hover:not(:disabled) { background: var(--c-mint); }
+.cr-make:disabled { opacity: .45; cursor: default; }
+.cr-num { width: calc(56 * var(--s)); font: inherit; font-size: max(11px, 13 * var(--s)); padding: calc(3 * var(--s)) calc(4 * var(--s)); text-align: right; border: calc(1 * var(--s)) solid var(--c-latte); border-radius: calc(4 * var(--s)); background: var(--c-paper-hi); color: var(--c-brown); }
+.cr-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(6 * var(--s)); }
+.cr-list { flex: 1; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: calc(5 * var(--s)); padding-right: calc(2 * var(--s)); }
+.cr-card { display: flex; align-items: center; gap: calc(8 * var(--s)); padding: calc(5 * var(--s)); background: var(--c-paper-hi); border: calc(2 * var(--s)) solid var(--c-brown); border-radius: calc(3 * var(--s)); cursor: pointer; }
+.cr-card.on { background: var(--c-mint); }
+.cr-ico { flex: none; width: calc(44 * var(--s)); height: calc(44 * var(--s)); }
+.cr-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(2 * var(--s)); }
+.cr-text small { font-weight: 300; }
+.cr-max { align-self: flex-start; font-size: .85em; white-space: nowrap; }
+.cr-queue { flex: none; background: var(--c-paper-lo); border-radius: calc(8 * var(--s)); padding: calc(5 * var(--s)) calc(8 * var(--s)) calc(8 * var(--s)); display: flex; flex-direction: column; align-items: center; gap: calc(4 * var(--s)); }
+.cr-qtitle { font-weight: 700; }
+.cr-qrow { display: flex; align-items: center; gap: calc(6 * var(--s)); }
+.cr-qcell { width: calc(44 * var(--s)); height: calc(44 * var(--s)); background: var(--c-paper-hi); border: calc(2 * var(--s)) solid var(--c-brown); border-radius: calc(6 * var(--s)); }
+.cr-qbar { position: absolute; left: calc(3 * var(--s)); right: calc(3 * var(--s)); bottom: calc(-7 * var(--s)); height: calc(4 * var(--s)); background: rgba(0, 0, 0, .15); border-radius: 2px; overflow: hidden; }
+.cr-qbar i { display: block; height: 100%; width: 0; background: var(--c-mint); }
+/* 화살표: 들어가는 쪽 회색, 나오는 쪽 노랑. 만드는 중이면 차례로 깜빡임 */
+.cr-arrows { display: flex; gap: calc(6 * var(--s)); font-size: max(9px, 11 * var(--s)); }
+.cr-arrows i { font-style: normal; }
+.cr-arrows.in { color: #8a8070; }
+.cr-arrows.out { color: #e8c020; }
+.cr-qrow.run .cr-arrows i { animation: cr-arrow 1.2s infinite; }
+.cr-qrow.run .cr-arrows i:nth-child(2) { animation-delay: .2s; }
+.cr-qrow.run .cr-arrows i:nth-child(3) { animation-delay: .4s; }
+@keyframes cr-arrow { 0%, 100% { opacity: .3; } 30% { opacity: 1; } }

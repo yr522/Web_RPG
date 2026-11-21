@@ -71,6 +71,8 @@ export interface SceneDeps {
   session: Session; input: Input; hud: Hud; isTouch: boolean; openNpc: (id: string) => void;
   /** 예 / 아니오 묻기 */
   confirm: (text: string, yes: () => void) => void;
+  /** 갈 곳 고르기 포탈 */
+  choosePortal: (opts: { label: string; go: () => void }[]) => void;
   /** 보스 입장 포탈: 난이도 고르기 */
   chooseBoss: (boss: string, text?: string) => void;
   /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
@@ -542,7 +544,8 @@ export class GameScene extends Phaser.Scene implements Stage {
       if (ev.type === 'mapEnter') { this.buildMap(); hud.showBanner(session.world.map.name); }
       if (ev.type === 'notice') hud.toast(ev.text);
       if (ev.type === 'interact') this.deps.openNpc(ev.npc);
-      if (ev.type === 'portal' && ev.boss) this.deps.chooseBoss(ev.boss, ev.confirm);
+      if (ev.type === 'portal' && ev.choose) this.deps.choosePortal(ev.choose.map(c => ({ label: c.label, go: () => session.takePortal(c.to, c.toX) })));
+      else if (ev.type === 'portal' && ev.boss) this.deps.chooseBoss(ev.boss, ev.confirm);
       else if (ev.type === 'portal' && ev.confirm) {
         const { to, toX, toY } = ev;
         this.deps.confirm(ev.confirm, () => session.takePortal(to, toX, toY));

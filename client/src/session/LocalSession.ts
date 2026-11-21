@@ -18,6 +18,7 @@ import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
 import { BOSSES, bossDef, roomDifficulty, type Difficulty } from '@shared/data/bosses';
 import { questDef } from '@shared/data/quests';
+import { alchemyTick } from '@shared/rules/alchemy';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -184,6 +185,8 @@ export class LocalSession implements Session {
   }
 
   update(realDt: number, readCommand: () => Command): GameEvent[] {
+    // 연금술: 시간이 된 만큼 가방에 (게임을 꺼 둔 동안 된 것도)
+    if (this.save.alchemy.queue.length && alchemyTick(this.save, this.nowMs())) void this.store.save(this.save);
     const out: GameEvent[] = this.pending;
     this.pending = [];
     this.acc += Math.min(realDt, 0.25);
@@ -207,7 +210,7 @@ export class LocalSession implements Session {
         }
         if (ev.type === 'portal' && ev.playerId === this.playerId) {
           // 물어보는 포탈은 화면이 "예"를 누르면 takePortal
-          if (ev.confirm || ev.boss) continue;
+          if (ev.confirm || ev.boss || ev.choose) continue;
           const { hp, mp } = this.me();
           this.enter(ev.to, ev.toX, { hp, mp }, ev.toY);
           out.push({ type: 'mapEnter', playerId: this.playerId, map: ev.to });

@@ -257,7 +257,7 @@ export class World implements SkillWorld {
       if (npc) { this.events.push({ type: 'interact', playerId: p.id, npc: npc.id }); return; }
       const portal = this.portalNear(p);
       if (portal?.closed && p.onGround) { this.warn(p, portal.closed); return; }
-      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss }); return; }
+      if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss, choose: portal.choose }); return; }
     }
 
     // 스킬 입력. 공격이 완전히 끝나기 전 입력은 무효, 끝나기 0.2초 전 입력만 끝나자마자 실행(버퍼)

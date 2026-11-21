@@ -6,6 +6,7 @@ import { EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, 
 import { BAG_FULL, addItem, canAdd, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
 import { craftCollect, craftOrder } from './craft';
+import { alchemyOrder } from './alchemy';
 import { SMITH_SHOP } from '../data/craft';
 import { QUESTS, questDef } from '../data/quests';
 import { enhance, optionUp, repair, reroll } from './gear';
@@ -38,6 +39,7 @@ export type MenuAction =
   /** 가방 index 칸의 장비 끼기 / 벗기 */
   | { type: 'equip'; index: number }
   | { type: 'equipTo'; index: number; slot: EquipSlot }
+  | { type: 'alchemy'; recipe: string; n: number }
   | { type: 'unequip'; slot: EquipSlot }
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
@@ -269,6 +271,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       const why = toggleEquip(s, a.index);
       return why ? fail(why) : { ok: true, statsChanged: true };
     }
+    case 'alchemy': return alchemyOrder(s, a.recipe, a.n, nowMs);
     case 'equipTo': {
       if (!(a.slot in EQUIP_SLOTS)) return { ok: false };
       const why = equipTo(s, a.index, a.slot);

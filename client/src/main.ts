@@ -11,6 +11,7 @@ import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
 import { EquipWindow } from './ui/EquipWindow';
+import { CraftWindow } from './ui/CraftWindow';
 import { QuestWindow } from './ui/QuestWindow';
 import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
@@ -88,6 +89,9 @@ async function boot() {
   const equipWindow = new EquipWindow(session, hud);
   const invWindow = new InventoryWindow(session, hud, equipWindow, dialogs);
   hud.onUpdate.push(() => { invWindow.update(); equipWindow.update(); });
+  const craftWindow = new CraftWindow(session, hud);
+  hud.onUpdate.push(() => craftWindow.update());
+  npcDialog.onCraft = () => craftWindow.open();
   const questWindow = new QuestWindow(session, hud);
   const skillWindow = new SkillWindow(session, hud);
   hud.onUpdate.push(() => skillWindow.update());
@@ -127,8 +131,9 @@ async function boot() {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
     if (code === 'KeyU') hud.onMenu('equip');
+    if (code === 'KeyJ') craftWindow.toggle();
     if (code === 'KeyK') hud.onMenu('skill');
-    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (craftWindow.isOpen) craftWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();
@@ -144,7 +149,7 @@ async function boot() {
     banner: false,
   });
   if (import.meta.env.DEV) Object.assign(window, { __game: game });
-  game.scene.add('game', GameScene, true, { loading, session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
+  game.scene.add('game', GameScene, true, { loading, session, input, hud, isTouch, openNpc, talk: (npc: string) => npcDialog.openTalk(npc), confirm: (text: string, yes: () => void) => npcDialog.confirm(text, yes), choosePortal: (opts: { label: string; go: () => void }[]) => npcDialog.choose(opts), chooseBoss: (boss: string, text?: string) => npcDialog.openDifficulty(boss, text) });
   // 대사 안의 컷신 → 게임 화면에서 재생
   npcDialog.onCutscene = id => (game.scene.getScene('game') as GameScene).playCutscene(id);
   if (import.meta.env.DEV) Object.assign(window, { __cutscene: (id: string) => (game.scene.getScene('game') as GameScene).playCutscene(id) });

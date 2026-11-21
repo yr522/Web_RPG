@@ -15,6 +15,8 @@ export interface Portal {
   y?: number; toY?: number;
   /** 들어가기 전에 물어봄 */
   confirm?: string;
+  /** 갈 곳 고르기 (대화창 선택지). 있으면 to·toX 대신 고른 곳으로 */
+  choose?: { label: string; to: MapId; toX: number }[];
   /** 보스 방 입장 포탈: 난이도를 골라 들어감 (bosses.ts 의 id). confirm 문구를 같이 보여 줌 */
   boss?: string;
   /** 닫힌 포탈: ↑ 를 누르면 이 글만 뜨고 안 들어가짐 (나중에 열 곳. to 는 아무 맵이나) */
@@ -29,7 +31,7 @@ export interface Sign { x: number; text: string }
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[] }
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
-  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow'
+  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow' | 'my_workshop'
   | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field';
 
 export interface MapDef {
@@ -293,7 +295,8 @@ export const MAPS: Record<MapId, MapDef> = {
       // 그림 속 아치 통로
       { x: HALL_ARCH_X, to: 'school_hallway', toX: 70, label: '학교 복도' },
       // 맨 오른쪽: 기숙사 (2026-11-20, 예전엔 학교 바깥 오른쪽 끝)
-      { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사' },
+      // 2026-11-21: 기숙사 / 개인 공방 고르기
+      { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사', choose: [{ label: '기숙사', to: 'dorm', toX: 190 }, { label: '개인 공방', to: 'my_workshop', toX: 190 }] },
     ],
     // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
     npcs: [{ id: 'storage', x: 250 }, { id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
@@ -322,6 +325,15 @@ export const MAPS: Record<MapId, MapDef> = {
     platforms: [],
     portals: [{ x: 126, to: 'school_hall', toX: HALL_DORM_X - 80, label: '학교 홀' }],
     npcs: [{ id: 'bed', x: 413 }],
+    signs: [],
+    spawns: [],
+  },
+  // 개인 공방 (2026-11-21): 이 맵에서만 제작(J). 배경은 임시로 기숙사 그림
+  my_workshop: {
+    name: '개인 공방', width: 1113, indoor: true, safe: true, bg: { img: 'school_room', groundY: 706 },
+    platforms: [],
+    portals: [{ x: 126, to: 'school_hall', toX: HALL_DORM_X - 80, label: '학교 홀' }],
+    npcs: [],
     signs: [],
     spawns: [],
   },
@@ -438,7 +450,7 @@ export const MAP_BGM: Partial<Record<MapId, string>> = {
   // 마을 · 학교 바깥 · 학교 안 전부
   town: 'Noblesse nostalgia', school: 'Noblesse nostalgia', school_hall: 'Noblesse nostalgia', school_hallway: 'Noblesse nostalgia',
   classroom_sword: 'Noblesse nostalgia', classroom_magic: 'Noblesse nostalgia', classroom_bow: 'Noblesse nostalgia',
-  dorm: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
+  dorm: 'Noblesse nostalgia', my_workshop: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
   // 슬라임 사냥터 3개
   field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow',
   // 공방 안 전부 (던전 잊힌 공방 포함)
