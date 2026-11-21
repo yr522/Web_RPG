@@ -69,6 +69,17 @@ export interface TalkNpcDef {
 /** 플레이어가 이 거리(월드 px) 안으로 들어오면 말풍선이 뜬다 */
 export const NPC_BUBBLE_RANGE = 220;
 
+/** 초대장 배달(bd3): 이 NPC 에게 초대장 1장 건네기 (대사 임시) */
+const deliver = (id: string, reply: string, who?: string): { when: Cond; steps: DialogueStep[] } => ({
+  when: { all: [{ quest: 'bd3', state: 'active' }, { flag: `bd3_${id}`, eq: 0 }, { has: 'invitation' }] },
+  steps: [
+    { line: '영주님 생신 잔치 초대장 전해 드리러 왔어요.', who: 'player' },
+    { line: reply, who },
+    { do: { item: 'invitation', n: -1 } },
+    { do: { flag: `bd3_${id}`, set: 1 } },
+  ],
+});
+
 export const TALK_NPCS: Record<string, TalkNpcDef> = {
   // ---- 마법공학의 유산 (대사는 줄거리만 알 수 있게 넣은 임시) ----
   // 동급생 마법사: 어느 맵에 서 있는지는 maps.ts 의 npcs (퀘스트 진행에 따라 자리를 옮김)
@@ -366,6 +377,7 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     icon: '🧁',
     dialogue: [{ line: '요즘 마을이 북적북적하지? 다들 영주님 생신 잔치 준비로 정신이 없어.' }],
     talks: [
+      deliver('masha', '어머, 초대장이 이제야 왔네! 잔치 날 꿀케이크 잔뜩 구워 갈게.'),
       {
         when: { all: [{ quest: 'mg13', state: 'done' }, { level: { gte: 3 } }, { quest: 'bd1', state: 'none' }] },
         steps: [
@@ -391,11 +403,95 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     ],
     guide: true,
   },
-  // 영주의 집사 세바스찬 (퀘스트는 나중에)
+  // 영주의 집사 세바스찬: 초대장 배달 (bd3)
   sebastian: {
     name: '세바스찬',
     icon: '🎩',
     dialogue: [{ line: '영주님의 생신 잔치 준비로 영지 전체가 분주합니다. 저 역시 마찬가지고요.' }],
+    talks: [
+      {
+        when: { all: [{ quest: 'mg13', state: 'done' }, { level: { gte: 3 } }, { quest: 'bd3', state: 'none' }] },
+        steps: [
+          { line: '실례합니다. 저는 영주님을 모시는 집사, 세바스찬이라 합니다.' },
+          { line: '생신 잔치 초대장은 진즉 보냈습니다만… 의문의 도적단에게 물자와 함께 통째로 약탈당하고 말았습니다.' },
+          { line: '잔치가 코앞이라 이렇게 직접 돌고 있는데, 손이 모자라군요. 마을 분들께 초대장을 전해 주시겠습니까?' },
+          { line: '대 장장이, 마샤 부인, 합창단 꼬마, 매점의 모리, 그리고 폭죽 장인. 이 다섯 분입니다.' },
+          { do: { quest: 'give', id: 'bd3' } },
+        ],
+      },
+      {
+        when: { all: [{ quest: 'bd3', state: 'active' }, { not: { has: 'invitation' } }] },
+        steps: [{ line: '초대장이 모자라십니까? 여분이 있으니 한 장 더 드리지요.' }, { do: { item: 'invitation', n: 1 } }],
+      },
+      { when: { quest: 'bd3', state: 'active' }, steps: [{ line: '대 장장이, 마샤 부인, 합창단 꼬마, 모리, 폭죽 장인. 잘 부탁드립니다.' }] },
+      {
+        when: { quest: 'bd3', state: 'ready' },
+        steps: [{ line: '모두 전해 주셨군요. 덕분에 한시름 덜었습니다. 약소하지만 받아 주십시오.' }, { do: { quest: 'report', id: 'bd3' } }],
+      },
+      { when: { quest: 'bd3', state: 'done' }, steps: [{ line: '잔치 날 뵙겠습니다. 그 도적단 일은… 저희도 알아보는 중입니다.' }] },
+    ],
+    guide: true,
+  },
+  // 합창단 꼬마: 날아간 악보 (bd4). 초대장을 받으면 열림
+  choir_kid: {
+    name: '합창단 꼬마',
+    icon: '🎵',
+    dialogue: [{ line: '……. (부끄러운 듯 고개를 돌린다)' }],
+    talks: [
+      deliver('choir_kid', '……초대장. 고, 고마워요.'),
+      {
+        when: { all: [{ flag: 'bd3_choir_kid', gte: 1 }, { quest: 'bd4', state: 'none' }] },
+        steps: [
+          { line: '저, 저기… 잔치에서 노래하기로 했는데요…' },
+          { line: '사람들 앞이 부끄러워서, 아무도 없는 밤에 가도에서 혼자 연습했어요.' },
+          { line: '그랬더니 노랫소리를 듣고 들짐승들이 몰려와서… 가도를 점령해 버렸어요.' },
+          { line: '그때 들짐승이 제 악보를 물고 가 버렸어요. 꼭 되찾아야 해요… 도와주실래요?' },
+          { do: { quest: 'give', id: 'bd4' } },
+        ],
+      },
+      { when: { quest: 'bd4', state: 'active' }, steps: [{ line: '악보는 영지 가도에 흩어져 있을 거예요… 다섯 장이에요.' }] },
+      {
+        when: { quest: 'bd4', state: 'ready' },
+        steps: [{ line: '제 악보…! 정말 고마워요. 잔치 날, 꼭 들으러 와 주세요.' }, { do: { quest: 'report', id: 'bd4' } }],
+      },
+      { when: { quest: 'bd4', state: 'done' }, steps: [{ line: '라, 라라… (작게 연습 중이다)' }] },
+    ],
+    guide: true,
+  },
+  // 폭죽 장인: 폭죽은 처음이지? (bd_fw, 필수 아님·반복). 초대장을 받으면 열림
+  firework_master: {
+    name: '폭죽 장인',
+    icon: '🎇',
+    dialogue: [{ line: '이번 잔치 폭죽은 역대급이 될 거다. 두고 보라고!' }],
+    talks: [
+      deliver('firework_master', '초대장? 당연히 가지. 내 폭죽이 없는 잔치는 잔치가 아니니까!'),
+      {
+        when: { all: [{ flag: 'bd3_firework_master', gte: 1 }, { quest: 'bd_fw', state: 'none' }] },
+        steps: [
+          { line: '이번에 내가 신기술을 개발했거든. 원소의 힘으로 하늘을 수놓는 거지!' },
+          { line: '너한테도 특별히 보여 주마. 원소 구슬 10개만 가져와. 공짜로 만들어 줄 테니.' },
+          { do: { quest: 'give', id: 'bd_fw' } },
+        ],
+      },
+      { when: { quest: 'bd_fw', state: 'active' }, steps: [{ line: '원소 구슬 10개. 원소 슬라임들이 가끔 떨어뜨리지.' }] },
+      {
+        when: { quest: 'bd_fw', state: 'ready' },
+        steps: [{ line: '좋아, 좋아! 자, 받아라. 하늘에 쏘아 올려 보면 내 실력을 알 거다.' }, { do: { quest: 'report', id: 'bd_fw' } }],
+      },
+    ],
+  },
+  // 떠돌이 상인 (학교 앞, 할 일은 나중에)
+  wanderer: {
+    name: '떠돌이 상인',
+    icon: '🎒',
+    dialogue: [{ line: '여기저기 떠돌다 보니 잔치 소문을 듣고 왔지. 좋은 물건은… 나중에 보여 주지.' }],
+  },
+  // 매점 모리 (특수 NPC): 초대장 받기만 대화, 나머지는 매점 창
+  shop: {
+    name: '모리',
+    icon: '🛒',
+    dialogue: [],
+    talks: [deliver('shop', '초대장이요? 잔치 날엔 매점 문 닫고 놀러 가야겠네요!')],
   },
   // 대 장장이: 영주님 동상 (bd2). 줄 퀘스트·보고할 퀘스트가 없으면 대장간 창이 열림
   smith: {
@@ -403,6 +499,7 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     icon: '🔨',
     dialogue: [],
     talks: [
+      deliver('smith', '초대장? …동상 만드느라 바빠 죽겠는데. 뭐, 공짜 밥이면 가야지.', 'smith'),
       {
         when: { all: [{ quest: 'mg13', state: 'done' }, { level: { gte: 3 } }, { quest: 'bd2', state: 'none' }] },
         steps: [

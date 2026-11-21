@@ -125,6 +125,13 @@ const ITEM_LIST = {
   empty_bottle: { name: '빈 병', kind: 'etc', icon: '🫙', price: 5, desc: '', bulk: [1, 10] },
   // 2026-11-21 유저: 연금술 테스트 (아무 효과 없음, 아이콘은 임시로 초대형 HP 포션)
   honey_shake: { name: '100번 저은 꿀 쉐이크', kind: 'etc', icon: '🥤', img: 'item/potion/red_large', desc: '' },
+  // ---- 영주님의 생일잔치 2 (2026-11-21) ----
+  elem_orb: { name: '원소 구슬', kind: 'etc', icon: '🔮', img: 'item/material/elemental_ball', desc: '', sell: 3 },
+  rawhide: { name: '생가죽', kind: 'etc', icon: '🟤', img: 'item/material/rawhide', desc: '', sell: 4 },
+  invitation: { name: '생일 초대장', kind: 'etc', icon: '💌', desc: '' },
+  music_sheet: { name: '악보', kind: 'etc', icon: '🎼', desc: '' },
+  // 우클릭으로 사용: 서 있는 자리에 설치 → 3초 뒤 발사 (FIREWORK)
+  firework: { name: '폭죽', kind: 'use', icon: '🎆', desc: '' },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
   scrap_rusty: { name: '녹슨 고철', kind: 'etc', icon: '🔩', img: 'item/material/bad_slate', desc: '경비기계에서 떨어진 녹슨 쇳조각', sell: 5 },
   scrap_good: { name: '쓸만한 고철', kind: 'etc', icon: '⚙️', img: 'item/material/good_slate', desc: '경비기계에서 떨어진 아직 쓸 만한 쇳조각', sell: 30 },
@@ -161,6 +168,12 @@ export function sellPrice(id: string) {
   if (d.sell !== undefined) return d.sell;
   return d.price ? Math.floor(d.price * SELL_RATE) : 0;
 }
+
+/**
+ * 폭죽 (2026-11-21): 인벤토리 우클릭 → 서 있는 자리에 설치, 불똥을 튀기며 부들부들 떨다가 fuse 초 뒤 발사, rise 초 동안 올라가 터짐.
+ * 터지는 높이: 맵 땅에서 burstH 위 (늘 같은 높이). 설치한 자리가 그보다 높으면 그 자리에서 minRise 위
+ */
+export const FIREWORK = { fuse: 3, rise: 0.8, burstH: 280, minRise: 150, burst: 1.8 };
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [

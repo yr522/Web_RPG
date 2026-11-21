@@ -336,6 +336,7 @@ export class InventoryWindow {
       return this.result(r);
     }
     if (POTIONS[id]) return this.session.usePotion(id);
+    if (id === 'firework') return this.session.useFirework();
     if (id === 'reset') {
       // 한 번 더 눌러야 사용 (캐릭터 창과 같은 방식)
       const now = performance.now();

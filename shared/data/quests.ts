@@ -23,6 +23,10 @@ export type QuestGoal = (
   | { kind: 'learn'; skill?: string }
   /** 장비 끼기 (item 이 있으면 그 장비, 없으면 아무 장비나) */
   | { kind: 'equip'; item?: string }
+  /** 맵에서 줍기 (maps.ts 의 pickups). 주운 수로 셈 → 가방에서 버려도 안 줄어듦 */
+  | { kind: 'gather'; item: string; n: number }
+  /** 플래그 여러 개 켜기 (대사의 { do: { flag, set: 1 } }, 켜진 수로 셈. 초대장 전달 등) */
+  | { kind: 'flags'; flags: string[]; label: string }
 ) & {
   /** 퀘스트 창·화면 왼쪽에 보일 조건 글 (없으면 목표에서 만듦: "경비기계A 처치 3/5" 등) */
   text?: string;
@@ -72,6 +76,9 @@ export interface QuestDef {
   /** 길 안내 목적지 (없으면 목표에서 짐작: 말 걸기 → 그 NPC 맵, 가기 → 그 맵, 처치 → 그 몬스터 맵) */
   where?: MapId;
 }
+
+/** 초대장 배달(bd3) 받을 NPC (플래그 bd3_<id>) */
+export const BD3_TARGETS = ['smith', 'masha', 'choir_kid', 'shop', 'firework_master'] as const;
 
 export const QUESTS: QuestDef[] = [
   // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시) ----
@@ -149,6 +156,25 @@ export const QUESTS: QuestDef[] = [
   {
     id: 'bd2', name: '영주님의 동상 제작 의뢰', desc: '대 장장이에게 쓸만한 고철 5개 가져다주기. 경비기계 A·B 가 가끔 떨어뜨림', giver: 'smith',
     goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 800, gold: 3000 }, where: 'guard_a',
+  },
+
+  // 2026-11-21 유저 기획: 초대장 배달 · 날아간 악보 · 폭죽은 처음이지?(필수 아님, 반복). 보상 임시
+  {
+    id: 'bd3', name: '초대장 배달', giver: 'sebastian',
+    desc: '영주의 집사 세바스찬은, 영주의 생일이 코앞인 이때 초대장을 직접 전달하러 왔다. 진즉 발송했지만 의문의 도적단에게 물자와 함께 초대장을 통째로 약탈 당했다고 한다.',
+    start: { items: [{ id: 'invitation', n: 5 }] },
+    goals: [{ kind: 'flags', flags: BD3_TARGETS.map(t => `bd3_${t}`), label: '초대장 전달 (대 장장이·마샤·합창단 꼬마·모리·폭죽 장인)' }],
+    reward: { exp: 900, gold: 1000 }, where: 'town',
+  },
+  {
+    id: 'bd4', name: '날아간 악보', giver: 'choir_kid',
+    desc: '이 꼬마는 영주의 생일 잔치에서 노래를 부르기로 예정되어 있다. 부끄러운 성격 때문에 아무도 없는 밤에 가도에서 혼자 노래를 불렀다. 그러자 노랫소리를 듣고 온 들짐승 무리가 나타나 가도를 점령해버렸다. 그 때 들짐승이 악보를 물고 가버렸다. 꼬마는 악보를 꼭 되찾아야 한다고 부탁한다.',
+    goals: [{ kind: 'gather', item: 'music_sheet', n: 5 }], reward: { exp: 900, gold: 800 }, where: 'road',
+  },
+  {
+    id: 'bd_fw', name: '폭죽은 처음이지?', giver: 'firework_master', repeat: true,
+    desc: '역대급 폭죽을 선보이려는 그. 우쭐대는 걸 좋아하는 성격의 이 npc는 플레이어에게도 신기술이 뭔지 보여주겠다며 원하면 재료만 가져오면 공짜로 만들어주겠다고 한다.',
+    goals: [{ kind: 'collect', item: 'elem_orb', n: 10 }], reward: { items: [{ id: 'firework', n: 5 }] }, where: 'field2',
   },
 
   // ---- 교수님 일일 퀘스트 (2026-11-21, 예전 반복 퀘스트 q1·q2 대신. 범용 하나: 아무 몬스터나. 마릿수·보상 임시) ----
