@@ -9,7 +9,9 @@ import { questDef } from '../shared/data/quests';
 import { applyEffect, mapNpcs, mapPickups, npcMark, pickTalk } from '../shared/rules/story';
 import { World } from '../shared/sim/World';
 import { GROUND_Y } from '../shared/data/maps';
-import { autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
+import { ADVANCE, ADVANCE_LINES } from '../shared/data/advance';
+import { advanceLine } from '../shared/rules/advance';
+import { acceptQuest, profQuests, autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
 import { addItem, countItem, removeItem } from '../shared/rules/inventory';
 import { gainExp } from '../shared/rules/progress';
 import { PHASE_MS } from '../shared/sim/clock';
@@ -203,4 +205,24 @@ describe('영주님의 생일잔치: 초대장·악보·폭죽', () => {
     for (let i = 0; i < 400; i++) w.step(new Map());
     expect(w.fireworks).toHaveLength(0);
   });
+});
+
+describe('전직 (뼈대)', () => {
+  for (const cls of ['warrior', 'mage', 'archer'] as ClassId[]) {
+    it(`${cls}: 레벨이 되면 교수님 메뉴에 나오고, 골렘을 잡고 보고하면서 고른 갈래로 전직`, () => {
+      const s = newSave('t', cls, 'M');
+      expect(profQuests(s).some(q => q.id === ADVANCE.quest)).toBe(false);
+      s.level = ADVANCE.level;
+      expect(profQuests(s).some(q => q.id === ADVANCE.quest)).toBe(true);
+      expect(acceptQuest(s, ADVANCE.quest)).toBeTruthy();
+      questsOnKill(s, 'golem');
+      expect(questState(s, ADVANCE.quest)).toBe('ready');
+      const pick = pickTalk(s, 'prof', PHASE_NOW[1])!;
+      const ch = pick.steps.find(st => 'choices' in st) as Extract<DialogueStep, { choices: unknown }>;
+      expect(ch.choices.map(c => c.label)).toEqual(ADVANCE_LINES[cls].map(l => l.name));
+      expect(play(s, ch.choices[1].reply)).toBe(true);
+      expect(questState(s, ADVANCE.quest)).toBe('done');
+      expect(advanceLine(s)?.name).toBe(ADVANCE_LINES[cls][1].name);
+    });
+  }
 });

@@ -4,7 +4,7 @@ import {
   ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPTIONS, OPTION_POOL, OPT_CHANCE, OPT_MAX, OPT_MAX_TIER, OPT_UP_COST, REROLL_COST,
   enhanceMult, repairCost, type OptionId,
 } from '../data/gear';
-import { countItem, equippedEntry, equippedSlot, removeItem, type BagEntry } from './inventory';
+import { countItem, equipBonus, equippedSlot, removeItem, type BagEntry } from './inventory';
 import { REPAIR_INGOT, enhanceIngot } from '../data/craft';
 import type { SaveData } from '../sim/save';
 
@@ -44,9 +44,9 @@ export function compareGear(s: SaveData, e: BagEntry): { k: BonusId; v: number }
   if (!part || e.broken || equippedSlot(s, e.uid)) return null;
   // 반지는 비어 있는 칸부터 (toggleEquip 과 같은 순서)
   const slot: EquipSlot = part === 'ring' ? (s.equip.ring1 === undefined ? 'ring1' : s.equip.ring2 === undefined ? 'ring2' : 'ring1') : part;
-  const cur = equippedEntry(s, slot), a = itemBonus(e), b = cur ? itemBonus(cur) : {};
-  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])] as BonusId[];
-  return keys.map(k => ({ k, v: Math.round(((a[k] ?? 0) - (b[k] ?? 0)) * 10) / 10 })).filter(x => x.v !== 0);
+  // 끼기 전·후 전체 장비 능력치 차이 (세트 효과 포함)
+  const b = equipBonus(s), a = equipBonus({ ...s, equip: { ...s.equip, [slot]: e.uid } });
+  return (Object.keys(a) as BonusId[]).map(k => ({ k, v: Math.round((a[k] - b[k]) * 10) / 10 })).filter(x => x.v !== 0);
 }
 
 /** 이 장비에 아직 없는 옵션 중 하나 */

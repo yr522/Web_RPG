@@ -3,6 +3,7 @@ import { GRADES, bonusLine, itemDef, itemGrade, type BonusId } from '@shared/dat
 import { baseBonus, optionValue } from '@shared/rules/gear';
 import type { BagEntry } from '@shared/rules/inventory';
 import { esc } from './Dialog';
+import { GEAR_SETS, setOf } from '@shared/data/sets';
 
 const OFFSET = 14;
 
@@ -10,6 +11,8 @@ export class ItemTip {
   private el = document.createElement('div');
   /** 지금 보여 주는 대상 (같은 대상이면 위치만 옮김) */
   key: string | null = null;
+  /** 지금 끼고 있는 장비 id (세트 효과 표시용, main 에서 연결) */
+  static worn: () => string[] = () => [];
 
   constructor() {
     this.el.className = 'item-tip';
@@ -25,6 +28,8 @@ export class ItemTip {
     const d = itemDef(id);
     if (!d) return this.hide();
     if (cmp) key += `|${JSON.stringify(cmp)}`;
+    const set = d.kind === 'equip' ? setOf(id) : null, worn = set ? ItemTip.worn() : [];
+    if (set) key += `|${worn.join(',')}`;
     if (this.key !== key) {
       this.key = key;
       // 장비는 이름을 등급 색으로
@@ -36,6 +41,13 @@ export class ItemTip {
         body = (e.broken ? '<span class="tip-broken">파괴됨</span>' : '')
           + (Object.keys(b) as BonusId[]).map(k => `<span>${esc(bonusLine(k, b[k] ?? 0))}</span>`).join('')
           + (e.opts ?? []).map(o => `<span class="tip-opt">${esc(bonusLine(o.id, optionValue(o)))} <small>${o.tier}단계</small></span>`).join('');
+        // 세트: 이름 (낀 개수/전체), 세트 장비 (낀 것은 밝게), 효과 (켜진 것은 밝게)
+        if (set) {
+          const g = GEAR_SETS[set], n = g.items.filter(i => worn.includes(i)).length;
+          body += `<hr><span class="tip-set">${esc(g.name)} (${n}/${g.items.length})</span>`
+            + g.items.map(i => `<span class="tip-set-item${worn.includes(i) ? ' on' : ''}">${esc(itemDef(i)?.name ?? i)}</span>`).join('')
+            + g.effects.map(ef => `<span class="tip-set-ef${n >= ef.n ? ' on' : ''}">${ef.n}세트: ${esc((Object.keys(ef.bonus) as BonusId[]).map(k => bonusLine(k, ef.bonus[k] ?? 0)).join(' · '))}</span>`).join('');
+        }
         // 끼면 바뀌는 능력치: 오르면 ▲ 초록, 내리면 ▼ 빨강
         if (cmp?.length) {
           body += '<hr>' + cmp.map(c => {

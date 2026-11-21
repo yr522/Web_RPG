@@ -218,13 +218,42 @@ describe('장비 비교', () => {
     toggleEquip(s, s.bag.indexOf(top));
     expect(compareGear(s, top)).toBeNull();
     // 슬라임 갑옷 (방어 4, HP 10) vs 테스트 상의 (근력 1, 방어 5)
-    expect(compareGear(s, slime)).toEqual([{ k: 'def', v: -1 }, { k: 'hp', v: 10 }, { k: 'str', v: -1 }]);
+    expect(compareGear(s, slime)).toEqual([{ k: 'str', v: -1 }, { k: 'def', v: -1 }, { k: 'hp', v: 10 }]);
   });
   it('반지는 빈 칸이 있으면 빈 칸과 비교', () => {
     const s = newSave('t', 'warrior', 'M');
     addItem(s, 'test_ring'); addItem(s, 'slime_ring');
     toggleEquip(s, s.bag.findIndex(e => e?.id === 'test_ring'));
     expect(compareGear(s, s.bag.find(e => e?.id === 'slime_ring')!)).toEqual([{ k: 'hp', v: 15 }, { k: 'mp', v: 10 }]);
+  });
+});
+
+describe('세트 효과', () => {
+  it('세트 장비를 다 끼면 효과가 켜지고, 하나 벗으면 꺼짐. 비교에도 세트 효과가 들어감', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'slime_armor'); addItem(s, 'slime_ring');
+    const armor = s.bag.findIndex(e => e?.id === 'slime_armor'), ring = s.bag.findIndex(e => e?.id === 'slime_ring');
+    toggleEquip(s, armor);
+    expect(equipBonus(s).def).toBe(4);
+    // 반지를 끼면: 반지 HP·MP + 세트 방어력 5
+    expect(compareGear(s, s.bag[ring]!)).toEqual([{ k: 'def', v: 5 }, { k: 'hp', v: 15 }, { k: 'mp', v: 10 }]);
+    toggleEquip(s, ring);
+    expect(equipBonus(s).def).toBe(9);
+    toggleEquip(s, armor);
+    expect(equipBonus(s).def).toBe(0);
+  });
+  it('같은 반지 2개는 1개로 셈 (세트 안 켜짐)', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'slime_ring'); addItem(s, 'slime_ring');
+    s.bag.forEach((e, i) => { if (e?.id === 'slime_ring') toggleEquip(s, i); });
+    expect(equipBonus(s).def).toBe(0);
+  });
+  it('골렘 세트: 공격력 5 · 보스 피해 10%', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'golem_weapon'); addItem(s, 'golem_gloves');
+    s.bag.forEach((e, i) => { if (e) toggleEquip(s, i); });
+    expect(equipBonus(s).atk).toBe(12 + 3 + 5);
+    expect(deriveStats(s).boss).toBeCloseTo(0.1);
   });
 });
 

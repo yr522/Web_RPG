@@ -5,6 +5,7 @@
 import { CLASSES, expNeed, type StatId } from '@shared/data/classes';
 import { EQUIP_SLOTS, GRADES, itemDef, itemGrade, type EquipSlot } from '@shared/data/items';
 import { equipBonus, equippedEntry } from '@shared/rules/inventory';
+import { advanceLine } from '@shared/rules/advance';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
 import type { Hud } from '../hud/Hud';
@@ -138,7 +139,9 @@ export class CharWindow {
     const box = el('div', 'cw-box');
     const line = (k: string, v: string) => box.appendChild(el('div', 'cw-line', `<b>${k}</b><span>${v}</span>`));
     line('LV.', String(s.level));
+    const adv = advanceLine(s);
     line('직업', cls.name);
+    if (adv) line('전직', adv.name);
     line('EXP', `${s.exp} / ${expNeed(s.level)}`);
     line('처치', String(s.kills));
     this.info.appendChild(box);

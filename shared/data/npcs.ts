@@ -13,6 +13,9 @@
 // 상황별 대사: talks 에 { when: 조건, steps: 대사 } 를 위에서부터 검사해서 처음 맞는 것을 쓴다.
 // 하나도 안 맞으면 dialogue (기본 대사).
 
+import { ADVANCE, ADVANCE_LINES } from './advance';
+import type { ClassId } from './classes';
+
 export type Effect =
   /** 퀘스트 주기 / 보고하기 (보상 받음) */
   | { quest: 'give' | 'report'; id: string }
@@ -361,6 +364,23 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     icon: '🧙',
     dialogue: [],
     talks: [
+      // 전직 시험 보고: 갈래 고르기 (대사 임시)
+      ...(Object.keys(ADVANCE_LINES) as ClassId[]).map(cls => ({
+        when: { all: [{ quest: ADVANCE.quest, state: 'ready' }, { cls }] } as Cond,
+        steps: [
+          { line: '(임시) 시험을 통과했구나. 이제 네 길을 정할 때다.', who: 'prof' },
+          {
+            choices: ADVANCE_LINES[cls].map((l, i) => ({
+              label: l.name,
+              reply: [
+                { do: { flag: ADVANCE.flag, set: i + 1 } },
+                { do: { quest: 'report', id: ADVANCE.quest } },
+                { line: `(임시) ${l.name}의 길이라. 좋다.`, who: 'prof' },
+              ] as DialogueStep[],
+            })),
+          },
+        ] as DialogueStep[],
+      })),
       {
         when: { quest: 'mg13', state: 'ready' },
         steps: [
