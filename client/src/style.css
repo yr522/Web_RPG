@@ -1029,3 +1029,6 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .cr-qrow.run .cr-arrows i:nth-child(2) { animation-delay: .2s; }
 .cr-qrow.run .cr-arrows i:nth-child(3) { animation-delay: .4s; }
 @keyframes cr-arrow { 0%, 100% { opacity: .3; } 30% { opacity: 1; } }
+
+/* 장비창 Looks(치장) 탭: 헤어·얼굴 칸 그림 */
+.look-ico { width: calc(var(--ico) * 1.15); height: calc(var(--ico) * 1.15); }

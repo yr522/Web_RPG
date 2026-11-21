@@ -12,12 +12,26 @@ import { decorateGear, itemIcon } from './icons';
 import { ItemTip } from './ItemTip';
 import { clampToStage } from './stage';
 import { SLOT_ICONS, gradeBorder } from './InventoryWindow';
+import { LOOKS, PART_FILES } from '../scenes/PlayerAvatar';
+import { SKIN, skinCanvas } from '../scenes/skin';
+import type { ClassId } from '@shared/data/classes';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
 import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm_true.png';
 
 /** 두 번 터치 인정 시간 (ms) */
 const DOUBLE_TAP = 350;
+/** Looks(치장) 탭: 장비 칸과 1:1 + 헤어·얼굴 (장비 탭의 빈 자리 위쪽 두 곳) */
+type LookSlot = EquipSlot | 'hair' | 'face';
+const LOOK_GRID: (LookSlot | null)[] = [
+  'hair', 'hat', 'face',
+  'ring1', 'necklace', 'weapon',
+  'ring2', 'top', 'gloves',
+  null, 'bottom', 'shoes',
+];
+/** 헤어·얼굴 칸 그림: 칸(96) 안의 머리 부분만 잘라서 (x, y, 크기) */
+const HEAD_CROP = { x: 28, y: 38, size: 40 };
+
 /** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
 const EQUIP_GRID: (EquipSlot | null)[] = [
   null, 'hat', null,
@@ -33,6 +47,10 @@ export class EquipWindow {
   private tip = new ItemTip();
   private lastTap = { key: '', t: 0 };
   private lastPointer = 'mouse';
+  private tab: 'armor' | 'looks' = 'armor';
+  private tabBtns: HTMLButtonElement[] = [];
+  /** 헤어·얼굴 칸 그림 (직업마다 한 번 만듦) */
+  private lookIcons = new Map<string, string>();
 
   constructor(private session: Session, private hud: Hud) {
     const panel = el('div', 'inv-panel inv-equip');
@@ -42,8 +60,12 @@ export class EquipWindow {
     this.bindDrag(bar);
     panel.appendChild(bar);
     const tabs = el('div', 'inv-tabs');
-    tabs.appendChild(el('button', 'inv-tab on', 'armor'));
-    tabs.appendChild(el('button', 'inv-tab', 'Looks'));
+    for (const t of [{ id: 'armor', label: 'armor' }, { id: 'looks', label: 'Looks' }] as const) {
+      const b = el('button', 'inv-tab' + (t.id === this.tab ? ' on' : ''), t.label, () => { this.tab = t.id; this.sig = ''; this.update(); }) as HTMLButtonElement;
+      b.dataset.tab = t.id;
+      this.tabBtns.push(b);
+      tabs.appendChild(b);
+    }
     panel.appendChild(tabs);
     const body = el('div', 'inv-body inv-eq-body');
     const fig = el('div', 'inv-figure');
@@ -99,7 +121,7 @@ export class EquipWindow {
   update() {
     if (!this.isOpen) return;
     const s = this.session.save;
-    const sig = JSON.stringify([s.bag, s.equip]);
+    const sig = JSON.stringify([s.bag, s.equip, this.tab, s.cls, this.lookIcons.size]);
     if (sig === this.sig) return;
     this.sig = sig;
     this.render();
@@ -109,6 +131,8 @@ export class EquipWindow {
     const s = this.session.save;
     this.tip.hide();
     this.grid.innerHTML = '';
+    for (const b of this.tabBtns) b.classList.toggle('on', b.dataset.tab === this.tab);
+    if (this.tab === 'looks') return this.renderLooks();
     for (const slot of EQUIP_GRID) {
       if (!slot) { this.grid.appendChild(el('div', 'inv-gap')); continue; }
       const e = equippedEntry(s, slot);
@@ -129,6 +153,59 @@ export class EquipWindow {
       }
       this.grid.appendChild(cell);
     }
+  }
+
+  /**
+   * Looks(치장) 탭: 장비 칸마다 치장 칸 (끼면 그 장비 외형을 대신함) + 헤어·얼굴.
+   * 치장 아이템은 아직 없어서 장비 칸은 빈 칸, 헤어·얼굴은 지금 모습
+   */
+  private renderLooks() {
+    const cls = this.session.save.cls;
+    for (const slot of LOOK_GRID) {
+      if (!slot) { this.grid.appendChild(el('div', 'inv-gap')); continue; }
+      const cell = el('div', 'inv-cell eq look');
+      if (slot === 'hair' || slot === 'face') {
+        const url = this.lookIcon(cls, slot);
+        cell.classList.toggle('empty', !url);
+        if (url) {
+          const img = el('img', 'item-ico look-ico') as HTMLImageElement;
+          img.src = url;
+          img.draggable = false;
+          cell.appendChild(img);
+        }
+      } else {
+        cell.classList.add('empty');
+        const img = el('img', 'inv-slot-ico') as HTMLImageElement;
+        img.src = SLOT_ICONS[slot];
+        img.alt = img.title = EQUIP_SLOTS[slot];
+        img.draggable = false;
+        cell.appendChild(img);
+      }
+      this.grid.appendChild(cell);
+    }
+  }
+
+  /** 헤어 칸 = 헤어만, 얼굴 칸 = 피부색 머리 + 얼굴 (첫 칸 = 기본 자세). 그림이 없는 직업은 null */
+  private lookIcon(cls: ClassId, slot: 'hair' | 'face'): string | null {
+    const look = LOOKS[cls];
+    if (!look) return null;
+    const key = `${cls}:${slot}`, got = this.lookIcons.get(key);
+    if (got !== undefined) return got || null;
+    this.lookIcons.set(key, '');
+    const srcs = slot === 'hair' ? [look.hair] : [PART_FILES.head, look.face];
+    void Promise.all(srcs.map(src => new Promise<HTMLImageElement>(res => { const im = new Image(); im.onload = () => res(im); im.src = src; }))).then(ims => {
+      const { x, y, size } = HEAD_CROP, c = document.createElement('canvas');
+      c.width = c.height = size;
+      const ctx = c.getContext('2d')!;
+      ims.forEach((im, i) => {
+        const skin = slot === 'face' && i === 0 && SKIN[cls] ? skinCanvas(im, SKIN[cls]!) : im;
+        ctx.drawImage(skin, x, y, size, size, 0, 0, size, size);
+      });
+      this.lookIcons.set(key, c.toDataURL());
+      this.sig = '';
+      this.update();
+    });
+    return null;
   }
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 해제 */
