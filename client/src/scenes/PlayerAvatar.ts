@@ -1,22 +1,14 @@
 // 플레이어 외형: 파츠(몸·머리·앞팔 …)를 같은 96×96 칸에 겹쳐 그린다.
-// 모션마다 그림 파일(시트)이 따로 있고, 한 시트 안에서는 모든 파츠가 같은 프레임 순서를 쓴다
-// → 시트 + 프레임 번호 하나로 전부 맞춰서 바꾼다.
+// 파츠마다 그림 파일 한 장, 모션은 줄로 나뉨 (2026-11-21 유저 정리, *_true.png). 모든 파츠가 같은 칸 배치
+// → 모션(줄) + 프레임 번호(칸) 하나로 전부 맞춰서 바꾼다.
 import Phaser from 'phaser';
 import type { PlayerState } from '@shared/sim/entities';
 import type { ClassId } from '@shared/data/classes';
 import { DRAW_START_TIME } from '@shared/sim/skills/archer';
-import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
-import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
-import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
-import swordBody from '../../../assets/img/sprites/bones/attack_sword/player_bone_attack_sword_body.png';
-import swordHead from '../../../assets/img/sprites/bones/attack_sword/player_bone_attack_sword_head.png';
-import swordArm from '../../../assets/img/sprites/bones/attack_sword/player_bone_attack_sword_frontarm.png';
-import bowBody from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_body.png';
-import bowHead from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_head.png';
-import bowArm from '../../../assets/img/sprites/bones/attack_bow/player_bone_attack_bow_frontarm.png';
-import staffBody from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_body.png';
-import staffHead from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_head.png';
-import staffArm from '../../../assets/img/sprites/bones/attack_staff/player_bone_attack_staff_frontarm.png';
+import bodyUrl from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
+import headUrl from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
+import armUrl from '../../../assets/img/sprites/bones/player_bone_walk_front_arm_true.png';
+import { SKIN, skinCanvas } from './skin';
 import swordsmanFace from '../../../assets/img/sprites/players/faces/001_swordsman/swordsman_face.png';
 import swordsmanHair from '../../../assets/img/sprites/players/hairs/001_swordsman/swordsman_hair.png';
 
@@ -34,26 +26,26 @@ export const AVATAR_HEAD = (FOOT_Y - 49) * AVATAR_SCALE;
 export const PARTS = ['body', 'head', 'front_arm'] as const;
 type Part = (typeof PARTS)[number];
 
+/** 파츠별 그림 (뼈대, 임시). 한 장 = 가로 SHEET_COLS 칸 × 모션 줄 */
+export const PART_FILES: Record<Part, string> = { body: bodyUrl, head: headUrl, front_arm: armUrl };
+/** 한 줄의 칸 수 (가장 긴 모션 = 기본 6칸) */
+export const SHEET_COLS = 6;
+
 /**
- * 모션 시트. 지금은 모든 직업이 같은 뼈대(bone) 그림을 임시로 쓴다.
- * - walk: 0 기본 · 1·2 걷기 · 3 공중 · 4 앉기
- * - sword: 0 휘두르기 전 · 1 휘두름
- * - staff: 0 마법 쏘기 전 · 1 쏨 (검과 같은 방식으로 씀)
- * - bow: 0 활 당기기 시작 · 1 당기는 중 · 2 화살 발사됨
+ * 모션 = 그림의 몇 번째 줄 (0부터). 지금은 모든 직업이 같은 뼈대(bone) 그림을 임시로 쓴다.
+ * - walk (1줄): 0 기본 · 1·2 걷기 · 3 공중 · 4 앉기 · 5 쓰러짐
+ * - sword (2줄): 0 휘두르기 전 · 1 휘두름
+ * - staff (3줄): 0 마법 쏘기 전 · 1 쏨 (검과 같은 방식으로 씀)
+ * - bow (4줄): 0 활 당기기 시작 · 1 당기는 중 · 2 화살 발사됨
  */
-export const SHEETS = {
-  walk: { body: walkBody, head: walkHead, front_arm: walkArm },
-  sword: { body: swordBody, head: swordHead, front_arm: swordArm },
-  bow: { body: bowBody, head: bowHead, front_arm: bowArm },
-  staff: { body: staffBody, head: staffHead, front_arm: staffArm },
-} as const satisfies Record<string, Record<Part, string>>;
+export const SHEETS = { walk: 0, sword: 1, staff: 2, bow: 3 } as const;
 export type SheetName = keyof typeof SHEETS;
 
 /**
  * 직업별 얼굴·머리 (2026-11-21, 검사만 그림 있음). 기본 모션(walk 시트)과 같은 프레임 순서.
  * 공격 모션 그림은 아직 없어서 공격하는 동안은 숨김 (뼈대만). 레이어: 머리(뼈대) 위 → 얼굴 → 앞머리 → 앞팔 아래
  */
-const LOOKS: Partial<Record<ClassId, { face: string; hair: string }>> = {
+export const LOOKS: Partial<Record<ClassId, { face: string; hair: string }>> = {
   warrior: { face: swordsmanFace, hair: swordsmanHair },
 };
 const lookKey = (cls: ClassId, part: 'face' | 'hair') => `pl_look_${cls}_${part}`;
@@ -61,7 +53,26 @@ const lookKey = (cls: ClassId, part: 'face' | 'hair') => `pl_look_${cls}_${part}
 /** 직업별 공격 그림 */
 export const ATTACK_SHEET: Record<ClassId, SheetName> = { warrior: 'sword', mage: 'staff', archer: 'bow' };
 
-const texKey = (sheet: SheetName, part: Part) => `pl_${sheet}_${part}`;
+const texKey = (part: Part) => `pl_${part}`;
+/** 피부색을 입힌 파츠 그림 (직업마다, 처음 쓸 때 만듦) */
+const skinKey = (part: Part, cls: ClassId) => `pl_${part}_skin_${cls}`;
+function ensureSkin(scene: Phaser.Scene, cls: ClassId): boolean {
+  const hex = SKIN[cls];
+  if (!hex) return false;
+  for (const part of PARTS) {
+    const key = skinKey(part, cls);
+    if (scene.textures.exists(key)) continue;
+    const src = scene.textures.get(texKey(part)).getSourceImage() as HTMLImageElement;
+    const c = skinCanvas(src, hex);
+    const tex = scene.textures.addCanvas(key, c)!;
+    const cols = Math.floor(c.width / CELL), rows = Math.floor(c.height / CELL);
+    for (let i = 0; i < cols * rows; i++) tex.add(i, 0, (i % cols) * CELL, Math.floor(i / cols) * CELL, CELL, CELL);
+    tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+  return true;
+}
+/** 모션 + 그 모션 안의 프레임 → 그림 전체에서의 칸 번호 */
+export const cellIndex = (sheet: SheetName, frame: number) => SHEETS[sheet] * SHEET_COLS + frame;
 
 /** 걷기 등 반복 모션: 프레임 번호와 한 프레임 시간(초) */
 const LOOPS = {
@@ -118,9 +129,7 @@ function attackPose(me: PlayerState): Pose | null {
 const followThrough = (sheet: SheetName): Pose => ({ sheet, frame: sheet === 'bow' ? 2 : 1 });
 
 export function preloadAvatar(scene: Phaser.Scene) {
-  for (const sheet of Object.keys(SHEETS) as SheetName[]) {
-    for (const part of PARTS) scene.load.spritesheet(texKey(sheet, part), SHEETS[sheet][part], { frameWidth: CELL, frameHeight: CELL });
-  }
+  for (const part of PARTS) scene.load.spritesheet(texKey(part), PART_FILES[part], { frameWidth: CELL, frameHeight: CELL });
   for (const [cls, l] of Object.entries(LOOKS) as [ClassId, { face: string; hair: string }][]) {
     scene.load.spritesheet(lookKey(cls, 'face'), l.face, { frameWidth: CELL, frameHeight: CELL });
     scene.load.spritesheet(lookKey(cls, 'hair'), l.hair, { frameWidth: CELL, frameHeight: CELL });
@@ -130,8 +139,8 @@ export function preloadAvatar(scene: Phaser.Scene) {
 /** 움직이지 않는 캐릭터 그림 (대화 NPC 임시 모습: 뼈대 기본 자세). (x, y) = 발 기준점 */
 export function makeStaticAvatar(scene: Phaser.Scene, x: number, y: number, face: 1 | -1) {
   const parts = PARTS.map(part => {
-    scene.textures.get(texKey('walk', part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    return scene.add.sprite(0, 0, texKey('walk', part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL);
+    scene.textures.get(texKey(part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    return scene.add.sprite(0, 0, texKey(part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL);
   });
   return scene.add.container(x, y, parts).setScale(AVATAR_SCALE * face, AVATAR_SCALE);
 }
@@ -158,13 +167,11 @@ export class PlayerAvatar {
   private shakeX = 0;
 
   constructor(scene: Phaser.Scene) {
-    for (const sheet of Object.keys(SHEETS) as SheetName[]) {
-      for (const part of PARTS) scene.textures.get(texKey(sheet, part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
-    }
+    for (const part of PARTS) scene.textures.get(texKey(part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const cls of Object.keys(LOOKS) as ClassId[]) {
       for (const p of ['face', 'hair'] as const) scene.textures.get(lookKey(cls, p)).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
-    this.parts = PARTS.map(part => scene.add.sprite(0, 0, texKey('walk', part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL));
+    this.parts = PARTS.map(part => scene.add.sprite(0, 0, texKey(part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL));
     const blank = (Object.keys(LOOKS) as ClassId[])[0];
     this.face = scene.add.sprite(0, 0, lookKey(blank, 'face'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
     this.hair = scene.add.sprite(0, 0, lookKey(blank, 'hair'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
@@ -193,10 +200,12 @@ export class PlayerAvatar {
     } else {
       this.loop = 'idle'; this.t = 0;
     }
+    const cell = cellIndex(pose.sheet, pose.frame), cls = me.data.cls;
+    const skinned = ensureSkin(this.root.scene, cls);
     PARTS.forEach((part, i) => {
-      const key = texKey(pose.sheet, part), sp = this.parts[i];
-      if (sp.texture.key !== key) sp.setTexture(key, pose.frame);
-      else sp.setFrame(pose.frame);
+      const key = skinned ? skinKey(part, cls) : texKey(part), sp = this.parts[i];
+      if (sp.texture.key !== key) sp.setTexture(key, cell);
+      else sp.setFrame(cell);
     });
     // 얼굴·앞머리: 기본 모션일 때만 (공격 그림은 아직 없음 → 뼈대만)
     const look = pose.sheet === 'walk' && LOOKS[me.data.cls] ? me.data.cls : null;

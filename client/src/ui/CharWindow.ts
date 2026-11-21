@@ -13,9 +13,9 @@ import { decorateGear, itemIcon } from './icons';
 import type { BagEntry } from '@shared/rules/inventory';
 import { ItemTip } from './ItemTip';
 import { SLOT_ICONS } from './InventoryWindow';
-import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
-import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
-import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
+import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
+import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
+import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm_true.png';
 import { clampToStage } from './stage';
 
 const STATS: Record<StatId, { name: string; desc: string }> = {

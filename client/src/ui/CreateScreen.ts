@@ -2,7 +2,7 @@
 // 왼쪽: 고른 직업·성별 + 배너 일러스트 + 스토리 / 가운데: 캐릭터 도트 / 오른쪽: 직업 · 닉네임 · 성별 · 능력치 · 생성
 import { CLASSES, CREATE_STAT_POINTS, NAME_MAX, START_STAT, type ClassId, type StatId } from '@shared/data/classes';
 import { createSave, type Gender, type SaveData } from '@shared/sim/save';
-import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, SHEETS, type SheetName } from '../scenes/PlayerAvatar';
+import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, PART_FILES, SHEETS, type SheetName } from '../scenes/PlayerAvatar';
 import { el, esc } from './Dialog';
 import warriorM from '../../../assets/temp/fighter_banner_M.png';
 import warriorF from '../../../assets/temp/fighter_banner_F.png';
@@ -133,9 +133,7 @@ export function showCreateScreen(): Promise<SaveData | null> {
 
     // ---- 캐릭터 도트 미리보기 ----
     const images = new Map<string, HTMLImageElement>();
-    void Promise.all((Object.keys(SHEETS) as SheetName[]).flatMap(sh => PARTS.map(async pt => {
-      images.set(`${sh}_${pt}`, await loadImage(SHEETS[sh][pt]));
-    })));
+    void Promise.all(PARTS.map(async pt => { images.set(pt, await loadImage(PART_FILES[pt])); }));
     const ctx = canvas.getContext('2d')!;
     let stop = false, t = 0, last = performance.now();
     const drawPreview = (now: number) => {
@@ -149,8 +147,8 @@ export function showCreateScreen(): Promise<SaveData | null> {
       for (const s of steps) { if (k < s.time) { step = s; break; } k -= s.time; }
       ctx.clearRect(0, 0, CELL, CELL);
       for (const pt of PARTS) {
-        const img = images.get(`${step.sheet}_${pt}`);
-        if (img?.complete && img.naturalWidth) ctx.drawImage(img, step.frame * CELL, 0, CELL, CELL, 0, 0, CELL, CELL);
+        const img = images.get(pt);
+        if (img?.complete && img.naturalWidth) ctx.drawImage(img, step.frame * CELL, SHEETS[step.sheet] * CELL, CELL, CELL, 0, 0, CELL, CELL);
       }
       requestAnimationFrame(drawPreview);
     };
