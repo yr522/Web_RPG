@@ -18,7 +18,6 @@ import { checkCond } from '@shared/rules/story';
 import { nightOf } from '@shared/sim/clock';
 import { BOSSES, bossDef, roomDifficulty, type Difficulty } from '@shared/data/bosses';
 import { questDef } from '@shared/data/quests';
-import { alchemyTick } from '@shared/rules/alchemy';
 
 export interface Session {
   readonly playerId: EntityId;
@@ -185,8 +184,6 @@ export class LocalSession implements Session {
   }
 
   update(realDt: number, readCommand: () => Command): GameEvent[] {
-    // 연금술: 시간이 된 만큼 가방에 (게임을 꺼 둔 동안 된 것도)
-    if (this.save.alchemy.queue.length && alchemyTick(this.save, this.nowMs())) void this.store.save(this.save);
     const out: GameEvent[] = this.pending;
     this.pending = [];
     this.acc += Math.min(realDt, 0.25);

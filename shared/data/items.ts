@@ -121,6 +121,8 @@ const ITEM_LIST = {
   mold_iron: { name: '철 주괴 형판', kind: 'etc', icon: '🧱', price: 100, desc: '쓸만한 고철을 녹여 철 주괴로 굳히는 틀 (제작할 때 하나씩 씀)', bulk: [1, 10] },
   ingot_rusty: { name: '녹슨 주괴', kind: 'etc', icon: '🟫', desc: '녹슨 고철을 녹여 만든 주괴. 강화 재료 (+0 ~ +9)', sell: 180 },
   ingot_iron: { name: '철 주괴', kind: 'etc', icon: '⬜', desc: '쓸만한 고철을 녹여 만든 주괴. 강화(+10 이상)·수리 재료', sell: 600 },
+  // 2026-11-21 유저: 연금술 기본 재료 (매점 모리, 저렴하게)
+  empty_bottle: { name: '빈 병', kind: 'etc', icon: '🫙', price: 5, desc: '', bulk: [1, 10] },
   // 2026-11-21 유저: 연금술 테스트 (아무 효과 없음, 아이콘은 임시로 초대형 HP 포션)
   honey_shake: { name: '100번 저은 꿀 쉐이크', kind: 'etc', icon: '🥤', img: 'item/potion/red_large', desc: '' },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
@@ -162,7 +164,7 @@ export function sellPrice(id: string) {
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [
-  'hp', 'hp_ms', 'hp_m', 'hp_l', 'hp_xl', 'mp', 'mp_ms', 'mp_m', 'mp_l', 'mp_xl', 'reset',
+  'hp', 'hp_ms', 'hp_m', 'hp_l', 'hp_xl', 'mp', 'mp_ms', 'mp_m', 'mp_l', 'mp_xl', 'reset', 'empty_bottle',
   'test_hat', 'test_necklace', 'test_weapon', 'test_top', 'test_gloves', 'test_bottom', 'test_shoes', 'test_ring',
   'grade_common', 'grade_rare', 'grade_epic', 'grade_legendary', 'grade_mythic',
 ];

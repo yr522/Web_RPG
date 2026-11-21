@@ -328,9 +328,9 @@ export const MAPS: Record<MapId, MapDef> = {
     signs: [],
     spawns: [],
   },
-  // 개인 공방 (2026-11-21): 이 맵에서만 제작(J). 배경은 임시로 기숙사 그림
+  // 개인 공방 (2026-11-21): 이 맵에서만 제작(J). 배경 school_workshop (기숙사와 같은 틀, 왼쪽 문 = 나가는 포탈)
   my_workshop: {
-    name: '개인 공방', width: 1113, indoor: true, safe: true, bg: { img: 'school_room', groundY: 706 },
+    name: '개인 공방', width: 1113, indoor: true, safe: true, bg: { img: 'school_workshop', groundY: 706 },
     platforms: [],
     portals: [{ x: 126, to: 'school_hall', toX: HALL_DORM_X - 80, label: '학교 홀' }],
     npcs: [],
