@@ -22,6 +22,8 @@ import { CodexWindow } from './ui/CodexWindow';
 import { AchieveWindow } from './ui/AchieveWindow';
 import { StorageWindow } from './ui/StorageWindow';
 import { canvasRect, setFullWindowStage, stageRect, viewWidth } from './ui/stage';
+import { ItemTip } from './ui/ItemTip';
+import { wornIds } from '@shared/rules/inventory';
 
 const params = new URLSearchParams(location.search);
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -86,6 +88,7 @@ async function boot() {
   const dialogs = new DialogHost();
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
+  ItemTip.worn = () => wornIds(session.save);
   const equipWindow = new EquipWindow(session, hud);
   const invWindow = new InventoryWindow(session, hud, equipWindow, dialogs);
   hud.onUpdate.push(() => { invWindow.update(); equipWindow.update(); });

@@ -176,6 +176,8 @@ export const MAPS: Record<MapId, MapDef> = {
     ],
     npcs: [
       { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 }, { id: 'smith', x: 1400 },
+      // 대장장이의 딸 (2026-11-21)
+      { id: 'smith_daughter', x: 1465 },
       // 떠돌이 상인 (2026-11-21): 학교 앞
       { id: 'wanderer', x: 880 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },

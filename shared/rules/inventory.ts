@@ -6,6 +6,7 @@ import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellP
 import type { StatId } from '../data/classes';
 import type { OptionId } from '../data/gear';
 import { itemBonus } from './gear';
+import { GEAR_SETS } from '../data/sets';
 import type { SaveData } from '../sim/save';
 
 /** 가방 한 칸. 장비는 1개씩 따로(uid 로 구별), 나머지는 같은 것끼리 한 칸에 쌓인다 */
@@ -225,7 +226,32 @@ export function equipBonus(s: SaveData): Record<BonusId, number> {
     const bonus = itemBonus(e);
     for (const k of Object.keys(bonus) as BonusId[]) b[k] += bonus[k] ?? 0;
   }
+  // 세트 효과
+  for (const { set, n } of wornSets(s)) {
+    for (const ef of GEAR_SETS[set].effects) {
+      if (n < ef.n) continue;
+      for (const k of Object.keys(ef.bonus) as BonusId[]) b[k] += ef.bonus[k] ?? 0;
+    }
+  }
   return b;
+}
+
+/** 끼고 있는 장비 id (파괴된 것 빼고, 같은 것은 한 번) */
+export function wornIds(s: SaveData): string[] {
+  const ids = new Set<string>();
+  for (const slot of Object.keys(EQUIP_SLOTS) as EquipSlot[]) {
+    const e = equippedEntry(s, slot);
+    if (e && !e.broken) ids.add(e.id);
+  }
+  return [...ids];
+}
+
+/** 세트마다 끼고 있는 개수 (1개 이상인 세트만) */
+export function wornSets(s: SaveData): { set: string; n: number }[] {
+  const worn = wornIds(s);
+  return Object.keys(GEAR_SETS)
+    .map(set => ({ set, n: GEAR_SETS[set].items.filter(i => worn.includes(i)).length }))
+    .filter(x => x.n > 0);
 }
 
 /** 장비까지 더한 능력치 */

@@ -445,6 +445,8 @@ html.mobile { --gx: 0px; --gy: 0px; --gw: 100vw; --gh: 100vh; }
 /* 대화 NPC: 대사 넘기기 표시 */
 /* 대화 NPC 대사창: 화면 크기에 따라 정해진 높이 (대사가 길어도 커지지 않음), 스크롤바 숨김 */
 .npc-dlg.talk .npc-panel { cursor: pointer; height: 130px; }
+/* 선택지가 많으면 대화창이 위로 늘어남 (다 보이게) */
+.npc-dlg.talk .npc-panel:has(.opts) { height: auto; min-height: 130px; }
 .npc-dlg.talk .npc-body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; padding-bottom: 18px; }
 .npc-dlg.talk .npc-body::-webkit-scrollbar { display: none; }
 /* 다음 대사 ▼ : 창 오른쪽 아래 고정 (글 줄에 끼지 않음) */
@@ -534,6 +536,9 @@ html.mobile { --gx: 0px; --gy: 0px; --gw: 100vw; --gh: 100vh; }
 .item-tip .tip-broken { color: #ff8a7a; font-weight: 700; }
 .item-tip hr { border: 0; border-top: 1px solid rgba(255,255,255,.25); margin: 4px 0; }
 .item-tip .tip-up { color: #9ef0a0; font-weight: 400; }
+.item-tip .tip-set { color: #ffe066; font-weight: 700; }
+.item-tip .tip-set-item, .item-tip .tip-set-ef { color: rgba(255,255,255,.4); font-weight: 400; }
+.item-tip .tip-set-item.on, .item-tip .tip-set-ef.on { color: #fff; }
 .item-tip .tip-down { color: #ff8a7a; font-weight: 400; }
 /* 장비 칸: 강화 수치(왼쪽 아래), 파괴된 장비(흑백) */
 .inv-enh {

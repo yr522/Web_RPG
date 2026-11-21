@@ -5,6 +5,7 @@
 // - 이야기 퀘스트: 대화 NPC 대사의 { do: { quest: 'give', id } } 로 받고, { do: { quest: 'report', id } } 로 보고
 import type { MapId } from './maps';
 import type { MonsterId } from './monsters';
+import { ADVANCE } from './advance';
 
 /** 퀘스트 목표 */
 export type QuestGoal = (
@@ -81,6 +82,11 @@ export interface QuestDef {
 export const BD3_TARGETS = ['smith', 'masha', 'choir_kid', 'shop', 'firework_master'] as const;
 
 export const QUESTS: QuestDef[] = [
+  // ---- 전직 (뼈대, 2026-11-21). 내용·대사 임시. 보고할 때 교수님 대사에서 갈래를 고름 (npcs.ts prof, advance.ts) ----
+  {
+    id: ADVANCE.quest, name: '전직 시험', main: true, desc: '(임시) 마법 골렘을 쓰러뜨리고 교수님께 보고', giver: 'prof', minLevel: ADVANCE.level,
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {},
+  },
   // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시) ----
   // 검사·궁수: 동급생 마법사(mage_friend)가 퀘스트를 주고, 다 하면 마법사에게 가서 보고 → 마법사는 다음 맵으로 옮겨 가 있음 → 거기서 다음 퀘스트
   // 마법사: 처음(mgm2 숲 둘러보기 · mgm4 잠자기)은 혼자 — 내 머리 위 [?] 로 받고 [✔] 로 보고 (대화 NPC 'self').

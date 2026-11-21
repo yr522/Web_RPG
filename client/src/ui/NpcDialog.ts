@@ -25,10 +25,15 @@ import type { BagEntry } from '@shared/rules/inventory';
 import teacherMagic from '../../../assets/img/portrait/teacher_magic.png';
 import teacherBow from '../../../assets/img/portrait/teacher_bow.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
+import smithPortrait from '../../../assets/img/portrait/blacksmith_school.png';
+import smithDaughterPortrait from '../../../assets/img/portrait/blacksmith_daughter.png';
 
 /** 교수님 포트레이트 (assets/img/portrait). 검술과는 그림이 아직 없어서 빈 칸 */
 const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teacherMagic, archer: teacherBow };
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
+
+/** NPC 포트레이트 (교수님 빼고, 대화 NPC id → 그림) */
+const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
 
@@ -248,7 +253,7 @@ export class NpcDialog {
 
   /** 대장장이: 강화 · 수리 · 옵션(칸 강화·재설정) */
   openSmith() {
-    const box = this.frame('대 장장이', null, '🔨');
+    const box = this.frame('대 장장이', smithPortrait, '🔨');
     let view: SmithView = 'enhance', pick: number | null = null;
     this.refresh = () => this.renderSmith(view, pick, v => { view = v; pick = null; this.refresh!(); }, uid => { pick = uid; this.refresh!(); });
     this.refresh();
@@ -269,7 +274,7 @@ export class NpcDialog {
     const cls = this.session.save.cls, profName = CLASSES[cls].professor;
     // 'self' = 내 혼잣말 (이름 자리에 내 이름)
     const nameOf = (who: string) => (who === 'prof' ? profName : who === 'self' ? this.session.save.name : TALK_NPCS[who]?.name);
-    const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
+    const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : NPC_PORTRAIT[id] ?? null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;
     // 대사 하나 + 데이터 안 위치 (효과를 보낼 때 씀)
     type Item = { step: DialogueStep; path: number[] };
@@ -436,6 +441,8 @@ export class NpcDialog {
       b.appendChild(el('p', 'line', '"부탁할 일이 있어. 하루에 한 번씩 받을 수 있단다."'));
       for (const q of profQuests(this.session.save)) {
         const st = questState(s, q.id), pr = questProgressText(s, q), card = el('div', 'card');
+        // 한 번만 하는 퀘스트(전직 등)는 끝나면 안 보임
+        if (st === 'done' && !q.daily) continue;
         const exp = typeof q.reward.exp === 'function' ? q.reward.exp(s.level) : q.reward.exp ?? 0;
         card.appendChild(el('div', '', `<b>${questTitle(q)}</b> <span class="note">보상 EXP ${exp}${q.reward.gold ? ` · ${q.reward.gold} G` : ''}${(q.reward.items ?? []).map(it => ` · ${itemDef(it.id)?.name ?? it.id} ×${it.n}`).join('')}</span><br><span class="note">${q.desc}</span>`));
         if (st === 'none') card.appendChild(el('button', 'sm', '퀘스트 받기', () => this.act({ type: 'questAccept', id: q.id })));

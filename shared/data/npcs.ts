@@ -13,6 +13,9 @@
 // 상황별 대사: talks 에 { when: 조건, steps: 대사 } 를 위에서부터 검사해서 처음 맞는 것을 쓴다.
 // 하나도 안 맞으면 dialogue (기본 대사).
 
+import { ADVANCE, ADVANCE_LINES } from './advance';
+import type { ClassId } from './classes';
+
 export type Effect =
   /** 퀘스트 주기 / 보고하기 (보상 받음) */
   | { quest: 'give' | 'report'; id: string }
@@ -64,6 +67,8 @@ export interface TalkNpcDef {
   prop?: 'bed';
   /** 그림 색 (임시 그림을 어둡게 등) */
   tint?: number;
+  /** 그림 크기 배율 (작은 NPC 등, 없으면 1) */
+  scale?: number;
   /** 이 NPC 가 줄 퀘스트가 있으면(지금 대사에 퀘스트 주기가 있으면) 길 안내 화살표가 이 NPC 를 가리킴 */
   guide?: boolean;
 }
@@ -356,11 +361,35 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     tint: 0x3a3048,
   },
   // 교수님 (특수 NPC): 이야기 대사가 있으면 교수님 메뉴 대신 대화창
+  // 대장장이의 딸 (2026-11-21): 대장장이 옆, 대화만 (준비 중)
+  smith_daughter: {
+    name: '대 장부',
+    icon: '🔨',
+    scale: 0.8,
+    dialogue: [{ line: '할 얘기 있어?' }],
+  },
   prof: {
     name: '교수님',
     icon: '🧙',
     dialogue: [],
     talks: [
+      // 전직 시험 보고: 갈래 고르기 (대사 임시)
+      ...(Object.keys(ADVANCE_LINES) as ClassId[]).map(cls => ({
+        when: { all: [{ quest: ADVANCE.quest, state: 'ready' }, { cls }] } as Cond,
+        steps: [
+          { line: '(임시) 시험을 통과했구나. 이제 네 길을 정할 때다.', who: 'prof' },
+          {
+            choices: ADVANCE_LINES[cls].map((l, i) => ({
+              label: l.name,
+              reply: [
+                { do: { flag: ADVANCE.flag, set: i + 1 } },
+                { do: { quest: 'report', id: ADVANCE.quest } },
+                { line: `(임시) ${l.name}의 길이라. 좋다.`, who: 'prof' },
+              ] as DialogueStep[],
+            })),
+          },
+        ] as DialogueStep[],
+      })),
       {
         when: { quest: 'mg13', state: 'ready' },
         steps: [

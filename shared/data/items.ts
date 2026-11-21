@@ -154,6 +154,9 @@ const ITEM_LIST = {
   // 슬라임류(슬라임·원소 슬라임) 드롭 장비
   slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 }, sell: 100 },
   slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 }, sell: 100 },
+  // 마법 골렘 드롭 세트 (GEAR_SETS.golem)
+  golem_weapon: { name: '마법 골렘의 핵', kind: 'equip', desc: bonusText({ atk: 12, str: 2 }), icon: '🗡️', part: 'weapon', bonus: { atk: 12, str: 2 }, grade: 'rare', sell: 300 },
+  golem_gloves: { name: '마법 골렘의 손', kind: 'equip', desc: bonusText({ atk: 3, def: 6 }), icon: '🧤', part: 'gloves', bonus: { atk: 3, def: 6 }, grade: 'rare', sell: 300 },
   test_ring: { name: '테스트 반지', kind: 'equip', desc: '모든 능력치 +1', icon: '💍', img: ARMOR_IMG, price: 200, bulk: [1], part: 'ring', bonus: { str: 1, dex: 1, int: 1 } },
 } satisfies Record<string, ItemDef>;
 
