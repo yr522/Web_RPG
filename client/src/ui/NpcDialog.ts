@@ -2,7 +2,7 @@
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
-import { GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
+import { COIN_SHOP, GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
 import { countItem, equippedSlot } from '@shared/rules/inventory';
 import { questTitle } from '@shared/data/quests';
 import { settings, setSettings } from '../settings';
@@ -218,6 +218,32 @@ export class NpcDialog {
     this.refresh = () => this.renderShop(tab, t => { tab = t; this.refresh!(); });
     this.refresh();
     this.host.open(box, () => { this.refresh = null; });
+  }
+
+  /** 떠돌이 상인 (특별 상인): 주화로 사기 */
+  openCoinShop() {
+    const npc = TALK_NPCS.wanderer;
+    const box = this.frame(npc.name, null, npc.icon);
+    this.refresh = () => this.renderCoinShop();
+    this.refresh();
+    this.host.open(box, () => { this.refresh = null; });
+  }
+
+  private renderCoinShop() {
+    const b = this.body!, s = this.session.save;
+    b.innerHTML = '';
+    // 가진 주화 (상점에 나오는 주화 종류마다)
+    const coins = [...new Set(COIN_SHOP.map(c => c.coin))];
+    b.appendChild(el('p', 'line', coins.map(c => `<span class="gold">${esc(itemDef(c)?.name ?? c)} ${countItem(s, c)}</span>`).join(' ')));
+    for (const c of COIN_SHOP) {
+      const it = ITEMS[c.item], card = el('div', 'card shop'), g = itemGrade(it);
+      card.appendChild(itemIcon(c.item));
+      card.appendChild(el('div', 'grow', `<b${g ? ` style="color:${GRADES[g].color}"` : ''}>${esc(it.name)}</b> <span class="gold">${esc(itemDef(c.coin)?.name ?? c.coin)} ${c.price}</span><br><span class="note">${esc(it.desc)} · 가진 개수 ${countItem(s, c.item)}</span>`));
+      const btn = el('button', 'sm go', '1개', () => this.act({ type: 'coinBuy', item: c.item })) as HTMLButtonElement;
+      btn.disabled = countItem(s, c.coin) < c.price;
+      card.appendChild(btn);
+      b.appendChild(card);
+    }
   }
 
   /** 대장장이: 강화 · 수리 · 옵션(칸 강화·재설정) */

@@ -480,11 +480,11 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
       },
     ],
   },
-  // 떠돌이 상인 (학교 앞, 할 일은 나중에)
+  // 떠돌이 상인 (학교 앞): 먼 지역에서 온 특별 상인. 말을 걸면 주화 상점 (items.ts 의 COIN_SHOP)
   wanderer: {
     name: '떠돌이 상인',
     icon: '🎒',
-    dialogue: [{ line: '여기저기 떠돌다 보니 잔치 소문을 듣고 왔지. 좋은 물건은… 나중에 보여 주지.' }],
+    dialogue: [],
   },
   // 매점 모리 (특수 NPC): 초대장 받기만 대화, 나머지는 매점 창
   shop: {

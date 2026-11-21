@@ -3,8 +3,8 @@
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { GIDUNG, SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
-import { FIREWORK, POTION, POTIONS, itemDef, potionIds, type PotionKind } from '../data/items';
-import { BAG_FULL, addItem, countItem, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
+import { FIREWORK, POTION, POTIONS, dropChance, itemDef, potionIds, type PotionKind } from '../data/items';
+import { BAG_FULL, addItem, countItem, equipBonus, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
 import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnGather, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
@@ -728,18 +728,21 @@ export class World implements SkillWorld {
     this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold * (e.elite ? ELITE.gold : 1)));
     // group 이 같은 드롭은 한 번만 굴림 (누적 확률 안에 들면 그것 하나)
     const groupRoll = new Map<string, { r: number; acc: number; done: boolean }>();
+    // 아이템 드롭률 보너스 (장비): 확률마다 × (1 + 합 / 100)
+    const dropBonus = equipBonus(s).drop;
     for (const d of def.drops ?? []) {
+      const chance = dropChance(d.chance, dropBonus);
       if (d.quest && questState(s, d.quest) !== 'active') continue;
       // 최대 개수: 가방 + 바닥에 떨어져 있는 것
       if (d.max !== undefined && countItem(s, d.item) + this.coins.filter(c => c.item === d.item).length >= d.max) continue;
       if (d.group) {
         let g = groupRoll.get(d.group);
         if (!g) { g = { r: this.rng(), acc: 0, done: false }; groupRoll.set(d.group, g); }
-        g.acc += d.chance;
+        g.acc += chance;
         if (!g.done && g.r < g.acc) { g.done = true; this.dropItem(cx(e), cy(e), d.item); }
         continue;
       }
-      if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
+      if (this.rng() < chance) this.dropItem(cx(e), cy(e), d.item);
     }
     questsOnKill(s, e.mob, e.tag);
     for (const id of readyQuestIds(s)) if (!before.includes(id)) this.questReady(p, questDef(id)!);

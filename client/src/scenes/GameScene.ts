@@ -622,7 +622,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     else if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
-    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : npc.id === 'smith' ? '대장간' : '대화'}`);
+    else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' || npc.id === 'wanderer' ? '상점' : npc.id === 'smith' ? '대장간' : '대화'}`);
     else this.bubble.setVisible(false);
     if (this.bubble.visible && (input.blocked || this.cut.running)) this.bubble.setVisible(false);
 

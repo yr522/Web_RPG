@@ -5,12 +5,12 @@ import type { StatId } from './classes';
  * 장비가 올려 주는 값 (기본 능력치·부가효과 공통). 공격력·방어력은 장비로만.
  * crit·mpCost·speed·boss·mob 은 %, hpRegen 은 초당
  */
-export type BonusId = StatId | 'atk' | 'def' | 'hp' | 'mp' | 'crit' | 'mpCost' | 'speed' | 'hpRegen' | 'boss' | 'mob';
+export type BonusId = StatId | 'atk' | 'def' | 'hp' | 'mp' | 'crit' | 'mpCost' | 'speed' | 'hpRegen' | 'boss' | 'mob' | 'drop';
 export const BONUS_NAMES: Record<BonusId, string> = {
   str: '근력', dex: '민첩', int: '지능', atk: '공격력', def: '방어력', hp: '최대 HP', mp: '최대 MP',
-  crit: '치명타 확률', mpCost: 'MP 소모 감소', speed: '이동속도', hpRegen: 'HP 회복', boss: '보스 피해', mob: '일반몹 피해',
+  crit: '치명타 확률', mpCost: 'MP 소모 감소', speed: '이동속도', hpRegen: 'HP 회복', boss: '보스 피해', mob: '일반몹 피해', drop: '아이템 드롭률',
 };
-const PCT: BonusId[] = ['crit', 'mpCost', 'speed', 'boss', 'mob'];
+const PCT: BonusId[] = ['crit', 'mpCost', 'speed', 'boss', 'mob', 'drop'];
 const num = (v: number) => String(Math.round(v * 10) / 10);
 /** '방어력 +5' · '치명타 확률 +3%' · 'HP 회복 +0.4/초' */
 export const bonusLine = (k: BonusId, v: number) => `${BONUS_NAMES[k]} +${num(v)}${PCT.includes(k) ? '%' : k === 'hpRegen' ? '/초' : ''}`;
@@ -125,6 +125,8 @@ const ITEM_LIST = {
   empty_bottle: { name: '빈 병', kind: 'etc', icon: '🫙', price: 5, desc: '', bulk: [1, 10] },
   // 2026-11-21 유저: 연금술 테스트 (아무 효과 없음, 아이콘은 임시로 초대형 HP 포션)
   honey_shake: { name: '100번 저은 꿀 쉐이크', kind: 'etc', icon: '🥤', img: 'item/potion/red_large', desc: '' },
+  // 떠돌이 상인 주화 상점 (2026-11-21 유저 테스트): 아이템 드롭률 +10% · 방어력 +5, 미션 주화 5개
+  luck_ring: { name: '행운의 반지', kind: 'equip', desc: bonusText({ drop: 10, def: 5 }), icon: '💍', img: 'equipment/ring/gold_ring', part: 'ring', bonus: { drop: 10, def: 5 } },
   // ---- 영주님의 생일잔치 2 (2026-11-21) ----
   elem_orb: { name: '원소 구슬', kind: 'etc', icon: '🔮', img: 'item/material/elemental_ball', desc: '', sell: 3 },
   rawhide: { name: '생가죽', kind: 'etc', icon: '🟤', img: 'item/material/rawhide', desc: '', sell: 4 },
@@ -174,6 +176,17 @@ export function sellPrice(id: string) {
  * 터지는 높이: 맵 땅에서 burstH 위 (늘 같은 높이). 설치한 자리가 그보다 높으면 그 자리에서 minRise 위
  */
 export const FIREWORK = { fuse: 3, rise: 0.8, burstH: 280, minRise: 150, burst: 1.8 };
+
+/** 떠돌이 상인 (특별 상인): 골드 대신 주화로 파는 물건. coin = 내는 주화, price = 개수 */
+export const COIN_SHOP: { item: ItemId; coin: ItemId; price: number }[] = [
+  { item: 'luck_ring', coin: 'mission_coin', price: 5 },
+];
+
+/**
+ * 아이템 드롭률: 보너스끼리 더한 뒤 곱함 (메이플 방식). 기본 확률 × (1 + 보너스 합 / 100), 100% 넘으면 100%
+ * 예: 1% 짜리에 +50% · +100% → 1% × 2.5 = 2.5%
+ */
+export const dropChance = (base: number, bonusPct: number) => Math.min(1, base * (1 + bonusPct / 100));
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [

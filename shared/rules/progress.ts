@@ -2,8 +2,8 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
+import { COIN_SHOP, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { BAG_FULL, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
 import { craftCollect, craftOrder } from './craft';
 import { alchemyCollect, alchemyOrder } from './alchemy';
@@ -41,6 +41,7 @@ export type MenuAction =
   | { type: 'equipTo'; index: number; slot: EquipSlot }
   | { type: 'alchemy'; recipe: string; n: number }
   | { type: 'alchemyCollect' }
+  | { type: 'coinBuy'; item: string }
   | { type: 'unequip'; slot: EquipSlot }
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
@@ -183,6 +184,15 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       s.gold -= cost;
       addItem(s, a.item, a.n);
       return { ok: true, msg: `${it.icon} ${it.name} ${a.n}개 구매!` };
+    }
+    case 'coinBuy': {
+      const c = COIN_SHOP.find(o => o.item === a.item);
+      if (!c) return fail('살 수 없는 물건이야');
+      if (countItem(s, c.coin) < c.price) return fail(`${itemDef(c.coin)?.name ?? c.coin}이(가) 모자라`);
+      if (!canAdd(s, c.item, 1)) return fail(BAG_FULL);
+      removeItem(s, c.coin, c.price);
+      addItem(s, c.item, 1);
+      return { ok: true, msg: `${itemDef(c.item)?.name ?? c.item} 구매!` };
     }
     case 'sell': {
       const r = sellItem(s, a.index, a.n);
