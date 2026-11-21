@@ -6,9 +6,11 @@ import { CUTSCENES } from '../shared/data/cutscenes';
 import { MAPS, type MapId } from '../shared/data/maps';
 import { expNeed, type ClassId } from '../shared/data/classes';
 import { questDef } from '../shared/data/quests';
-import { applyEffect, mapNpcs, pickTalk } from '../shared/rules/story';
+import { applyEffect, mapNpcs, mapPickups, npcMark, pickTalk } from '../shared/rules/story';
+import { World } from '../shared/sim/World';
+import { GROUND_Y } from '../shared/data/maps';
 import { autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
-import { addItem } from '../shared/rules/inventory';
+import { addItem, countItem, removeItem } from '../shared/rules/inventory';
 import { gainExp } from '../shared/rules/progress';
 import { PHASE_MS } from '../shared/sim/clock';
 import { newSave, type SaveData } from '../shared/sim/save';
@@ -130,4 +132,75 @@ describe('미니 챕터 끝까지', () => {
       if (cls === 'mage') expect(log.filter(l => l === 'self:self').length).toBe(2);
     });
   }
+});
+
+describe('영주님의 생일잔치: 초대장·악보·폭죽', () => {
+  const talk = (s: SaveData, npc: string) => play(s, pickTalk(s, npc)!.steps);
+  function ready() {
+    const s = newSave('t', 'warrior', 'M');
+    s.quests.mg13 = { active: false, counts: [], done: true };
+    s.level = 5;
+    return s;
+  }
+  it('세바스찬에게 받으면 초대장 5장, 다섯 명에게 하나씩 건네면 보고', () => {
+    const s = ready();
+    talk(s, 'sebastian');
+    expect(questState(s, 'bd3')).toBe('active');
+    expect(countItem(s, 'invitation')).toBe(5);
+    for (const npc of ['smith', 'masha', 'choir_kid', 'shop', 'firework_master']) {
+      expect(npcMark(s, npc)).toBe('?');
+      talk(s, npc);
+    }
+    expect(countItem(s, 'invitation')).toBe(0);
+    expect(questState(s, 'bd3')).toBe('ready');
+    talk(s, 'sebastian');
+    expect(questState(s, 'bd3')).toBe('done');
+  });
+  it('초대장을 잃어버리면 세바스찬이 한 장 더 줌', () => {
+    const s = ready();
+    talk(s, 'sebastian');
+    removeItem(s, 'invitation', 5);
+    talk(s, 'sebastian');
+    expect(countItem(s, 'invitation')).toBe(1);
+  });
+  it('악보: 가도에서 5장 주우면 완료 (버려도 주운 수로 셈), 주운 것은 다시 안 보임', () => {
+    const s = ready();
+    s.flags.bd3_choir_kid = 1;
+    talk(s, 'choir_kid');
+    expect(questState(s, 'bd4')).toBe('active');
+    const w = new World('road', 1);
+    const p = w.addPlayer('p', s, 300);
+    for (const o of mapPickups(s, 'road')) {
+      p.x = o.x - p.w / 2; p.y = (o.y ?? GROUND_Y) - p.h; p.onGround = true;
+      (w as unknown as { takePickup(p: unknown, o: unknown): void }).takePickup(p, o);
+    }
+    expect(mapPickups(s, 'road')).toHaveLength(0);
+    removeItem(s, 'music_sheet', 2);
+    expect(questState(s, 'bd4')).toBe('ready');
+    talk(s, 'choir_kid');
+    expect(questState(s, 'bd4')).toBe('done');
+    expect(countItem(s, 'music_sheet')).toBe(0);
+  });
+  it('폭죽 장인: 원소 구슬 10개 → 폭죽, 또 받을 수 있음', () => {
+    const s = ready();
+    s.flags.bd3_firework_master = 1;
+    talk(s, 'firework_master');
+    addItem(s, 'elem_orb', 10);
+    talk(s, 'firework_master');
+    expect(countItem(s, 'firework')).toBe(5);
+    expect(questState(s, 'bd_fw')).toBe('none');
+    expect(npcMark(s, 'firework_master')).toBe('!');
+  });
+  it('폭죽: 서 있는 자리에 설치, 3초 뒤 발사, 터지고 나면 사라짐', () => {
+    const s = ready();
+    addItem(s, 'firework', 1);
+    const w = new World('school', 1);
+    const p = w.addPlayer('p', s, 600);
+    for (let i = 0; i < 60; i++) w.step(new Map());
+    expect(w.useFirework(p)).toBe(true);
+    expect(countItem(s, 'firework')).toBe(0);
+    expect(w.fireworks[0].x).toBeCloseTo(p.x + p.w / 2);
+    for (let i = 0; i < 400; i++) w.step(new Map());
+    expect(w.fireworks).toHaveLength(0);
+  });
 });

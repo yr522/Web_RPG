@@ -77,8 +77,14 @@ export function npcMark(s: SaveData, npc: string, nowMs?: number): QuestMark {
   const pick = pickTalk(s, npc, nowMs);
   if (!pick || pick.talk < 0) return null;
   const fx = stepEffects(pick.steps);
-  if (fx.some(e => 'quest' in e && e.quest === 'report')) return '?';
+  // 보고하기·물건 건네기 (초대장 전달 등)
+  if (fx.some(e => ('quest' in e && e.quest === 'report') || ('item' in e && e.n < 0))) return '?';
   return fx.some(e => 'quest' in e && e.quest === 'give') ? '!' : null;
+}
+
+/** 지금 이 맵에 보이는 줍는 물건 (조건이 맞고 아직 안 주운 것) */
+export function mapPickups(s: SaveData, map: MapId) {
+  return (MAPS[map].pickups ?? []).filter(o => !s.flags[`got_${o.id}`] && (!o.when || checkCond(s, o.when)));
 }
 
 /** 혼자 하는 퀘스트(대화 NPC 'self'): 내 머리 위에 띄울 말풍선 */

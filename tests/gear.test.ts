@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ENHANCE, ENHANCE_MAX, OPT_MAX_TIER, OPTION_POOL, enhanceMult, repairCost } from '../shared/data/gear';
-import { ITEMS, itemDef, type ItemId } from '../shared/data/items';
+import { ITEMS, dropChance, itemDef, type ItemId } from '../shared/data/items';
 import { baseBonus, compareGear, enhance, itemBonus, optionUp, repair, reroll, rollOptions } from '../shared/rules/gear';
 import { addItem, equipBonus, equipTo, toggleEquip } from '../shared/rules/inventory';
 import { applyAction } from '../shared/rules/progress';
@@ -281,5 +281,22 @@ describe('장비 칸에 끌어다 놓기', () => {
     expect([s.equip.ring1, s.equip.ring2]).toEqual([uid2, a.uid]);
     equipTo(s, a.idx, 'ring1');
     expect([s.equip.ring1, s.equip.ring2]).toEqual([a.uid, uid2]);
+  });
+});
+
+describe('행운의 반지 · 주화 상점 · 드롭률', () => {
+  it('드롭률은 보너스끼리 더한 뒤 곱함 (1% × (1 + 0.5 + 1.0) = 2.5%), 100% 를 안 넘음', () => {
+    expect(dropChance(0.01, 50 + 100)).toBeCloseTo(0.025);
+    expect(dropChance(0.7, 100)).toBe(1);
+  });
+  it('미션 주화 5개로 행운의 반지, 끼면 드롭률 +10 · 방어력 +5', () => {
+    const s = newSave('t', 'warrior', 'M');
+    expect(applyAction(s, { type: 'coinBuy', item: 'luck_ring' }, 0).ok).toBe(false);
+    addItem(s, 'mission_coin', 5);
+    expect(applyAction(s, { type: 'coinBuy', item: 'luck_ring' }, 0).ok).toBe(true);
+    expect(s.bag.some(e => e?.id === 'mission_coin')).toBe(false);
+    toggleEquip(s, s.bag.findIndex(e => e?.id === 'luck_ring'));
+    const b = equipBonus(s);
+    expect([b.drop, b.def]).toEqual([10, 5]);
   });
 });

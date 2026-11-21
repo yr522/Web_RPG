@@ -1,7 +1,7 @@
 // 몬스터 (기획서 10장, 14장 수치)
 
 /** 몬스터 종류 */
-export type MonsterId = 'slime' | 'slime_elem' | 'honey_slime' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss' | 'dummy';
+export type MonsterId = 'slime' | 'slime_elem' | 'honey_slime' | 'beast' | 'guard_a' | 'guard_b' | 'guard_c' | 'guard_d' | 'golem' | 'guard_boss' | 'dummy';
 
 /**
  * 움직임 종류
@@ -51,12 +51,18 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   slime_elem: {
     // 크기 1.2배 (42×30 → 50×36, 2026-11-20, 슬라임과 같게)
     name: '원소 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 50, h: 36, ai: 'slime', speed: [40, 60], chase: 1.7, elemental: true,
-    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
+    // 원소 구슬 10% (2026-11-21, 점액과 따로 굴림)
+    drops: [{ item: 'slime_gel', chance: 0.4 }, { item: 'elem_orb', chance: 0.1 }, { item: 'slime_armor', chance: 0.03 }, { item: 'slime_ring', chance: 0.03 }],
   },
   // 꿀 슬라임 (영주님의 생일잔치, 2026-11-21): 세기는 원소 슬라임과 같음. 그림 assets/img/sprites/enemies/03_honeySlime
   honey_slime: {
     name: '꿀 슬라임', hp: 260, exp: 20, touch: 12, gold: [12, 18], w: 50, h: 36, ai: 'snail', speed: [30, 45], chase: 1.5,
     drops: [{ item: 'honey', chance: 0.7 }],
+  },
+  // 들짐승 (영지 가도, 2026-11-21): 황소 + 하이에나. 임시 그림, 수치 임시. 걸어서 쫓아오다 돌진
+  beast: {
+    name: '들짐승', hp: 480, exp: 32, touch: 18, gold: [20, 30], w: 64, h: 42, ai: 'charger', speed: [45, 60], chase: 1.6,
+    drops: [{ item: 'rawhide', chance: 0.2 }],
   },
   // 마법공학의 유산 (임시 그림, 수치 임시)
   guard_a: {

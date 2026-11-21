@@ -46,6 +46,8 @@ export interface Session {
   takePortal(to: MapId, toX: number, toY?: number): void;
   /** 인벤토리에서 포션 사용 (1·2번 키와 같음) */
   usePotion(kind: string): void;
+  /** 인벤토리에서 폭죽 쓰기 */
+  useFirework(): void;
   /** 인벤토리 칸을 캐릭터 자리 바닥에 버리기 */
   dropBag(index: number, n?: number): boolean;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
@@ -142,6 +144,7 @@ export class LocalSession implements Session {
   }
 
   usePotion(kind: string) { this.world.usePotion(this.me(), kind); }
+  useFirework() { if (this.world.useFirework(this.me())) void this.store.save(this.save); }
   dropBag(index: number, n?: number) {
     const p = this.me();
     if (p.hp <= 0) return false;

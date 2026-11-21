@@ -33,6 +33,8 @@ export function goalProgress(s: SaveData, q: QuestDef, i: number): { cur: number
     case 'level': return { cur: Math.min(s.level, g.n), need: g.n };
     case 'learn': return { cur: (g.skill ? g.skill in s.learned : Object.keys(s.learned).length > 0) ? 1 : 0, need: 1 };
     case 'equip': return { cur: equipped(s, g.item) ? 1 : 0, need: 1 };
+    case 'gather': return { cur: Math.min(c, g.n), need: g.n };
+    case 'flags': return { cur: g.flags.filter(f => (s.flags[f] ?? 0) > 0).length, need: g.flags.length };
   }
 }
 
@@ -48,7 +50,7 @@ function equipped(s: SaveData, item?: string) {
 export function questProgressText(s: SaveData, q: QuestDef) {
   const out: string[] = [];
   q.goals.forEach((g, i) => {
-    if (g.kind !== 'kill' && g.kind !== 'collect' && g.kind !== 'level') return;
+    if (g.kind !== 'kill' && g.kind !== 'collect' && g.kind !== 'level' && g.kind !== 'gather' && g.kind !== 'flags') return;
     const p = goalProgress(s, q, i);
     out.push(`${p.cur}/${p.need}`);
   });
@@ -118,6 +120,8 @@ export function reportQuest(s: SaveData, id: string): ActionResult {
   for (const c of collectCosts(q)) removeItem(room, c.id, c.n);
   for (const it of r.items ?? []) if (!addItem(room, it.id, it.n)) return fail(BAG_FULL);
   for (const c of collectCosts(q)) removeItem(s, c.id, c.n);
+  // 주운 물건(줍기 목표)은 가방에 남은 만큼 가져감
+  for (const g of q.goals) if (g.kind === 'gather') removeItem(s, g.item, Math.min(g.n, countItem(s, g.item)));
   s.quests[id] = { active: false, counts: [], done: true, doneAt: s.quests[id]?.doneAt ?? ++s.questSeq, ...(q.daily ? { doneDay: s.dailyDay } : {}) };
   s.questPins = s.questPins.filter(p => p !== id);
   const parts: string[] = [];
@@ -193,6 +197,16 @@ export function questsOnKill(s: SaveData, mob: MonsterId, tag?: string): QuestDe
   });
 }
 
+/** 맵에서 물건을 주움 → 줍기 목표 숫자 */
+export function questsOnGather(s: SaveData, item: string): QuestDef[] {
+  return newlyReady(s, () => {
+    for (const q of activeQuests(s)) {
+      const st = s.quests[q.id];
+      q.goals.forEach((g, i) => { if (g.kind === 'gather' && g.item === item && (st.counts[i] ?? 0) < g.n) st.counts[i] = (st.counts[i] ?? 0) + 1; });
+    }
+  });
+}
+
 /** 맵에 들어감 → 가기 목표 완료 */
 export function questsOnVisit(s: SaveData, map: MapId): QuestDef[] {
   return newlyReady(s, () => {
@@ -227,7 +241,13 @@ export function questTarget(s: SaveData, q: QuestDef): { map: MapId; x?: number 
         if (id) return { map: id };
         continue;
       }
-      case 'level': case 'equip': continue;
+      case 'gather': {
+        const item = g.item;
+        const id = (Object.keys(MAPS) as MapId[]).find(m => MAPS[m].pickups?.some(o => o.item === item));
+        if (id) return { map: id };
+        continue;
+      }
+      case 'level': case 'equip': case 'flags': continue;
     }
   }
   return null;
@@ -269,6 +289,8 @@ function goalLine(s: SaveData, q: QuestDef, i: number, state: QuestState): GoalL
     case 'level': return { text: `레벨 ${g.n} 달성`, done };
     case 'learn': return { text: `${g.skill ? SKILLS[g.skill]?.name ?? g.skill : '스킬'} 배우기`, done };
     case 'equip': return { text: `${g.item ? itemDef(g.item)?.name ?? g.item : '장비'} 장착`, done };
+    case 'gather': return { text: `${itemDef(g.item)?.name ?? g.item} ${num}`, done };
+    case 'flags': return { text: `${g.label} ${num}`, done };
   }
 }
 
