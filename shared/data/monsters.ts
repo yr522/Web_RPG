@@ -207,4 +207,8 @@ export const coinKind = (amt: number): CoinImg => COIN_KINDS.find(k => amt >= k.
 /** 동전 그림 한 바퀴: 프레임 수와 초당 프레임, 그림 배율 (16px 그림 × scale) */
 export const COIN_ANIM = { frames: 6, fps: 6, scale: 2 };
 /** 땅에 떨어진 물건 (줍는 범위 크기, 사라지는 시간은 COIN 과 같음) */
-export const ITEM_DROP = { size: 24 };
+export const ITEM_DROP = {
+  size: 24,
+  /** 인벤토리에서 버린 물건: 이 시간(초) 동안 아무도 못 주움 (붉은 틴트) */
+  lock: 2,
+};
