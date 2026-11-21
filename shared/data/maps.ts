@@ -31,7 +31,7 @@ export interface Sign { x: number; text: string }
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[] }
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
-  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow' | 'my_workshop'
+  | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow' | 'my_workshop' | 'road'
   | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field';
 
 export interface MapDef {
@@ -71,6 +71,11 @@ export interface MapDef {
   safe?: boolean;
   /** 던전 방: 몬스터가 웨이브로 나옴 (spawns 대신). 한 웨이브를 다 잡으면 다음, 다 끝나면 afterClear 포탈이 열림 */
   waves?: Spawn[][];
+  /**
+   * 한 번만 줍는 물건 (↑ 로 주움, 주우면 영영 사라짐: 플래그 got_<id>). when = 이 조건일 때만 보임.
+   * y = 발이 닿는 높이 (없으면 땅). 그림이 없으면 흰 상자
+   */
+  pickups?: { id: string; x: number; y?: number; item: string; when?: Cond }[];
   /** 던전 마지막 방: 다 잡으면 주는 보상 */
   clearReward?: { gold: number; exp: number };
   platforms: Platform[];
@@ -130,6 +135,13 @@ const HALL_ARCH_X = 499;
 const HALL_DORM_X = 1346;
 /** 마법 학교 맵 오른쪽 끝: 마을 가는 포탈 (예전 기숙사 포탈 자리) */
 const SCHOOL_TOWN_X = 1620;
+/** 마법 학교 오른쪽 2층 발판 (영지 가도 포탈) */
+const SCHOOL_ROAD = { x: 1500, y: 360, w: 180, portal: 1590 };
+/** 영지 가도: 마을 폭의 4/5, 같은 길이 2층 발판 2개 (가운데 기준 대칭) */
+const ROAD = (() => {
+  const width = 1360, mid = width / 2, w = 420, gap = 220, y = 360;
+  return { width, y, left: mid - gap / 2 - w, right: mid + gap / 2, w };
+})();
 /** 원소 슬라임 서식지 왼쪽 위 발판 (꿀 슬라임 서식지 포탈) */
 const FIELD2_HONEY = { x: 40, y: 240, w: 170, portal: 110 };
 /** 학교 복도 그림 속 강의실 문 자리 (왼쪽부터 검술과 · 마법학과 · 궁술과 · 나중 직업 2개) */
@@ -152,9 +164,11 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '마법 학교', width: 1700, safe: true, top: -150,
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
-    platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }],
+    platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }, { x: SCHOOL_ROAD.x, y: SCHOOL_ROAD.y, w: SCHOOL_ROAD.w }],
     portals: [
       { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' },
+      // 2026-11-21: 오른쪽 2층 발판 → 영지 가도
+      { x: SCHOOL_ROAD.portal, y: SCHOOL_ROAD.y, to: 'road', toX: 160, label: '영지 가도' },
       { x: SCHOOL_TOWN_X, to: 'town', toX: 160, label: '마을' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
@@ -162,6 +176,8 @@ export const MAPS: Record<MapId, MapDef> = {
     ],
     npcs: [
       { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 }, { id: 'smith', x: 1400 },
+      // 떠돌이 상인 (2026-11-21): 학교 앞
+      { id: 'wanderer', x: 880 },
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
       // 미니 챕터를 끝내고 학교로 돌아옴
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },
@@ -190,9 +206,31 @@ export const MAPS: Record<MapId, MapDef> = {
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     platforms: [],
     portals: [{ x: 90, to: 'school', toX: SCHOOL_TOWN_X - 100, label: '마법 학교' }],
-    npcs: [{ id: 'masha', x: 620 }, { id: 'sebastian', x: 1150 }],
+    npcs: [{ id: 'masha', x: 620 }, { id: 'sebastian', x: 1150 }, { id: 'choir_kid', x: 1360 }, { id: 'firework_master', x: 1560 }],
     signs: [],
     spawns: [],
+  },
+  // 영지 가도 (2026-11-21): 마을과 같은 배경(건물 없음), 마을 폭의 4/5, 같은 길이 2층 발판 2개 대칭. 들짐승
+  // 악보 5장 (날아간 악보 bd4 하는 동안만 보임, 주우면 영영 사라짐)
+  road: {
+    name: '영지 가도', width: ROAD.width, top: -150,
+    bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
+    platforms: [{ x: ROAD.left, y: ROAD.y, w: ROAD.w }, { x: ROAD.right, y: ROAD.y, w: ROAD.w }],
+    portals: [{ x: 90, to: 'school', toX: SCHOOL_ROAD.portal, toY: SCHOOL_ROAD.y, label: '마법 학교' }],
+    npcs: [],
+    signs: [],
+    spawns: [
+      { x: 420, mob: 'beast' }, { x: 700, mob: 'beast' }, { x: 980, mob: 'beast' }, { x: 1240, mob: 'beast' },
+      { x: ROAD.left + 100, mob: 'beast', y: ROAD.y - 60 }, { x: ROAD.left + ROAD.w - 100, mob: 'beast', y: ROAD.y - 60 },
+      { x: ROAD.right + 100, mob: 'beast', y: ROAD.y - 60 }, { x: ROAD.right + ROAD.w - 100, mob: 'beast', y: ROAD.y - 60 },
+    ],
+    pickups: [
+      { id: 'sheet1', x: 320, item: 'music_sheet', when: { quest: 'bd4', state: 'active' } },
+      { id: 'sheet2', x: ROAD.left + 260, y: ROAD.y, item: 'music_sheet', when: { quest: 'bd4', state: 'active' } },
+      { id: 'sheet3', x: ROAD.width / 2, item: 'music_sheet', when: { quest: 'bd4', state: 'active' } },
+      { id: 'sheet4', x: ROAD.right + 160, y: ROAD.y, item: 'music_sheet', when: { quest: 'bd4', state: 'active' } },
+      { id: 'sheet5', x: 1180, item: 'music_sheet', when: { quest: 'bd4', state: 'active' } },
+    ],
   },
   // 꿀 슬라임 서식지 (2026-11-21): 학교 뒷숲 배치를 그대로 (임시). 배경 forest_inside (1672×941, 풀 윗면 849) → 폭은 그림 비율대로
   honey_field: {
@@ -452,7 +490,7 @@ export const MAP_BGM: Partial<Record<MapId, string>> = {
   classroom_sword: 'Noblesse nostalgia', classroom_magic: 'Noblesse nostalgia', classroom_bow: 'Noblesse nostalgia',
   dorm: 'Noblesse nostalgia', my_workshop: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
   // 슬라임 사냥터 3개
-  field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow',
+  field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow', road: 'MoonlightShadow',
   // 공방 안 전부 (던전 잊힌 공방 포함)
   workshop: 'LowGradeOre', under_trial: 'LowGradeOre', under_cleared: 'LowGradeOre', under: 'LowGradeOre',
   dungeon1: 'LowGradeOre', dungeon2: 'LowGradeOre', dungeon3: 'LowGradeOre',

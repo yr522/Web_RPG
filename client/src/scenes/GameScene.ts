@@ -16,18 +16,20 @@ import type { Enemy } from '@shared/sim/entities';
 const hex = (c: string) => parseInt(c.slice(1, 7), 16);
 /** 바닥에 떨어진 물건 그림의 화면 크기 (원본이 16·32·64 여도 이 크기로 맞춤) */
 const DROP_ICON_PX = 32;
+/** 폭죽 터지는 색 (임시 그림) */
+const FIREWORK_COLORS = [0xff5a5a, 0xffd23a, 0x5ad2ff, 0xa8ff5a, 0xff7ae0, 0xffa040];
 /** 버린 지 얼마 안 돼 못 줍는 물건 틴트 (살짝 붉게) */
 const DROP_LOCK_TINT = 0xff9a9a;
 
 import { ICON_URLS } from '../ui/icons';
-import { itemDef } from '@shared/data/items';
+import { FIREWORK, itemDef } from '@shared/data/items';
 import { VFX, createVfxAnims, preloadVfx, vfxKey } from './vfx';
 import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
 import type { Motion } from '@shared/data/cutscenes';
 import { QUESTS } from '@shared/data/quests';
 import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
-import { mapNpcs, mapPortals, npcMark, offersQuest, selfMark, type QuestMark } from '@shared/rules/story';
+import { mapNpcs, mapPickups, mapPortals, npcMark, offersQuest, selfMark, type QuestMark } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -390,7 +392,7 @@ export class GameScene extends Phaser.Scene implements Stage {
         this.npcMarks.set(n.id, qm);
       }
       // 교수님은 이야기 대사가 있어도 그림은 교수님 그대로
-      const talk = n.id === 'prof' || n.id === 'smith' ? undefined : TALK_NPCS[n.id];
+      const talk = n.id === 'prof' || n.id === 'smith' || n.id === 'shop' ? undefined : TALK_NPCS[n.id];
       if (talk?.prop === 'bed') {
         // 침대: 그림은 배경에 있음. 눈에 안 보이는 NPC (클릭·↑ 자리만)
         continue;
@@ -611,9 +613,13 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.updateCompanion(dt, px + me.w / 2);
     this.updateSpeech(dt, px + me.w / 2, py + me.h);
     this.drawGuide(px + me.w / 2, py + me.h);
+    this.drawPickups();
+    this.drawFireworks();
     const portal = session.world.portalNear(me);
     const npc = mapNpcs(session.save, session.world.mapId).find(n => Math.abs(n.x - (me.x + me.w / 2)) < 60);
-    if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
+    const pick = session.world.pickupNear(me);
+    if (pick && !npc) this.showBubble(pick.x, (pick.y ?? GROUND_Y) - 70, '↑');
+    else if (portal) this.showBubble(portal.x, (portal.y ?? GROUND_Y) - 118, '↑ 이동');
     // 대화 NPC 는 머리 위 말풍선이 떠 있는 동안 안내 말풍선을 겹쳐 띄우지 않음
     else if (npc && this.bubbles.get(`npc:${npc.id}`)?.visible) this.bubble.setVisible(false);
     else if (npc) this.showBubble(npc.x, GROUND_Y - 126, `↑ / ${this.deps.isTouch ? '터치' : '클릭'}: ${npc.id === 'shop' ? '상점' : npc.id === 'smith' ? '대장간' : '대화'}`);
@@ -1260,6 +1266,68 @@ export class GameScene extends Phaser.Scene implements Stage {
     });
   }
 
+  /** 한 번만 줍는 물건 (그림이 없어서 흰 상자, 둥실둥실) */
+  private pickG: Phaser.GameObjects.Graphics | null = null;
+  private drawPickups() {
+    if (!this.pickG || !this.pickG.active) this.pickG = this.add.graphics().setDepth(4.5);
+    const g = this.pickG.clear(), s = this.deps.session;
+    for (const o of mapPickups(s.save, s.world.mapId)) {
+      const y = (o.y ?? GROUND_Y) - 6 - 3 * (1 + Math.sin(this.time.now / 250 + o.x));
+      g.fillStyle(0xffffff, 0.95).fillRect(o.x - 10, y - 24, 20, 24);
+      g.lineStyle(2, 0x3a3a3a, 1).strokeRect(o.x - 10, y - 24, 20, 24);
+    }
+  }
+
+  /**
+   * 폭죽 (임시 그림): 설치 → 통이 부들부들 떨며 불똥 튐 → 발사(꼬리 불꽃) → 늘 같은 높이에서 터짐 (빛 알갱이가 퍼졌다가 떨어지며 사라짐)
+   */
+  private fwG: Phaser.GameObjects.Graphics | null = null;
+  private drawFireworks() {
+    if (!this.fwG || !this.fwG.active) this.fwG = this.add.graphics().setDepth(6);
+    const g = this.fwG.clear(), F = FIREWORK, now = this.time.now / 1000;
+    for (const f of this.deps.session.world.fireworks) {
+      const seed = [...f.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
+      const rnd = (i: number) => { const v = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return v - Math.floor(v); };
+      const cols = FIREWORK_COLORS, c1 = cols[seed % cols.length], c2 = cols[(seed >> 3) % cols.length];
+      if (f.t < F.fuse) {
+        // 통: 갈수록 더 세게 떨림
+        const k = f.t / F.fuse, sx = Math.sin(now * 60) * (0.6 + 2.2 * k), x = f.x + sx;
+        g.fillStyle(0x2a1a10).fillRect(x - 6, f.y - 22, 12, 22);
+        g.fillStyle(0xd84a3a).fillRect(x - 5, f.y - 21, 10, 20);
+        g.fillStyle(0xf0e0c0).fillRect(x - 5, f.y - 14, 10, 3);
+        g.fillStyle(0x3a2a1a).fillRect(x - 1, f.y - 27, 2, 5);
+        // 불똥: 심지 끝에서 튀어 오름
+        for (let i = 0; i < 10; i++) {
+          const ph = (now * 2.4 + rnd(i)) % 1, a = (rnd(i + 20) - 0.5) * 2.4;
+          const px = x + Math.sin(a) * 26 * ph, py = f.y - 27 - Math.cos(a) * 22 * ph + 30 * ph * ph;
+          g.fillStyle(ph < 0.5 ? 0xffe27a : 0xff8a2a, 1 - ph).fillRect(px - 1, py - 1, 2.5, 2.5);
+        }
+      } else if (f.t < F.fuse + F.rise) {
+        // 발사: 위로 갈수록 느려짐, 꼬리 불꽃
+        const k = (f.t - F.fuse) / F.rise, e = 1 - (1 - k) * (1 - k), y = f.y - 20 + (f.burstY - f.y + 20) * e;
+        g.fillStyle(0xfff2b0).fillCircle(f.x, y, 3);
+        for (let i = 1; i <= 8; i++) g.fillStyle(0xffb040, 0.7 - i * 0.08).fillCircle(f.x + Math.sin(now * 40 + i) * 1.5, y + i * 7, 2.6 - i * 0.22);
+      } else {
+        // 터짐: 두 겹 고리로 퍼지며 빛줄기를 남기고, 끝으로 갈수록 떨어지며 사라짐
+        const k = (f.t - F.fuse - F.rise) / F.burst, e = 1 - Math.pow(1 - Math.min(1, k * 1.5), 3), fall = 50 * k * k, a = Math.max(0, 1 - k * k);
+        if (k < 0.15) g.fillStyle(0xffffff, 0.9 * (1 - k / 0.15)).fillCircle(f.x, f.burstY, 40);
+        for (let ring = 0; ring < 2; ring++) {
+          const n = ring ? 20 : 32, r = (ring ? 85 : 150) * e, col = ring ? c2 : c1;
+          for (let i = 0; i < n; i++) {
+            const ang = (i / n) * Math.PI * 2 + rnd(ring * 50 + i) * 0.25;
+            const cx2 = Math.cos(ang), sy2 = Math.sin(ang);
+            const px = f.x + cx2 * r, py = f.burstY + sy2 * r + fall;
+            const tw = 0.7 + 0.3 * Math.sin(now * 30 + i);
+            // 빛줄기 (안쪽에서 바깥으로)
+            g.lineStyle(2.5, col, a * 0.55).lineBetween(f.x + cx2 * r * 0.55, f.burstY + sy2 * r * 0.55 + fall * 0.6, px, py);
+            g.fillStyle(col, a * tw).fillCircle(px, py, 4.5 * (1 - k * 0.4));
+            g.fillStyle(0xffffff, a * tw * 0.9).fillCircle(px, py, 2);
+          }
+        }
+      }
+    }
+  }
+
   /** 그림이 아직 없는 몬스터의 임시 그림 (왼쪽을 봄, 프레임 0 기본 · 1 이동 · 2 패턴 예고) */
   private makeTempMobs() {
     const make = (key: string, fw: number, fh: number, draw: (r: (x: number, y: number, w: number, h: number, c: string) => void, f: number) => void) => {
@@ -1280,6 +1348,33 @@ export class GameScene extends Phaser.Scene implements Stage {
       const k = f === 1 ? 2 : 0;
       r(10 - k, 28, 4, 8, '#1d2128'); r(18 + k, 28, 4, 8, '#1d2128');
       r(11 - k, 28, 2, 7, '#8d9aa8'); r(19 + k, 28, 2, 7, '#8d9aa8');
+    });
+    // 들짐승 (영지 가도): 황소 머리·뿔 + 하이에나 몸(앞이 높고 뒤가 처진 등, 점무늬, 갈기). 2 = 돌진 예고 (머리 숙임, 붉은 눈)
+    make('beast', 46, 30, (r, f) => {
+      const ol = '#2a1c12', fur = '#9a7444', dark = '#6a4a28', spot = '#4a3218', horn = '#efe6cc';
+      const hd = f === 2 ? 3 : 0;
+      // 꼬리 (오른쪽 끝)
+      r(41, 8, 4, 2, ol); r(43, 10, 2, 5, ol); r(42, 14, 3, 3, spot);
+      // 몸: 앞(왼쪽)이 높고 뒤로 갈수록 낮아짐
+      r(12, 5, 18, 15, ol); r(28, 8, 14, 12, ol);
+      r(13, 6, 17, 13, fur); r(28, 9, 13, 10, fur);
+      r(13, 6, 17, 3, dark);
+      // 갈기
+      r(14, 3, 10, 4, ol); r(15, 4, 8, 3, spot);
+      // 점무늬
+      r(18, 11, 3, 2, spot); r(24, 9, 2, 2, spot); r(31, 12, 3, 2, spot); r(36, 10, 2, 2, spot); r(27, 15, 2, 2, spot);
+      // 머리 (황소): 넓은 얼굴 + 뿔 + 코
+      r(2, 6 + hd, 13, 11, ol); r(3, 7 + hd, 11, 9, fur); r(3, 12 + hd, 5, 4, dark);
+      r(1, 13 + hd, 3, 3, ol); r(2, 14 + hd, 1, 1, '#d08a7a');
+      r(5, 9 + hd, 2, 2, f === 2 ? '#ff3a2a' : '#1a1008');
+      r(1, 3 + hd, 4, 2, ol); r(0, 1 + hd, 2, 3, ol); r(1, 4 + hd, 3, 1, horn); r(0, 2 + hd, 1, 2, horn);
+      r(10, 3 + hd, 4, 2, ol); r(12, 1 + hd, 2, 3, ol); r(10, 4 + hd, 3, 1, horn); r(12, 2 + hd, 1, 2, horn);
+      // 다리 (앞다리 길고 뒷다리 짧음)
+      const k = f === 1 ? 2 : 0;
+      r(14 - k, 19, 4, 11, ol); r(15 - k, 19, 2, 10, dark);
+      r(22 + k, 19, 4, 11, ol); r(23 + k, 19, 2, 10, dark);
+      r(30 - k, 19, 4, 11, ol); r(31 - k, 19, 2, 10, dark);
+      r(37 + k, 19, 4, 11, ol); r(38 + k, 19, 2, 10, dark);
     });
     // 경비기계B: 넓적한 몸 + 쌍눈 + 앞으로 내민 충각, 바퀴
     make('guard_b', 40, 40, (r, f) => {

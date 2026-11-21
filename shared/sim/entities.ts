@@ -145,6 +145,8 @@ export interface Enemy extends Body {
 }
 
 /** 궁수 덫: 바닥에 설치, 밟으면 작동. (x, y) = 아래 가운데 */
+/** 설치한 폭죽: x·y = 설치한 자리(발), burstY = 터지는 높이, t = 설치한 뒤 지난 시간 */
+export interface Firework { id: EntityId; x: number; y: number; burstY: number; t: number }
 export interface Trap { id: EntityId; owner: PlayerState; x: number; y: number; w: number; elem: Element | null; t: number }
 
 export interface Coin {

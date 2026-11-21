@@ -3,12 +3,12 @@
 import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { GIDUNG, SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
-import { POTION, POTIONS, itemDef, potionIds, type PotionKind } from '../data/items';
-import { BAG_FULL, addItem, countItem, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
+import { FIREWORK, POTION, POTIONS, dropChance, itemDef, potionIds, type PotionKind } from '../data/items';
+import { BAG_FULL, addItem, countItem, equipBonus, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
 import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
-import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
-import { mapNpcs, mapPortals } from '../rules/story';
+import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnGather, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
+import { mapNpcs, mapPickups, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
 import { MONSTERS, MONSTER_AI, SLIME_AI, SNAIL_AI, SLOW_DEBUFF, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
@@ -16,7 +16,7 @@ import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './ph
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, keySkill, learned, passiveLv, skillKeyOf, skillLevel } from '../rules/progress';
-import type { Attack, Coin, Enemy, Hitbox, PlayerState, Projectile, Rect, Tornado, Trap, Vortex } from './entities';
+import type { Attack, Coin, Enemy, Firework, Hitbox, PlayerState, Projectile, Rect, Tornado, Trap, Vortex } from './entities';
 import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
@@ -52,6 +52,7 @@ export class World implements SkillWorld {
   vortices: Vortex[] = [];
   tornadoes: Tornado[] = [];
   traps: Trap[] = [];
+  fireworks: Firework[] = [];
   private timers: { t: number; fn: () => void; owner: PlayerState }[] = [];
   time = 0;
   readonly rng: Rng;
@@ -204,6 +205,7 @@ export class World implements SkillWorld {
     this.stepVortices(dt);
     this.stepTornadoes(dt);
     this.stepTraps(dt);
+    this.fireworks = this.fireworks.filter(f => (f.t += dt) < FIREWORK.fuse + FIREWORK.rise + FIREWORK.burst);
     this.stepWaves(dt);
     this.stepOrb(dt);
     this.stepTimers(dt);
@@ -255,6 +257,8 @@ export class World implements SkillWorld {
     if (cmd.upPressed && !p.action && p.hurt <= 0) {
       const npc = this.npcNear(p);
       if (npc) { this.events.push({ type: 'interact', playerId: p.id, npc: npc.id }); return; }
+      const pick = this.pickupNear(p);
+      if (pick && p.onGround) { this.takePickup(p, pick); return; }
       const portal = this.portalNear(p);
       if (portal?.closed && p.onGround) { this.warn(p, portal.closed); return; }
       if (portal && p.onGround) { this.events.push({ type: 'portal', playerId: p.id, to: portal.to, toX: portal.toX, toY: portal.toY, confirm: portal.confirm, boss: portal.boss, choose: portal.choose }); return; }
@@ -724,18 +728,21 @@ export class World implements SkillWorld {
     this.dropGold(cx(e), cy(e), Math.round((g0 + Math.floor(this.rng() * (g1 - g0 + 1))) * this.diff.gold * (e.elite ? ELITE.gold : 1)));
     // group 이 같은 드롭은 한 번만 굴림 (누적 확률 안에 들면 그것 하나)
     const groupRoll = new Map<string, { r: number; acc: number; done: boolean }>();
+    // 아이템 드롭률 보너스 (장비): 확률마다 × (1 + 합 / 100)
+    const dropBonus = equipBonus(s).drop;
     for (const d of def.drops ?? []) {
+      const chance = dropChance(d.chance, dropBonus);
       if (d.quest && questState(s, d.quest) !== 'active') continue;
       // 최대 개수: 가방 + 바닥에 떨어져 있는 것
       if (d.max !== undefined && countItem(s, d.item) + this.coins.filter(c => c.item === d.item).length >= d.max) continue;
       if (d.group) {
         let g = groupRoll.get(d.group);
         if (!g) { g = { r: this.rng(), acc: 0, done: false }; groupRoll.set(d.group, g); }
-        g.acc += d.chance;
+        g.acc += chance;
         if (!g.done && g.r < g.acc) { g.done = true; this.dropItem(cx(e), cy(e), d.item); }
         continue;
       }
-      if (this.rng() < d.chance) this.dropItem(cx(e), cy(e), d.item);
+      if (this.rng() < chance) this.dropItem(cx(e), cy(e), d.item);
     }
     questsOnKill(s, e.mob, e.tag);
     for (const id of readyQuestIds(s)) if (!before.includes(id)) this.questReady(p, questDef(id)!);
@@ -1344,9 +1351,30 @@ export class World implements SkillWorld {
     return mapNpcs(p.data, this.mapId).find(n => Math.abs(n.x - cx(p)) < 60) ?? null;
   }
 
+  /** 근처 줍는 물건 (발 높이가 맞아야) */
+  pickupNear(p: PlayerState) {
+    return mapPickups(p.data, this.mapId).find(o => Math.abs(o.x - cx(p)) < 40 && Math.abs((o.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
+  }
+
+  /** 줍기: 가방에 넣고(자리가 없으면 그대로) 영영 사라짐, 줍기 목표 숫자 */
+  private takePickup(p: PlayerState, o: { id: string; x: number; y?: number; item: string }) {
+    if (!addItem(p.data, o.item)) return this.warn(p, BAG_FULL);
+    p.data.flags[`got_${o.id}`] = 1;
+    this.float(o.x, (o.y ?? GROUND_Y) - 40, `+${itemDef(o.item)?.name ?? o.item}`, '#ffffff', 15, 0.8);
+    for (const q of questsOnGather(p.data, o.item)) this.questReady(p, q);
+  }
+
   /** 근처 포탈 (화면에서 "↑ 이동" 말풍선용) */
   portalNear(p: PlayerState) {
     return mapPortals(p.data, this.mapId, this.cleared).find(o => Math.abs(o.x - cx(p)) < 40 && Math.abs((o.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
+  }
+
+  /** 폭죽 쓰기: 서 있는 자리에 설치 (공중에서는 안 됨) */
+  useFirework(p: PlayerState) {
+    if (!p.onGround || p.hp <= 0 || !removeItem(p.data, 'firework')) return false;
+    const y = p.y + p.h;
+    this.fireworks.push({ id: `fw${this.nextId++}`, x: cx(p), y, burstY: Math.min(GROUND_Y - FIREWORK.burstH, y - FIREWORK.minRise), t: 0 });
+    return true;
   }
 
   /** 포션 쓰기. kind 만 주면 (1·2번 키) 가진 것 중 가장 작은 것, item 을 주면 (가방에서) 그 포션 */
