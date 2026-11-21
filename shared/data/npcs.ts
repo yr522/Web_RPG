@@ -7,6 +7,7 @@
 //   { choices: [ { label, reply } ] } → 선택지. 고르면 reply 대사들이 이어서 나온다
 //   { do: 효과 }                       → 화면에 안 보이고 효과만 (퀘스트 주기·보고, 플래그 바꾸기, 물건·골드 주고받기)
 //   { cutscene: '컷신 id' }            → 대화창을 닫고 컷신 재생 (cutscenes.ts)
+//   { open: 'coinShop' }               → 대화창을 닫고 그 창을 엶 (주화 상점 등)
 // 대사가 끝나면 창이 닫히고, 다시 말을 걸면 처음부터.
 //
 // 상황별 대사: talks 에 { when: 조건, steps: 대사 } 를 위에서부터 검사해서 처음 맞는 것을 쓴다.
@@ -26,7 +27,8 @@ export type DialogueStep =
   | { line: string; who?: string }
   | { choices: { label: string; reply: DialogueStep[] }[] }
   | { do: Effect }
-  | { cutscene: string };
+  | { cutscene: string }
+  | { open: 'coinShop' };
 
 export type Cond =
   /** 플래그 값 비교 (없는 플래그 = 0) */
@@ -480,11 +482,17 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
       },
     ],
   },
-  // 떠돌이 상인 (학교 앞): 먼 지역에서 온 특별 상인. 말을 걸면 주화 상점 (items.ts 의 COIN_SHOP)
+  // 떠돌이 상인 (학교 앞): 먼 지역에서 온 특별 상인. [거래하기] = 주화 상점 (items.ts 의 COIN_SHOP)
   wanderer: {
     name: '떠돌이 상인',
     icon: '🎒',
-    dialogue: [],
+    // 2026-11-21 유저: 선택지 두 개, [누구세요?] 대사는 이스터에그
+    dialogue: [{
+      choices: [
+        { label: '누구세요?', reply: [{ line: '감옥에서누가돌아왔게' }] },
+        { label: '거래하기', reply: [{ open: 'coinShop' }] },
+      ],
+    }],
   },
   // 매점 모리 (특수 NPC): 초대장 받기만 대화, 나머지는 매점 창
   shop: {

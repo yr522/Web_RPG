@@ -106,7 +106,7 @@ async function boot() {
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴
   const profTalk = () => (pickTalk(session.save, 'prof', session.nowMs())?.talk ?? -1) >= 0;
-  const openNpc = (id: string) => (id === 'storage' ? storageWindow.open() : id === 'wanderer' ? npcDialog.openCoinShop() : id === 'shop' ? ((pickTalk(session.save, 'shop', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('shop') : npcDialog.openShop()) : id === 'smith' ? ((pickTalk(session.save, 'smith', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('smith') : npcDialog.openSmith()) : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
+  const openNpc = (id: string) => (id === 'storage' ? storageWindow.open() : id === 'shop' ? ((pickTalk(session.save, 'shop', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('shop') : npcDialog.openShop()) : id === 'smith' ? ((pickTalk(session.save, 'smith', session.nowMs())?.talk ?? -1) >= 0 ? npcDialog.openTalk('smith') : npcDialog.openSmith()) : id === 'prof' ? (profTalk() ? npcDialog.openTalk('prof') : npcDialog.openProfessor()) : npcDialog.openTalk(id));
   if (import.meta.env.DEV) Object.assign(window, { __npc: openNpc });
 
   const toggleFullscreen = () => {

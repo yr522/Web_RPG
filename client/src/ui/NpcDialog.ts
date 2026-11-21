@@ -312,6 +312,8 @@ export class NpcDialog {
         }
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
+        // 다른 창 열기 (주화 상점 등)
+        if ('open' in step) { this.host.close(); if (step.open === 'coinShop') this.openCoinShop(); return; }
         line = step.line;
         nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
         render();
