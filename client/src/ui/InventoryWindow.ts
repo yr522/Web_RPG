@@ -1,10 +1,11 @@
 // 인벤토리 창 (I). 게임을 멈추지 않는 떠 있는 창.
-// 오른쪽: 가방 (전체·장비·소비·기타 탭), 왼쪽 위 버튼을 누르면 왼쪽에 장비창이 펼쳐진다.
+// 가방 (전체·장비·소비·기타 탭). 왼쪽 위 버튼으로 장비창(EquipWindow, 따로 떠 있는 창)을 열고 닫는다.
 // PC: 마우스를 올리면 설명, 우클릭으로 장착·사용·해제. 모바일: 터치하면 설명, 두 번 터치로 장착·사용·해제.
-// 가방 칸은 끌어다 놓아 옮길 수 있다 (빈 칸이면 옮기고, 물건이 있으면 자리 바꿈). 아래 정렬 버튼으로 자동 정렬.
+// 가방 칸 끌어다 놓기: 가방 칸이면 옮기기(물건이 있으면 자리 바꿈), 장비창 칸이면 장착(부위가 안 맞으면 아무 일 없음),
+// 게임 화면(창 밖)이면 캐릭터 자리 바닥에 버리기. 아래 정렬 버튼으로 자동 정렬.
 // 장비는 껴도 가방에 남고, 끼고 있는 칸은 주황색 + "on".
-import { BAG_SIZE, EQUIP_SLOTS, GRADES, ITEM_TABS, POTIONS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
-import { equippedEntry, equippedSlot, type BagEntry } from '@shared/rules/inventory';
+import { BAG_SIZE, GRADES, ITEM_TABS, POTIONS, itemDef, itemGrade, type EquipSlot, type ItemKind } from '@shared/data/items';
+import { equippedSlot, type BagEntry } from '@shared/rules/inventory';
 import { compareGear } from '@shared/rules/gear';
 import type { ActionResult } from '@shared/rules/progress';
 import type { Session } from '../session/LocalSession';
@@ -12,9 +13,6 @@ import type { Hud } from '../hud/Hud';
 import { el } from './Dialog';
 import { decorateGear, itemIcon } from './icons';
 import { ItemTip } from './ItemTip';
-import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body.png';
-import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head.png';
-import walkArm from '../../../assets/img/sprites/bones/player_bone_walk_front_arm.png';
 import icoHat from '../../../assets/UI/equipment_icons/hat.png';
 import icoRing from '../../../assets/UI/equipment_icons/ring.png';
 import icoNeck from '../../../assets/UI/equipment_icons/neck.png';
@@ -24,6 +22,7 @@ import icoGloves from '../../../assets/UI/equipment_icons/gloves.png';
 import icoBottom from '../../../assets/UI/equipment_icons/bottom.png';
 import icoShoes from '../../../assets/UI/equipment_icons/shoes.png';
 import { clampToStage } from './stage';
+import type { EquipWindow } from './EquipWindow';
 
 /** 장비창 빈 칸 아이콘 (반지1·반지2 같은 그림) */
 export const SLOT_ICONS: Record<EquipSlot, string> = {
@@ -37,25 +36,14 @@ const COLS = 4, VISIBLE_ROWS = 5;
 const DOUBLE_TAP = 350;
 /** 이만큼(px) 움직이면 끌기 시작 */
 const DRAG_START = 6;
-/** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
-const EQUIP_GRID: (EquipSlot | null)[] = [
-  null, 'hat', null,
-  'ring1', 'necklace', 'weapon',
-  'ring2', 'top', 'gloves',
-  null, 'bottom', 'shoes',
-];
-
 type Tab = 'all' | ItemKind;
 
 export class InventoryWindow {
-  private root = el('div', 'inv');
-  private equipPanel = el('div', 'inv-panel inv-equip');
+  private root = el('div', 'inv invwin');
   private grid = el('div', 'inv-grid');
   private tabsEl = el('div', 'inv-tabs');
-  private equipGrid = el('div', 'inv-eq-grid');
   private toggleBtn: HTMLButtonElement;
   private tab: Tab = 'all';
-  private expanded = false;
   private sig = '';
   private tip = new ItemTip();
   private lastTap = { key: '', t: 0 };
@@ -65,30 +53,11 @@ export class InventoryWindow {
   /** 끌기 중: 집은 칸(가방 번호), 따라다니는 아이콘 */
   private drag: { pid: number; from: number; x: number; y: number; on: boolean; ghost: HTMLElement | null } | null = null;
 
-  constructor(private session: Session, private hud: Hud) {
-    // 장비창 (왼쪽)
-    const eqBar = el('div', 'inv-bar', '<span class="inv-title">equipment</span>');
-    this.bindDrag(eqBar);
-    this.equipPanel.appendChild(eqBar);
-    const eqTabs = el('div', 'inv-tabs');
-    eqTabs.appendChild(el('button', 'inv-tab on', 'armor'));
-    eqTabs.appendChild(el('button', 'inv-tab', 'Looks'));
-    this.equipPanel.appendChild(eqTabs);
-    const eqBody = el('div', 'inv-body inv-eq-body');
-    const fig = el('div', 'inv-figure');
-    fig.style.backgroundImage = [walkArm, walkHead, walkBody].map(u => `url("${u}")`).join(', ');
-    eqBody.appendChild(fig);
-    eqBody.appendChild(this.equipGrid);
-    this.equipPanel.appendChild(eqBody);
-    const eqFoot = el('div', 'inv-bar inv-foot');
-    this.bindDrag(eqFoot);
-    this.equipPanel.appendChild(eqFoot);
-
-    // 가방 (오른쪽)
+  constructor(private session: Session, private hud: Hud, private equipWin: EquipWindow) {
     const main = el('div', 'inv-panel inv-main');
     const bar = el('div', 'inv-bar');
     this.bindDrag(bar);
-    this.toggleBtn = el('button', 'inv-btn', '', () => this.setExpanded(!this.expanded)) as HTMLButtonElement;
+    this.toggleBtn = el('button', 'inv-btn', '◀', () => this.toggleEquip()) as HTMLButtonElement;
     bar.appendChild(this.toggleBtn);
     bar.appendChild(el('span', 'inv-title', 'inventory'));
     bar.appendChild(el('button', 'inv-btn inv-close', '✕', () => this.close()));
@@ -112,7 +81,6 @@ export class InventoryWindow {
     foot.appendChild(sortBtn);
     main.appendChild(foot);
 
-    this.root.appendChild(this.equipPanel);
     this.root.appendChild(main);
     this.root.addEventListener('contextmenu', e => e.preventDefault());
     document.body.appendChild(this.root);
@@ -125,7 +93,7 @@ export class InventoryWindow {
     addEventListener('pointermove', e => this.dragMove(e));
     addEventListener('pointerup', e => this.dragEnd(e));
     addEventListener('pointercancel', e => { if (this.drag?.pid === e.pointerId) this.dragCancel(); });
-    this.setExpanded(false);
+    equipWin.onToggle = () => { this.toggleBtn.textContent = equipWin.isOpen ? '▶' : '◀'; };
     // 화면 크기가 바뀌면 창이 화면 밖으로 나가지 않게
     addEventListener('resize', () => this.keepInside());
   }
@@ -176,26 +144,17 @@ export class InventoryWindow {
 
   close() { this.root.classList.remove('open'); this.tip.hide(); }
 
-  private setExpanded(v: boolean) {
-    // 옮겨 둔 창이면 가방 쪽은 제자리에 두고 장비창이 왼쪽으로 펼쳐지게
-    const main = this.root.lastElementChild as HTMLElement | null;
-    const before = main?.getBoundingClientRect().left ?? 0;
-    this.expanded = v;
-    this.equipPanel.style.display = v ? '' : 'none';
-    this.toggleBtn.textContent = v ? '▶' : '◀';
-    this.sig = '';
-    this.update();
-    if (this.isOpen && this.root.classList.contains('moved') && main) {
-      const r = this.root.getBoundingClientRect();
-      this.moveTo(r.left + before - main.getBoundingClientRect().left, r.top);
-    } else this.keepInside();
+  /** 장비창 열고 닫기: 처음 열 때는 인벤토리 왼쪽에 붙여서 */
+  private toggleEquip() {
+    if (this.equipWin.isOpen) this.equipWin.close();
+    else this.equipWin.open(this.equipWin.root.classList.contains('moved') ? undefined : this.root.getBoundingClientRect());
   }
 
   /** 매 프레임: 가방·장비가 바뀌었을 때만 다시 그린다 */
   update() {
     if (!this.isOpen || this.drag?.on) return;
     const s = this.session.save;
-    const sig = JSON.stringify([s.bag, s.equip, this.tab, this.expanded]);
+    const sig = JSON.stringify([s.bag, s.equip, this.tab]);
     if (sig === this.sig) return;
     this.sig = sig;
     this.render();
@@ -203,7 +162,7 @@ export class InventoryWindow {
 
   private render() {
     const s = this.session.save;
-    this.sig = JSON.stringify([s.bag, s.equip, this.tab, this.expanded]);
+    this.sig = JSON.stringify([s.bag, s.equip, this.tab]);
     this.tip.hide();
     for (const b of this.tabsEl.children) (b as HTMLElement).classList.toggle('on', (b as HTMLElement).dataset.tab === this.tab);
 
@@ -232,29 +191,6 @@ export class InventoryWindow {
     }
     requestAnimationFrame(() => this.syncScroll());
 
-    // 장비창
-    if (this.expanded) {
-      this.equipGrid.innerHTML = '';
-      for (const slot of EQUIP_GRID) {
-        if (!slot) { this.equipGrid.appendChild(el('div', 'inv-gap')); continue; }
-        const e = equippedEntry(s, slot);
-        const cell = el('div', 'inv-cell eq' + (e ? '' : ' empty'));
-        if (e) {
-          gradeBorder(cell, e.id);
-          cell.appendChild(itemIcon(e.id));
-          decorateGear(cell, e);
-          this.bindCell(cell, `eq:${slot}:${e.uid}:${e.enh ?? 0}:${JSON.stringify(e.opts ?? '')}`, e, () => this.result(this.session.act({ type: 'unequip', slot })));
-        } else {
-          // 빈 칸: 부위 아이콘 (흰 선 그림)
-          const img = el('img', 'inv-slot-ico') as HTMLImageElement;
-          img.src = SLOT_ICONS[slot];
-          img.alt = img.title = EQUIP_SLOTS[slot];
-          img.draggable = false;
-          cell.appendChild(img);
-        }
-        this.equipGrid.appendChild(cell);
-      }
-    }
   }
 
   // ---------- 끌어다 놓기 ----------
@@ -290,6 +226,8 @@ export class InventoryWindow {
     const target = this.dropTarget(e);
     for (const c of this.grid.querySelectorAll('.drop')) if (c !== target) c.classList.remove('drop');
     if (target && Number(target.dataset.index) !== d.from) target.classList.add('drop');
+    const eq = this.equipWin.slotAt(e.clientX, e.clientY);
+    this.equipWin.mark(eq && fitsSlot(this.session.save.bag[d.from]?.id, eq.slot) ? eq.cell : null);
   }
 
   private dragEnd(e: PointerEvent) {
@@ -300,10 +238,15 @@ export class InventoryWindow {
       this.dragCancel();
       // 끌기 직후의 터치는 두 번 터치로 치지 않음
       this.lastTap = { key: '', t: 0 };
+      const eq = this.equipWin.slotAt(e.clientX, e.clientY);
       if (target) {
         const to = Number(target.dataset.index);
         if (to !== d.from) this.result(this.session.act({ type: 'moveItem', from: d.from, to }));
-      }
+      } else if (eq) {
+        // 장비 칸에 놓기: 부위가 안 맞으면 아무 일 없음
+        this.result(this.session.act({ type: 'equipTo', index: d.from, slot: eq.slot }));
+        this.equipWin.update();
+      } else if (overGame(e)) this.session.dropBag(d.from);
     } else this.drag = null;
   }
 
@@ -311,6 +254,7 @@ export class InventoryWindow {
     this.drag?.ghost?.remove();
     this.drag = null;
     for (const c of this.grid.querySelectorAll('.picked, .drop')) c.classList.remove('picked', 'drop');
+    this.equipWin.mark(null);
     this.sig = '';
   }
 
@@ -407,8 +351,20 @@ export class InventoryWindow {
   }
 }
 
+/** 이 물건을 이 장비 칸에 낄 수 있는지 (부위만 봄) */
+function fitsSlot(id: string | undefined, slot: EquipSlot) {
+  const part = id ? itemDef(id)?.part : undefined;
+  return part === 'ring' ? slot === 'ring1' || slot === 'ring2' : !!part && part === slot;
+}
+
+/** 포인터가 창·버튼이 아닌 게임 화면 위에 있는지 (바닥에 버리기) */
+function overGame(e: PointerEvent) {
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  return hit instanceof HTMLCanvasElement && !!hit.closest('#game');
+}
+
 /** 장비 등급 색 테두리 (장비가 아니면 그대로) */
-function gradeBorder(cell: HTMLElement, id: string) {
+export function gradeBorder(cell: HTMLElement, id: string) {
   const g = itemGrade(itemDef(id));
   if (!g) return;
   cell.classList.add('graded', `g-${g}`);

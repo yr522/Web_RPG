@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { World, TICK } from '../shared/sim/World';
 import { MONSTERS } from '../shared/data/monsters';
 import { DEFENSE } from '../shared/data/classes';
-import { addItem, toggleEquip } from '../shared/rules/inventory';
+import { addItem, takeBagEntry, toggleEquip } from '../shared/rules/inventory';
 import { newSave } from '../shared/sim/save';
 import type { Enemy, PlayerState } from '../shared/sim/entities';
 import { emptyCommand } from '../shared/sim/types';
@@ -388,5 +388,33 @@ describe('영주님의 생일잔치', () => {
     s.quests.mg13 = { active: false, counts: [], done: 1 } as never;
     expect(npcMark(s, 'masha')).toBe('!');
     expect(npcMark(s, 'smith')).toBe('!');
+  });
+});
+
+describe('인벤토리에서 바닥에 버리기', () => {
+  it('캐릭터 자리에 떨어지고, 바로 다시 줍지 않으며, 떨어졌다 다시 닿으면 강화 그대로 주움', () => {
+    const { w, s, p } = fieldWithPlayer();
+    addItem(s, 'slime_armor');
+    const idx = s.bag.findIndex(e => e?.id === 'slime_armor');
+    s.bag[idx]!.enh = 7;
+    const e = takeBagEntry(s, idx)!;
+    w.dropEntry(p, e);
+    expect(w.coins).toHaveLength(1);
+    expect(Math.abs(w.coins[0].x + w.coins[0].w / 2 - (p.x + p.w / 2))).toBeLessThan(1);
+    run(w, 1);
+    expect(s.bag.some(x => x?.id === 'slime_armor')).toBe(false);
+    // 멀리 떨어뜨렸다가 다시 발밑으로
+    const c = w.coins[0];
+    c.x = p.x + 500; w.step(new Map());
+    pickAll(w, p);
+    const back = s.bag.find(x => x?.id === 'slime_armor');
+    expect(back?.enh).toBe(7);
+  });
+  it('끼고 있는 장비는 못 버림', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'slime_armor');
+    const idx = s.bag.findIndex(e => e?.id === 'slime_armor');
+    toggleEquip(s, idx);
+    expect(takeBagEntry(s, idx)).toBeNull();
   });
 });

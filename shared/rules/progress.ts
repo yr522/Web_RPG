@@ -2,8 +2,8 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, depositItem, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
+import { EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { BAG_FULL, addItem, canAdd, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
 import { craftCollect, craftOrder } from './craft';
 import { SMITH_SHOP } from '../data/craft';
@@ -37,6 +37,7 @@ export type MenuAction =
   | { type: 'swapKeys'; from: SlotKey; to: SlotKey }
   /** 가방 index 칸의 장비 끼기 / 벗기 */
   | { type: 'equip'; index: number }
+  | { type: 'equipTo'; index: number; slot: EquipSlot }
   | { type: 'unequip'; slot: EquipSlot }
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
@@ -267,6 +268,11 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
     case 'equip': {
       const why = toggleEquip(s, a.index);
       return why ? fail(why) : { ok: true, statsChanged: true };
+    }
+    case 'equipTo': {
+      if (!(a.slot in EQUIP_SLOTS)) return { ok: false };
+      const why = equipTo(s, a.index, a.slot);
+      return why === null ? { ok: true, statsChanged: true } : why ? fail(why) : { ok: false };
     }
     case 'unequip': {
       const why = unequip(s, a.slot);

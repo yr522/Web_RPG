@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ENHANCE, ENHANCE_MAX, OPT_MAX_TIER, OPTION_POOL, enhanceMult, repairCost } from '../shared/data/gear';
 import { ITEMS, itemDef, type ItemId } from '../shared/data/items';
 import { baseBonus, compareGear, enhance, itemBonus, optionUp, repair, reroll, rollOptions } from '../shared/rules/gear';
-import { addItem, equipBonus, toggleEquip } from '../shared/rules/inventory';
+import { addItem, equipBonus, equipTo, toggleEquip } from '../shared/rules/inventory';
 import { applyAction } from '../shared/rules/progress';
 import { mulberry32 } from '../shared/sim/rng';
 import { deriveStats, newSave, normalizeSave, type SaveData } from '../shared/sim/save';
@@ -259,5 +259,27 @@ describe('대장장이 제작', () => {
     for (let i = 0; i < CRAFT.queueMax; i++) expect(applyAction(s, { type: 'craftOrder', recipe: 'ingot_iron' }, 0).ok).toBe(true);
     expect(applyAction(s, { type: 'craftOrder', recipe: 'ingot_iron' }, 0).ok).toBe(false);
     expect(applyAction(s, { type: 'buyMold', item: 'hp', n: 1 }, 0).ok).toBe(false);
+  });
+});
+
+describe('장비 칸에 끌어다 놓기', () => {
+  it('부위가 맞으면 장착, 안 맞으면 아무 일 없음', () => {
+    const { s, uid, idx } = withGear('slime_armor');
+    expect(applyAction(s, { type: 'equipTo', index: idx, slot: 'hat' }, 0)).toEqual({ ok: false });
+    expect(s.equip.hat).toBeUndefined();
+    expect(applyAction(s, { type: 'equipTo', index: idx, slot: 'top' }, 0).ok).toBe(true);
+    expect(s.equip.top).toBe(uid);
+  });
+  it('반지는 반지1·반지2 아무 칸이나, 옮기면 두 칸이 바뀜', () => {
+    const a = withGear('slime_ring');
+    const s = a.s;
+    addItem(s, 'slime_ring');
+    const idx2 = s.bag.findIndex((e, i) => e?.id === 'slime_ring' && i !== a.idx);
+    const uid2 = s.bag[idx2]!.uid;
+    equipTo(s, a.idx, 'ring2');
+    equipTo(s, idx2, 'ring1');
+    expect([s.equip.ring1, s.equip.ring2]).toEqual([uid2, a.uid]);
+    equipTo(s, a.idx, 'ring1');
+    expect([s.equip.ring1, s.equip.ring2]).toEqual([a.uid, uid2]);
   });
 });

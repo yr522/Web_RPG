@@ -10,6 +10,7 @@ import { DialogHost } from './ui/Dialog';
 import { NpcDialog } from './ui/NpcDialog';
 import { CharWindow } from './ui/CharWindow';
 import { InventoryWindow } from './ui/InventoryWindow';
+import { EquipWindow } from './ui/EquipWindow';
 import { QuestWindow } from './ui/QuestWindow';
 import { SkillWindow } from './ui/SkillWindow';
 import { showSelectScreen } from './ui/SelectScreen';
@@ -84,8 +85,9 @@ async function boot() {
   const dialogs = new DialogHost();
   dialogs.onChange(open => { input.blocked = open; });
   const npcDialog = new NpcDialog(dialogs, session, hud);
-  const invWindow = new InventoryWindow(session, hud);
-  hud.onUpdate.push(() => invWindow.update());
+  const equipWindow = new EquipWindow(session, hud);
+  const invWindow = new InventoryWindow(session, hud, equipWindow);
+  hud.onUpdate.push(() => { invWindow.update(); equipWindow.update(); });
   const questWindow = new QuestWindow(session, hud);
   const skillWindow = new SkillWindow(session, hud);
   hud.onUpdate.push(() => skillWindow.update());
@@ -124,7 +126,7 @@ async function boot() {
     if (code === 'KeyC') hud.onMenu('char');
     if (code === 'KeyI') hud.onMenu('inv');
     if (code === 'KeyK') hud.onMenu('skill');
-    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

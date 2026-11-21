@@ -132,6 +132,44 @@ export function toggleEquip(s: SaveData, index: number): string | null {
   return null;
 }
 
+/**
+ * 가방 index 칸의 장비를 장비 칸 slot 에 (끌어다 놓기). 부위가 안 맞으면 아무것도 안 함 ('' 반환).
+ * 반지를 반지1 ↔ 반지2 로 옮기면 두 칸이 서로 바뀐다
+ */
+export function equipTo(s: SaveData, index: number, slot: EquipSlot): string | null {
+  const e = Number.isInteger(index) ? s.bag[index] : null, d = e && itemDef(e.id);
+  if (!e || !d?.part || e.uid === undefined) return '';
+  const fits = d.part === 'ring' ? slot === 'ring1' || slot === 'ring2' : d.part === slot;
+  if (!fits) return '';
+  const cur = equippedSlot(s, e.uid);
+  if (cur === slot) return null;
+  if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
+  const other = s.equip[slot];
+  if (cur) {
+    if (other !== undefined) s.equip[cur] = other;
+    else delete s.equip[cur];
+  }
+  s.equip[slot] = e.uid;
+  return null;
+}
+
+/** 가방 index 칸을 통째로 꺼낸다 (바닥에 버리기). 끼고 있는 장비는 못 꺼냄 (null) */
+export function takeBagEntry(s: SaveData, index: number): BagEntry | null {
+  const e = Number.isInteger(index) ? s.bag[index] : null;
+  if (!e || equippedSlot(s, e.uid)) return null;
+  s.bag[index] = null;
+  return e;
+}
+
+/** 꺼냈던 칸을 가방에 다시 (바닥에서 줍기). 장비는 강화·부가효과 그대로, 쌓이는 물건은 같은 것과 합침 */
+export function putBagEntry(s: SaveData, e: BagEntry): boolean {
+  if (stackable(e.id)) return addItem(s, e.id, e.n);
+  const i = s.bag.indexOf(null);
+  if (i < 0) return false;
+  s.bag[i] = { ...e, uid: s.nextUid++ };
+  return true;
+}
+
 export function unequip(s: SaveData, slot: EquipSlot): string | null {
   if (s.equip[slot] === undefined) return '빈 칸이야';
   delete s.equip[slot];
