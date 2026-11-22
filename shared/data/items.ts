@@ -148,7 +148,7 @@ const ITEM_LIST = {
   invitation: { name: '생일 초대장', kind: 'etc', icon: '💌', desc: '' },
   music_sheet: { name: '악보', kind: 'etc', icon: '🎼', desc: '' },
   // 우클릭으로 사용: 서 있는 자리에 설치 → 3초 뒤 발사 (FIREWORK)
-  firework: { name: '폭죽', kind: 'use', icon: '🎆', desc: '' },
+  firework: { name: '폭죽', kind: 'use', icon: '🎆', desc: '', price: 100, sell: 20 },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
   scrap_rusty: { name: '녹슨 고철', kind: 'etc', icon: '🔩', img: 'item/material/bad_slate', desc: '경비기계에서 떨어진 녹슨 쇳조각', sell: 5 },
   scrap_good: { name: '쓸만한 고철', kind: 'etc', icon: '⚙️', img: 'item/material/good_slate', desc: '경비기계에서 떨어진 아직 쓸 만한 쇳조각', sell: 30 },
@@ -220,7 +220,7 @@ export const COIN_SHOP: { item: ItemId; coin: ItemId; price: number }[] = [
 export const dropChance = (base: number, bonusPct: number) => Math.min(1, base * (1 + bonusPct / 100));
 
 /** 대화 NPC 상점 (골드로 사기, 대사의 { open: 'npcShop' }) */
-export const NPC_SHOPS: Record<string, ItemId[]> = { gatherer: ['sickle', 'pickaxe'] };
+export const NPC_SHOPS: Record<string, ItemId[]> = { gatherer: ['sickle', 'pickaxe'], firework_master: ['firework'] };
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [

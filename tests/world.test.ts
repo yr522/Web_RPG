@@ -488,3 +488,16 @@ describe('채집 (2026-11-22)', () => {
     expect(p.action?.name).toBe('punch');
   });
 });
+
+describe('NPC 상호작용 높이 (2026-11-22)', () => {
+  it('NPC 와 x 가 같아도 다른 층(3층 포탈 자리)에서는 말이 안 걸림', () => {
+    const w = new World('school', 1);
+    const s = newSave('t', 'warrior', 'M');
+    const smith = w.map.npcs.find(n => n.id === 'smith')!;
+    const p = w.addPlayer('p', s, smith.x - 14, undefined, undefined, 250);
+    run(w, 0.3);
+    expect(w.npcNear(p)).toBeNull();
+    p.y = GROUND_Y - p.h; p.vy = 0;
+    expect(w.npcNear(p)?.id).toBe('smith');
+  });
+});
