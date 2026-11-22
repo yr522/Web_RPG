@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath } from 'node:url';
+import { webpBig } from './build/webpBig';
 
 // client/ 가 화면(Phaser), shared/ 가 게임 로직. 나중에 server/ 도 shared/ 를 같이 쓴다.
 export default defineConfig({
   root: 'client',
   base: './',
+  plugins: [webpBig()],
   resolve: {
     alias: { '@shared': fileURLToPath(new URL('./shared', import.meta.url)) },
   },
