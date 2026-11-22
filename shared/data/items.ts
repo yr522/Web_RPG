@@ -1,5 +1,5 @@
 // 아이템 (기획서 7장). 상점 물건, 몬스터 드롭, 장비가 전부 여기 있다.
-import type { StatId } from './classes';
+import type { ClassId, StatId } from './classes';
 
 /**
  * 장비가 올려 주는 값 (기본 능력치·부가효과 공통). 공격력·방어력은 장비로만.
@@ -66,7 +66,12 @@ export interface ItemDef {
   bonus?: Partial<Record<BonusId, number>>;
   /** 장비 등급 (장비만) */
   grade?: Grade;
+  /** 낄 수 있는 직업 (없으면 모든 직업) */
+  cls?: ClassId[];
 }
+
+/** 이 직업이 낄 수 있는 장비인지 (장비가 아니면 false) */
+export const canWear = (d: ItemDef | undefined, cls: ClassId) => !!d?.part && (!d.cls || d.cls.includes(cls));
 
 const ARMOR_IMG = 'equipment/armor/test_armor_icon';
 const testEquip = (name: string, part: EquipPart): ItemDef => {
@@ -154,6 +159,10 @@ const ITEM_LIST = {
   // 슬라임류(슬라임·원소 슬라임) 드롭 장비
   slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 }, sell: 100 },
   slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 }, sell: 100 },
+  // 처음 무기 (캐릭터 만들 때 직업에 맞게 하나 끼워 줌, START_WEAPON)
+  plain_sword: { name: '평범한 검', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🗡️', part: 'weapon', bonus: { atk: 3 }, cls: ['warrior'], sell: 5 },
+  plain_staff: { name: '평범한 스태프', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🪄', part: 'weapon', bonus: { atk: 3 }, cls: ['mage'], sell: 5 },
+  plain_bow: { name: '평범한 활', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🏹', part: 'weapon', bonus: { atk: 3 }, cls: ['archer'], sell: 5 },
   // 마법 골렘 드롭 세트 (GEAR_SETS.golem)
   golem_weapon: { name: '마법 골렘의 핵', kind: 'equip', desc: bonusText({ atk: 12, str: 2 }), icon: '🗡️', part: 'weapon', bonus: { atk: 12, str: 2 }, grade: 'rare', sell: 300 },
   golem_gloves: { name: '마법 골렘의 손', kind: 'equip', desc: bonusText({ atk: 3, def: 6 }), icon: '🧤', part: 'gloves', bonus: { atk: 3, def: 6 }, grade: 'rare', sell: 300 },
@@ -197,6 +206,9 @@ export const SHOP_ITEMS: ItemId[] = [
   'test_hat', 'test_necklace', 'test_weapon', 'test_top', 'test_gloves', 'test_bottom', 'test_shoes', 'test_ring',
   'grade_common', 'grade_rare', 'grade_epic', 'grade_legendary', 'grade_mythic',
 ];
+
+/** 캐릭터를 만들 때 끼워 주는 무기 (2026-11-22) */
+export const START_WEAPON: Record<ClassId, ItemId> = { warrior: 'plain_sword', mage: 'plain_staff', archer: 'plain_bow' };
 
 /** 처음 시작할 때 가진 물건 */
 export const START_ITEMS: { id: ItemId; n: number }[] = [{ id: 'hp', n: 3 }, { id: 'mp', n: 3 }];

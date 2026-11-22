@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { ENHANCE, ENHANCE_MAX, OPT_MAX_TIER, OPTION_POOL, enhanceMult, repairCost } from '../shared/data/gear';
 import { ITEMS, dropChance, itemDef, type ItemId } from '../shared/data/items';
 import { baseBonus, compareGear, enhance, itemBonus, optionUp, repair, reroll, rollOptions } from '../shared/rules/gear';
-import { addItem, equipBonus, equipTo, toggleEquip } from '../shared/rules/inventory';
-import { applyAction } from '../shared/rules/progress';
+import { CANT_WEAR, addItem, equipBonus, equipTo, equippedEntry, hasWeapon, toggleEquip } from '../shared/rules/inventory';
+import { applyAction, keySkill } from '../shared/rules/progress';
 import { mulberry32 } from '../shared/sim/rng';
 import { deriveStats, newSave, normalizeSave, type SaveData } from '../shared/sim/save';
 
@@ -327,5 +327,51 @@ describe('행운의 반지 · 주화 상점 · 드롭률', () => {
     toggleEquip(s, s.bag.findIndex(e => e?.id === 'luck_ring'));
     const b = equipBonus(s);
     expect([b.drop, b.def]).toEqual([10, 5]);
+  });
+});
+
+describe('직업별 장비 · 처음 무기 · 주먹질', () => {
+  it('캐릭터를 만들면 직업에 맞는 평범한 무기를 끼고 시작', () => {
+    for (const [cls, id] of [['warrior', 'plain_sword'], ['mage', 'plain_staff'], ['archer', 'plain_bow']] as const) {
+      const s = newSave('t', cls, 'M');
+      expect(equippedEntry(s, 'weapon')?.id).toBe(id);
+      expect(hasWeapon(s)).toBe(true);
+      expect(keySkill(s, 'Z')).toBe('basic');
+    }
+  });
+  it('다른 직업 무기는 못 낌 (우클릭·끌어다 놓기 둘 다)', () => {
+    const s = newSave('t', 'warrior', 'M');
+    addItem(s, 'plain_staff');
+    const i = s.bag.findIndex(e => e?.id === 'plain_staff');
+    expect(toggleEquip(s, i)).toBe(CANT_WEAR);
+    expect(equipTo(s, i, 'weapon')).toBe(CANT_WEAR);
+    expect(equippedEntry(s, 'weapon')?.id).toBe('plain_sword');
+  });
+  it('무기를 벗으면 Z 가 주먹질, 다시 끼면 원래대로. 주먹질 공격력은 근력', () => {
+    const s = newSave('t', 'mage', 'M');
+    const i = s.bag.findIndex(e => e?.id === 'plain_staff');
+    toggleEquip(s, i);
+    expect(keySkill(s, 'Z')).toBe('punch');
+    s.stats.str = 15; s.stats.int = 5;
+    const st = deriveStats(s);
+    expect(st.punchAtk).toBeGreaterThan(st.atk);
+    toggleEquip(s, i);
+    expect(keySkill(s, 'Z')).toBe('basic');
+  });
+  it('Z 는 다른 스킬로 못 바꿈', () => {
+    const s = newSave('t', 'warrior', 'M');
+    expect(applyAction(s, { type: 'unbindKey', key: 'Z' }, 0).ok).toBe(false);
+    expect(applyAction(s, { type: 'swapKeys', from: 'Z', to: 'A' }, 0).ok).toBe(false);
+    expect(s.skillKeys.Z).toBe('ilseom');
+  });
+  it('예전 캐릭터(무기 없음)는 불러올 때 한 번 받음', () => {
+    const s = newSave('t', 'archer', 'M');
+    s.bag = s.bag.map(e => (e?.id === 'plain_bow' ? null : e));
+    s.equip = {};
+    delete s.flags.start_weapon;
+    const n = normalizeSave(JSON.parse(JSON.stringify(s)));
+    expect(equippedEntry(n, 'weapon')?.id).toBe('plain_bow');
+    const again = normalizeSave(JSON.parse(JSON.stringify(n)));
+    expect(again.bag.filter(e => e?.id === 'plain_bow').length).toBe(1);
   });
 });

@@ -2,7 +2,7 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, canWear, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { OptionId } from '../data/gear';
 import { itemBonus } from './gear';
@@ -120,11 +120,20 @@ function unequipUid(s: SaveData, uid: number) {
   if (slot) delete s.equip[slot];
 }
 
+export const CANT_WEAR = '이 직업은 착용할 수 없는 장비야';
+
+/** 맞는 무기를 끼고 있는지 (없거나·파괴됐거나·다른 직업 무기면 false → Z 가 주먹질) */
+export function hasWeapon(s: SaveData) {
+  const e = equippedEntry(s, 'weapon');
+  return !!e && !e.broken && canWear(itemDef(e.id), s.cls);
+}
+
 /** 가방 index 칸의 장비: 안 끼고 있으면 끼고, 끼고 있으면 벗는다. 그 부위에 있던 장비는 벗겨진다 */
 export function toggleEquip(s: SaveData, index: number): string | null {
   const e = s.bag[index], d = e && itemDef(e.id);
   if (!e || !d?.part || e.uid === undefined) return '장착할 수 없는 물건이야';
   if (equippedSlot(s, e.uid)) { unequipUid(s, e.uid); return null; }
+  if (!canWear(d, s.cls)) return CANT_WEAR;
   if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
   let slot: EquipSlot;
   if (d.part === 'ring') slot = s.equip.ring1 === undefined ? 'ring1' : s.equip.ring2 === undefined ? 'ring2' : 'ring1';
@@ -144,6 +153,7 @@ export function equipTo(s: SaveData, index: number, slot: EquipSlot): string | n
   if (!fits) return '';
   const cur = equippedSlot(s, e.uid);
   if (cur === slot) return null;
+  if (!canWear(d, s.cls)) return CANT_WEAR;
   if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
   const other = s.equip[slot];
   if (cur) {

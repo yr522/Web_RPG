@@ -5,7 +5,7 @@ import { ELEMENTS, NO_ELEMENT } from '@shared/data/elements';
 import { PHASES, timeInfo } from '@shared/sim/clock';
 import { QUEST_HUD_MAX, questTitle } from '@shared/data/quests';
 import { hudQuests, questLines } from '@shared/rules/quests';
-import { countItem } from '@shared/rules/inventory';
+import { countItem, hasWeapon } from '@shared/rules/inventory';
 import { potionIds } from '@shared/data/items';
 import { BUFFS, playerBuffs, type BuffId } from '@shared/data/buffs';
 import { BOSS_BAR } from '@shared/data/bosses';
@@ -280,6 +280,8 @@ export class Hud {
     const save = s.save, id = save.skillKeys[k];
     if (!id) return { slot: k, name: '', sub: '', color: '', locked: false, empty: true, cd: 0 };
     const i = CLASSES[save.cls].skills.indexOf(id);
+    // Z: 맞는 무기가 없으면 주먹질
+    if (k === 'Z' && !hasWeapon(save)) return { slot: k, name: SKILLS.punch.name, sub: '무속성', color: NO_ELEMENT.color, locked: false, empty: false, cd: 0 };
     const learned = id in save.learned;
     if (!learned && i === 0) return { slot: k, name: SKILLS.basic.name, sub: '무속성', color: NO_ELEMENT.color, locked: false, empty: false, cd: 0 };
     const sk = SKILLS[id];

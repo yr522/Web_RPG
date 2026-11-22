@@ -2,7 +2,7 @@
 import { CLASSES, INT_REGEN, PASSIVE, classActiveIds, CREATE_STAT_POINTS, DEFAULT_NAME, NAME_MAX, SLOT_KEYS, START_STAT, type ClassId, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import type { MapId } from '../data/maps';
-import { START_ITEMS, itemDef, type EquipSlot } from '../data/items';
+import { START_ITEMS, START_WEAPON, canWear, itemDef, type EquipSlot } from '../data/items';
 import { questDef } from '../data/quests';
 import { recipeDef } from '../data/craft';
 import { alchemyRecipe } from '../data/alchemy';
@@ -85,8 +85,19 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     mobKills: {}, achievements: [], title: null, storage: emptyStorage(), dailyDay: '', craft: { queue: [], t0: 0 }, alchemy: { queue: [] },
   };
   for (const it of START_ITEMS) addItem(s, it.id, it.n);
+  giveStartWeapon(s);
   return s;
 }
+
+/** 처음 무기를 가방에 넣고 낌 (무기 칸이 비어 있을 때만 낌). 한 캐릭터에 한 번만 (플래그) */
+function giveStartWeapon(s: SaveData) {
+  if (s.flags[START_WEAPON_FLAG]) return;
+  // 가방이 가득이면 다음에 불러올 때 다시
+  if (!addItem(s, START_WEAPON[s.cls])) return;
+  s.flags[START_WEAPON_FLAG] = 1;
+  if (s.equip.weapon === undefined) s.equip.weapon = s.nextUid - 1;
+}
+const START_WEAPON_FLAG = 'start_weapon';
 
 /**
  * 캐릭터 생성 화면에서 만든 캐릭터. add = 생성 때 나눠 준 능력치 포인트.
@@ -147,6 +158,10 @@ function cleanSave(s: SaveData) {
   s.questPins = s.questPins.filter(id => s.quests[id]?.active);
   // 다른 직업 스킬·없는 스킬이 키에 있으면 빼기
   for (const [k, id] of Object.entries(s.skillKeys) as [SlotKey, string][]) if (!classActiveIds(s.cls).includes(id)) delete s.skillKeys[k];
+  // Z 는 기본 공격 자리로 고정 (2026-11-22): 첫 직업 스킬은 Z 에만
+  const first = CLASSES[s.cls].skills[0];
+  for (const k of SLOT_KEYS) if (k !== 'Z' && s.skillKeys[k] === first) delete s.skillKeys[k];
+  s.skillKeys.Z = first;
   s.bag = s.bag.map(e => (e && itemDef(e.id) && e.n > 0 ? e : null));
   s.storage = emptyStorage().map((_, i) => { const e = s.storage?.[i]; return e && itemDef(e.id) && e.n > 0 ? e : null; });
   s.mobKills = { ...s.mobKills };
@@ -154,8 +169,12 @@ function cleanSave(s: SaveData) {
   s.craft = { queue: (s.craft?.queue ?? []).filter(id => recipeDef(id)), t0: s.craft?.t0 ?? 0 };
   s.alchemy = { queue: (s.alchemy?.queue ?? []).filter(q => alchemyRecipe(q.r) && q.n > 0 && typeof q.end === 'number').map(q => ({ r: q.r, n: q.n, end: q.end })) };
   for (const [slot, uid] of Object.entries(s.equip) as [EquipSlot, number][]) {
-    if (!s.bag.some(e => e?.uid === uid)) delete s.equip[slot];
+    // 없어졌거나 이 직업이 못 끼는 장비는 벗김
+    const e = s.bag.find(e => e?.uid === uid);
+    if (!e || !canWear(itemDef(e.id), s.cls)) delete s.equip[slot];
   }
+  // 예전 캐릭터: 처음 무기를 아직 못 받았으면 줌 (2026-11-22)
+  giveStartWeapon(s);
 }
 
 /** 패시브 레벨 (안 배웠으면 0). rules/progress 를 부르면 순환이라 여기 따로 */
@@ -163,6 +182,8 @@ const plv = (s: SaveData, id: string) => (id in s.learned ? s.skillLevels[id] ??
 
 export interface DerivedStats {
   maxHp: number; maxMp: number; regen: number; speed: number; atk: number; def: number;
+  /** 주먹질 공격력 (주 능력치 대신 근력) */
+  punchAtk: number;
   /** 장비 옵션 (비율은 0~1): 치명타 확률, MP 소모 감소, 초당 HP 회복, 보스·일반몹 피해 + */
   crit: number; mpCost: number; hpRegen: number; boss: number; mob: number;
 }
@@ -175,6 +196,7 @@ export function deriveStats(s: SaveData): DerivedStats {
     regen: c.regen * (1 + (st.int - 5) * INT_REGEN),
     speed: Math.min(420, 260 + (st.dex - 5) * 6) * (1 + gear.speed / 100),
     atk: 20 + (st[c.main] - 5) * 1.6 + gear.atk,
+    punchAtk: 20 + (st.str - 5) * 1.6 + gear.atk,
     def: gear.def,
     crit: gear.crit / 100,
     mpCost: Math.min(0.5, gear.mpCost / 100),

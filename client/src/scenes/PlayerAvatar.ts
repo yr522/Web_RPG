@@ -101,10 +101,14 @@ const SWING_SHOW = 0.07;
 
 interface Pose { sheet: SheetName; frame: number }
 
+/** 공격 그림 줄: 주먹질은 직업 상관없이 검사 공격 모션 */
+const attackSheet = (me: PlayerState): SheetName => (me.action?.name === 'punch' ? 'sword' : ATTACK_SHEET[me.data.cls]);
+
 /** 공격 중 그림. 공격 중이 아니면 null */
 function attackPose(me: PlayerState): Pose | null {
-  const a = me.action, sheet = ATTACK_SHEET[me.data.cls];
+  const a = me.action;
   if (!a) return null;
+  const sheet = attackSheet(me);
   if (sheet === 'bow') {
     // 당기기 시작 → 당기는 중 → (놓으면) 발사됨. 다시 누르면 바로 처음부터.
     if (a.name === 'charge' || a.name === 'aim' || a.name === 'draw') return { sheet, frame: a.t < DRAW_START_TIME ? 0 : 1 };
@@ -185,13 +189,16 @@ export class PlayerAvatar {
     this.root = scene.add.container(0, 0, [body, head, this.face, this.hair, arm]).setScale(AVATAR_SCALE);
   }
 
+  /** 마지막 공격 그림 줄 (공격 뒤 쉬는 동안 그대로) */
+  private lastSheet: SheetName = 'sword';
+
   setDepth(d: number) { this.root.setDepth(d); return this; }
 
   /** 매 프레임 호출: 상태에 맞는 모션을 고르고 프레임을 넘긴다 */
   update(dt: number, me: PlayerState, x: number, y: number) {
     let pose = attackPose(me);
-    if (pose) this.attacked = true;
-    else if (this.attacked && !me.action && me.lockT > 0 && me.hurt <= 0) pose = followThrough(ATTACK_SHEET[me.data.cls]);
+    if (pose) { this.attacked = true; this.lastSheet = pose.sheet; }
+    else if (this.attacked && !me.action && me.lockT > 0 && me.hurt <= 0) pose = followThrough(this.lastSheet);
     else this.attacked = false;
 
     if (!pose) {

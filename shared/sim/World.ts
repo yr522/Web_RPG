@@ -399,7 +399,7 @@ export class World implements SkillWorld {
 
   // SkillWorld 구현 (스킬 코드가 쓰는 것들)
   private skillMult(p: PlayerState, skill: string) {
-    return skill === 'basic' ? 1 : 1 + 0.1 * (skillLevel(p.data, skill) - 1);
+    return skill === 'basic' || skill === 'punch' ? 1 : 1 + 0.1 * (skillLevel(p.data, skill) - 1);
   }
   addHB(p: PlayerState, h: HitboxSpec) {
     this.hitboxes.push({
@@ -614,7 +614,7 @@ export class World implements SkillWorld {
     // 치명타 (궁수 패시브)
     const critLv = passiveLv(p.data, 'crit');
     const crit = this.rng() < PASSIVE.crit.chance * critLv + p.stats.crit;
-    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
+    let base = (h.skill === 'punch' ? p.stats.punchAtk : p.stats.atk) * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
     // 그림자 화살: 잃은 HP 비례 추가 피해
     if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
     // 정예 강철: 받는 피해 감소
