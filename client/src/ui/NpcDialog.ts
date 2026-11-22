@@ -27,6 +27,8 @@ import teacherMagic from '../../../assets/img/portrait/teacher_magic.png';
 import teacherBow from '../../../assets/img/portrait/teacher_bow.png';
 import moriPortrait from '../../../assets/temp/mori_portrait.png';
 import smithPortrait from '../../../assets/img/portrait/blacksmith_school.png';
+import choirKidPortrait from '../../../assets/img/portrait/choir_kid.png';
+import gathererPortrait from '../../../assets/img/portrait/rabbit_gatherer.png';
 import mashaPortrait from '../../../assets/img/portrait/masha.png';
 import sebastianPortrait from '../../../assets/img/portrait/sebastian_nautral.png';
 import smithDaughterPortrait from '../../../assets/img/portrait/blacksmith_daughter.png';
@@ -36,7 +38,7 @@ const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teac
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 /** NPC 포트레이트 (교수님 빼고, 대화 NPC id → 그림) */
-const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait, masha: mashaPortrait, sebastian: sebastianPortrait };
+const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait, masha: mashaPortrait, choir_kid: choirKidPortrait, gatherer: gathererPortrait, sebastian: sebastianPortrait };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
 
