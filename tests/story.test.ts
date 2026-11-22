@@ -13,7 +13,7 @@ import { ADVANCE, ADVANCE_LINES } from '../shared/data/advance';
 import { advanceLine } from '../shared/rules/advance';
 import { acceptQuest, profQuests, autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
 import { addItem, countItem, removeItem } from '../shared/rules/inventory';
-import { gainExp } from '../shared/rules/progress';
+import { applyAction, gainExp } from '../shared/rules/progress';
 import { PHASE_MS } from '../shared/sim/clock';
 import { newSave, type SaveData } from '../shared/sim/save';
 
@@ -183,15 +183,23 @@ describe('영주님의 생일잔치: 초대장·악보·폭죽', () => {
     expect(questState(s, 'bd4')).toBe('done');
     expect(countItem(s, 'music_sheet')).toBe(0);
   });
-  it('폭죽 장인: 원소 구슬 10개 → 폭죽, 또 받을 수 있음', () => {
+  it('폭죽 장인: 원소 구슬 10개 → 폭죽 (한 번만), 그 뒤로는 돈으로 삼', () => {
     const s = ready();
     s.flags.bd3_firework_master = 1;
     talk(s, 'firework_master');
     addItem(s, 'elem_orb', 10);
     talk(s, 'firework_master');
     expect(countItem(s, 'firework')).toBe(5);
-    expect(questState(s, 'bd_fw')).toBe('none');
-    expect(npcMark(s, 'firework_master')).toBe('!');
+    expect(questState(s, 'bd_fw')).toBe('done');
+    expect(npcMark(s, 'firework_master')).toBeNull();
+    // 이제는 [거래하기] → 골드로 1개씩
+    const pick = pickTalk(s, 'firework_master', 0)!;
+    expect(pick.steps.some(st => 'choices' in st)).toBe(true);
+    s.gold = 100;
+    expect(applyAction(s, { type: 'npcBuy', npc: 'firework_master', item: 'firework' }, 0).ok).toBe(true);
+    expect(countItem(s, 'firework')).toBe(6);
+    expect(s.gold).toBe(0);
+    expect(applyAction(s, { type: 'npcBuy', npc: 'firework_master', item: 'firework' }, 0).ok).toBe(false);
   });
   it('폭죽: 서 있는 자리에 설치, 3초 뒤 발사, 터지고 나면 사라짐', () => {
     const s = ready();

@@ -105,6 +105,9 @@ async function boot() {
   const storageWindow = new StorageWindow(session, hud);
   hud.onUpdate.push(() => codexWindow.update(), () => achieveWindow.update(), () => storageWindow.update());
   hud.onUpdate.push(() => charWindow.update());
+  // 메뉴가 아닌 NPC 창(대화·상점·대장장이·창고)은 맵이 바뀌면 자동으로 닫힘
+  let lastMap = session.world.mapId;
+  hud.onUpdate.push(() => { const m = session.world.mapId; if (m === lastMap) return; lastMap = m; dialogs.close(); storageWindow.close(); });
   hud.onRevive = () => session.revive();
   hud.onQuestPin = id => { const r = session.act({ type: 'questPin', id }); if (!r.ok && r.msg) hud.toast(r.msg); };
   // 교수님: 이야기 대사(보고 등)가 있으면 그 대화, 아니면 교수님 메뉴

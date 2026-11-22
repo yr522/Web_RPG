@@ -178,7 +178,7 @@ export const QUESTS: QuestDef[] = [
     goals: [{ kind: 'gather', item: 'music_sheet', n: 5 }], reward: { exp: 900, gold: 800 }, where: 'road',
   },
   {
-    id: 'bd_fw', name: '폭죽은 처음이지?', giver: 'firework_master', repeat: true,
+    id: 'bd_fw', name: '폭죽은 처음이지?', giver: 'firework_master',
     desc: '역대급 폭죽을 선보이려는 그. 우쭐대는 걸 좋아하는 성격의 이 npc는 플레이어에게도 신기술이 뭔지 보여주겠다며 원하면 재료만 가져오면 공짜로 만들어주겠다고 한다.',
     goals: [{ kind: 'collect', item: 'elem_orb', n: 10 }], reward: { items: [{ id: 'firework', n: 5 }] }, where: 'field2',
   },

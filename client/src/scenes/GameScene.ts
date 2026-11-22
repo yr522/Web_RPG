@@ -596,7 +596,7 @@ export class GameScene extends Phaser.Scene implements Stage {
 
     // 내 캐릭터: 휘두를 때 살짝 앞으로, 맞은 뒤 무적 동안 깜빡임
     const act = me.action?.name;
-    const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' || act === 'punch' ? 3 * me.face : 0;
+    const lunge = act === 'ilseom' || act === 'wolcham' || act === 'basic' ? 3 * me.face : 0;
     this.player.update(dt, me, px + me.w / 2 + lunge, py + me.h);
     // 텔레포트로 사라진 동안은 안 보임
     this.player.setVisible(me.action?.name !== 'blink' && (me.downT > 0 || !(me.invT > 0 && Math.floor(this.time.now / 50) % 2 === 0)));

@@ -25,7 +25,7 @@ export interface Portal {
   afterClear?: boolean;
 }
 /** id: 'prof'(교수님), 'shop'(매점), 'smith'(대장장이) 는 특수 NPC, 나머지는 npcs.ts 의 대화 NPC. when: 이 조건이 맞을 때만 서 있음 */
-export interface Npc { id: string; x: number; when?: Cond }
+export interface Npc { id: string; x: number; /** 발이 닿는 높이 (없으면 땅) */ y?: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
 export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[] }

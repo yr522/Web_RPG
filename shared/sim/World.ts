@@ -1355,8 +1355,9 @@ export class World implements SkillWorld {
   }
 
   // ===================== 그 밖 =====================
+  /** 근처 NPC (발 높이가 맞아야: 다른 층 NPC·포탈 위에서 말이 걸리면 안 됨) */
   npcNear(p: PlayerState) {
-    return mapNpcs(p.data, this.mapId).find(n => Math.abs(n.x - cx(p)) < 60) ?? null;
+    return mapNpcs(p.data, this.mapId).find(n => Math.abs(n.x - cx(p)) < 60 && Math.abs((n.y ?? GROUND_Y) - (p.y + p.h)) < 30) ?? null;
   }
 
   /** 근처 줍는 물건 (발 높이가 맞아야) */

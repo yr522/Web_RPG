@@ -510,6 +510,8 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
           { do: { quest: 'give', id: 'bd_fw' } },
         ],
       },
+      // 한 번 끝낸 뒤로는 돈으로 삼 (2026-11-22). 나중에 제작 레시피도 팔 예정
+      { when: { quest: 'bd_fw', state: 'done' }, steps: [{ choices: [{ label: '거래하기', reply: [{ open: 'npcShop' }] }] }] },
       { when: { quest: 'bd_fw', state: 'active' }, steps: [{ line: '원소 구슬 10개. 원소 슬라임들이 가끔 떨어뜨리지.' }] },
       {
         when: { quest: 'bd_fw', state: 'ready' },
