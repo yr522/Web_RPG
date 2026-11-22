@@ -78,7 +78,8 @@ export const MONSTERS: Record<MonsterId, MonsterDef> = {
   // 던전 잊힌 공방 마지막 방 (그림은 경비기계C 를 키워서 임시)
   guard_boss: { name: '고대 수호기계', hp: 5000, exp: 300, touch: 30, gold: [150, 220], w: 80, h: 96, ai: 'charger', speed: [40, 50], chase: 1.4, boss: true, look: 'guard_c' },
   golem: { name: '마법 골렘', hp: 6000, exp: 400, touch: 20, gold: [300, 400], w: 138, h: 210, ai: 'golem', speed: [42, 42], chase: 1, boss: true,
-    drops: [{ item: 'golem_weapon', chance: 0.2 }, { item: 'golem_gloves', chance: 0.2 }] },
+    // 무기: 셋 중 하나만 (합 20%, 직업 상관없이)
+    drops: [...['golem_sword', 'golem_staff', 'golem_bow'].map(item => ({ item, chance: 0.2 / 3, group: 'golem_weapon' })), { item: 'golem_gloves', chance: 0.2 }] },
   // 훈련장 허수아비 (그림 임시). HP 는 표시용이 아니라 맞은 피해를 세는 그릇 (매 틱 다시 채움)
   dummy: { name: '허수아비', hp: 1e9, exp: 0, touch: 0, gold: [0, 0], w: 34, h: 64, ai: 'dummy', speed: [0, 0], chase: 0 },
 };

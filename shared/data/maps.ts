@@ -32,7 +32,7 @@ export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; 
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
   | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow' | 'my_workshop' | 'road'
-  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field';
+  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field' | 'gather_test';
 
 export interface MapDef {
   name: string;
@@ -76,6 +76,8 @@ export interface MapDef {
    * y = 발이 닿는 높이 (없으면 땅). 그림이 없으면 흰 상자
    */
   pickups?: { id: string; x: number; y?: number; item: string; when?: Cond }[];
+  /** 채집물 (gather.ts 의 GATHER_NODES 종류). y = 발이 닿는 높이 (없으면 땅) */
+  gathers?: { x: number; y?: number; node: string }[];
   /** 던전 마지막 방: 다 잡으면 주는 보상 */
   clearReward?: { gold: number; exp: number };
   platforms: Platform[];
@@ -137,6 +139,10 @@ const HALL_DORM_X = 1346;
 const SCHOOL_TOWN_X = 1620;
 /** 마법 학교 오른쪽 2층 발판 (영지 가도 포탈) */
 const SCHOOL_ROAD = { x: 1500, y: 360, w: 180, portal: 1590 };
+/** 마법 학교 오른쪽 3층 발판 (채집 공간 임시 포탈, 2026-11-22) */
+const SCHOOL_GATHER = { x: 1360, y: 250, w: 150, portal: 1435 };
+/** 채집 공간 (임시): 좁은 맵 4층. 층마다 발 높이 (1층 = 땅) */
+const GATHER_MAP = { width: 1000, floors: [GROUND_Y, 360, 250, 140], left: 140, w: 760 };
 /** 영지 가도: 마을 폭의 4/5, 같은 길이 2층 발판 2개 (가운데 기준 대칭) */
 const ROAD = (() => {
   const width = 1360, mid = width / 2, w = 420, gap = 220, y = 360;
@@ -164,11 +170,13 @@ export const MAPS: Record<MapId, MapDef> = {
     name: '마법 학교', width: 1700, safe: true, top: -150,
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     props: [{ img: 'school_building', x: 850, groundY: 678, scale: 0.75 }],
-    platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }, { x: SCHOOL_ROAD.x, y: SCHOOL_ROAD.y, w: SCHOOL_ROAD.w }],
+    platforms: [{ x: 250, y: 360, w: 160 }, { x: 1290, y: 360, w: 160 }, { x: SCHOOL_ROAD.x, y: SCHOOL_ROAD.y, w: SCHOOL_ROAD.w }, { x: SCHOOL_GATHER.x, y: SCHOOL_GATHER.y, w: SCHOOL_GATHER.w }],
     portals: [
       { x: 90, to: 'field', toX: 772, label: '학교 뒷숲' },
       // 2026-11-21: 오른쪽 2층 발판 → 영지 가도
       { x: SCHOOL_ROAD.portal, y: SCHOOL_ROAD.y, to: 'road', toX: 160, label: '영지 가도' },
+      // 2026-11-22: 오른쪽 3층 발판 → 채집 공간 (임시)
+      { x: SCHOOL_GATHER.portal, y: SCHOOL_GATHER.y, to: 'gather_test', toX: 90, label: '채집 공간' },
       { x: SCHOOL_TOWN_X, to: 'town', toX: 160, label: '마을' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
@@ -369,6 +377,16 @@ export const MAPS: Record<MapId, MapDef> = {
     spawns: [],
   },
   // 개인 공방 (2026-11-21): 이 맵에서만 제작(J). 배경 school_workshop (기숙사와 같은 틀, 왼쪽 문 = 나가는 포탈)
+  // 채집 공간 (임시, 2026-11-22): 배경 없음. 1·3층 = 푸른나비초, 2·4층 = 주석. 포탈 옆 세발토끼 채집가 (낫·곡괭이)
+  gather_test: {
+    name: '채집 공간', width: GATHER_MAP.width, safe: true, top: -150, bgColor: 0x24302a,
+    platforms: GATHER_MAP.floors.slice(1).map(y => ({ x: GATHER_MAP.left, y, w: GATHER_MAP.w })),
+    portals: [{ x: 70, to: 'school', toX: SCHOOL_GATHER.portal, toY: SCHOOL_GATHER.y, label: '마법 학교' }],
+    npcs: [{ id: 'gatherer', x: 180 }],
+    signs: [],
+    spawns: [],
+    gathers: GATHER_MAP.floors.flatMap((y, i) => [320, 520, 720].map(x => ({ x: x + (i % 2) * 60, y: i ? y : undefined, node: i % 2 ? 'tin' : 'blue_herb' }))),
+  },
   my_workshop: {
     name: '개인 공방', width: 1113, indoor: true, safe: true, bg: { img: 'school_workshop', groundY: 706 },
     platforms: [],

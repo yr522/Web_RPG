@@ -20,9 +20,9 @@ export interface AlchemyRecipe {
   time: number;
 }
 
-/** 2026-11-21 유저: 테스트 레시피 */
+/** 2026-11-21 유저: 테스트 레시피. HP 포션의 슬라임 점액 → 푸른나비초 (2026-11-22) */
 export const ALCHEMY_RECIPES: AlchemyRecipe[] = [
-  { id: 'hp', out: 'hp', mats: [{ item: 'slime_gel', n: 1 }, { item: 'honey', n: 1 }], base: { item: 'empty_bottle', n: 1 }, time: 3 },
+  { id: 'hp', out: 'hp', mats: [{ item: 'blue_herb', n: 1 }, { item: 'honey', n: 1 }], base: { item: 'empty_bottle', n: 1 }, time: 3 },
   { id: 'honey_shake', out: 'honey_shake', mats: [{ item: 'honey', n: 2 }], base: { item: 'empty_bottle', n: 1 }, time: 3 },
 ];
 /** 재료 + 기본 재료 (필요 개수 계산용) */

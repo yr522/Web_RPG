@@ -8,7 +8,7 @@ const per = alchemyRecipe('hp')!.time * 1000;
 function inWorkshop() {
   const s = newSave('t', 'warrior', 'M');
   s.map = 'my_workshop';
-  addItem(s, 'slime_gel', 5);
+  addItem(s, 'blue_herb', 5);
   addItem(s, 'honey', 10);
   addItem(s, 'empty_bottle', 4);
   return s;
@@ -29,7 +29,7 @@ describe('연금술', () => {
     const s = inWorkshop();
     const hp0 = countItem(s, 'hp');
     expect(alchemyOrder(s, 'hp', 2, 0).ok).toBe(true);
-    expect([countItem(s, 'slime_gel'), countItem(s, 'honey'), countItem(s, 'empty_bottle')]).toEqual([3, 8, 2]);
+    expect([countItem(s, 'blue_herb'), countItem(s, 'honey'), countItem(s, 'empty_bottle')]).toEqual([3, 8, 2]);
     expect(alchemyCollect(s, per).ok).toBe(false);
     expect(countItem(s, 'hp')).toBe(hp0);
     expect(alchemyDone(s, per * 2)).toBe(1);

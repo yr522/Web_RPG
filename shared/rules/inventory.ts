@@ -2,11 +2,11 @@
 //
 // 가방은 BAG_SIZE 칸짜리 고정 배열. 빈 칸은 null 로 남는다 (자동 정렬은 정렬 버튼을 눌렀을 때만).
 // 장비는 껴도 가방에서 사라지지 않고 자리를 차지한다. 장비창은 "어느 장비(uid)를 끼고 있는지"만 기억한다.
-import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
+import { BAG_SIZE, STORAGE_SIZE, BONUS_NAMES, EQUIP_SLOTS, ITEMS, canWear, isGear, itemDef, sellPrice, type BonusId, type EquipSlot, type ItemKind } from '../data/items';
 import type { StatId } from '../data/classes';
 import type { OptionId } from '../data/gear';
 import { itemBonus } from './gear';
-import { GEAR_SETS } from '../data/sets';
+import { GEAR_SETS, setCount } from '../data/sets';
 import type { SaveData } from '../sim/save';
 
 /** 가방 한 칸. 장비는 1개씩 따로(uid 로 구별), 나머지는 같은 것끼리 한 칸에 쌓인다 */
@@ -16,12 +16,14 @@ export interface BagEntry {
   enh?: number;
   opts?: { id: OptionId; tier: number }[];
   broken?: true;
+  /** 도구만: 남은 내구도 (0 이면 파괴) */
+  dur?: number;
 }
 export type Bag = (BagEntry | null)[];
 
 export const BAG_FULL = '가방이 가득 찼어';
 
-export const stackable = (id: string) => itemDef(id)?.kind !== 'equip';
+export const stackable = (id: string) => !isGear(itemDef(id));
 export const emptyBag = (): Bag => Array.from({ length: BAG_SIZE }, () => null);
 export const emptyStorage = (): Bag => Array.from({ length: STORAGE_SIZE }, () => null);
 
@@ -82,7 +84,8 @@ export function addItem(s: SaveData, id: string, n = 1) {
     s.bag[s.bag.indexOf(null)] = { id, n };
     return true;
   }
-  for (let i = 0; i < n; i++) s.bag[s.bag.indexOf(null)] = { id, n: 1, uid: s.nextUid++ };
+  const dur = itemDef(id)?.dur;
+  for (let i = 0; i < n; i++) s.bag[s.bag.indexOf(null)] = dur ? { id, n: 1, uid: s.nextUid++, dur } : { id, n: 1, uid: s.nextUid++ };
   return true;
 }
 
@@ -120,11 +123,26 @@ function unequipUid(s: SaveData, uid: number) {
   if (slot) delete s.equip[slot];
 }
 
+export const CANT_WEAR = '이 직업은 착용할 수 없는 장비야';
+
+/** 맞는 무기를 끼고 있는지 (없거나·파괴됐거나·다른 직업 무기·채집 도구면 false → Z 가 주먹질·채집, 다른 스킬은 못 씀) */
+export function hasWeapon(s: SaveData) {
+  const e = equippedEntry(s, 'weapon'), d = e && itemDef(e.id);
+  return !!e && !e.broken && d?.kind === 'equip' && canWear(d, s.cls);
+}
+
+/** 무기 칸에 낀 채집 도구 (파괴된 것 빼고) */
+export function heldTool(s: SaveData): BagEntry | null {
+  const e = equippedEntry(s, 'weapon');
+  return e && !e.broken && itemDef(e.id)?.kind === 'tool' ? e : null;
+}
+
 /** 가방 index 칸의 장비: 안 끼고 있으면 끼고, 끼고 있으면 벗는다. 그 부위에 있던 장비는 벗겨진다 */
 export function toggleEquip(s: SaveData, index: number): string | null {
   const e = s.bag[index], d = e && itemDef(e.id);
   if (!e || !d?.part || e.uid === undefined) return '장착할 수 없는 물건이야';
   if (equippedSlot(s, e.uid)) { unequipUid(s, e.uid); return null; }
+  if (!canWear(d, s.cls)) return CANT_WEAR;
   if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
   let slot: EquipSlot;
   if (d.part === 'ring') slot = s.equip.ring1 === undefined ? 'ring1' : s.equip.ring2 === undefined ? 'ring2' : 'ring1';
@@ -144,6 +162,7 @@ export function equipTo(s: SaveData, index: number, slot: EquipSlot): string | n
   if (!fits) return '';
   const cur = equippedSlot(s, e.uid);
   if (cur === slot) return null;
+  if (!canWear(d, s.cls)) return CANT_WEAR;
   if (e.broken) return '파괴된 장비야. 대장장이에게 수리하자';
   const other = s.equip[slot];
   if (cur) {
@@ -203,7 +222,7 @@ export function moveItem(s: SaveData, from: number, to: number): string | null {
   return null;
 }
 
-const KIND_ORDER: ItemKind[] = ['equip', 'use', 'etc'];
+const KIND_ORDER: ItemKind[] = ['equip', 'tool', 'use', 'etc'];
 const ID_ORDER = Object.keys(ITEMS);
 
 /** 자동 정렬: 장비 → 소비 → 기타, 같은 종류는 아이템 목록 순서, 빈 칸은 뒤로 */
@@ -250,7 +269,7 @@ export function wornIds(s: SaveData): string[] {
 export function wornSets(s: SaveData): { set: string; n: number }[] {
   const worn = wornIds(s);
   return Object.keys(GEAR_SETS)
-    .map(set => ({ set, n: GEAR_SETS[set].items.filter(i => worn.includes(i)).length }))
+    .map(set => ({ set, n: setCount(set, worn) }))
     .filter(x => x.n > 0);
 }
 
@@ -269,7 +288,7 @@ export function migrateBag(s: SaveData, oldInventory?: Record<string, number>) {
   const raw = (s.bag ?? []) as (BagEntry | null)[];
   const oldEquip = (s.equip ?? {}) as Record<string, unknown>;
   s.nextUid ??= 1;
-  if (raw.length !== BAG_SIZE || raw.some(e => e && itemDef(e.id)?.kind === 'equip' && e.uid === undefined)) {
+  if (raw.length !== BAG_SIZE || raw.some(e => e && isGear(itemDef(e.id)) && e.uid === undefined)) {
     s.bag = emptyBag();
     for (const e of raw) if (e) addItem(s, e.id, e.n);
     if (oldInventory) for (const [id, n] of Object.entries(oldInventory)) addItem(s, id, n);

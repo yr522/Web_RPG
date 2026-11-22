@@ -3,7 +3,7 @@ import { GRADES, bonusLine, itemDef, itemGrade, type BonusId } from '@shared/dat
 import { baseBonus, optionValue } from '@shared/rules/gear';
 import type { BagEntry } from '@shared/rules/inventory';
 import { esc } from './Dialog';
-import { GEAR_SETS, setOf } from '@shared/data/sets';
+import { GEAR_SETS, setCount, setOf, setPartWorn } from '@shared/data/sets';
 
 const OFFSET = 14;
 
@@ -36,6 +36,8 @@ export class ItemTip {
       const g = itemGrade(d);
       const name = `${e?.enh ? `+${e.enh} ` : ''}${d.name}`;
       let body = `<span>${esc(d.desc)}</span>`;
+      // 도구: 내구도 (파괴되면 빨간 글씨)
+      if (e && d.kind === 'tool') body = (e.broken ? '<span class="tip-broken">파괴됨</span>' : '') + body + `<span>내구도 ${e.dur ?? 0} / ${d.dur ?? 0}</span>`;
       if (e && d.kind === 'equip') {
         const b = baseBonus(e);
         body = (e.broken ? '<span class="tip-broken">파괴됨</span>' : '')
@@ -43,9 +45,11 @@ export class ItemTip {
           + (e.opts ?? []).map(o => `<span class="tip-opt">${esc(bonusLine(o.id, optionValue(o)))} <small>${o.tier}단계</small></span>`).join('');
         // 세트: 이름 (낀 개수/전체), 세트 장비 (낀 것은 밝게), 효과 (켜진 것은 밝게)
         if (set) {
-          const g = GEAR_SETS[set], n = g.items.filter(i => worn.includes(i)).length;
+          const g = GEAR_SETS[set], n = setCount(set, worn);
+          // 여러 개 중 하나인 칸(직업별 무기): 끼고 있는 것 → 이 아이템 → 첫 번째 이름
+          const label = (i: string | string[]) => (Array.isArray(i) ? i.find(x => worn.includes(x)) ?? (i.includes(id) ? id : i[0]) : i);
           body += `<hr><span class="tip-set">${esc(g.name)} (${n}/${g.items.length})</span>`
-            + g.items.map(i => `<span class="tip-set-item${worn.includes(i) ? ' on' : ''}">${esc(itemDef(i)?.name ?? i)}</span>`).join('')
+            + g.items.map(i => `<span class="tip-set-item${setPartWorn(i, worn) ? ' on' : ''}">${esc(itemDef(label(i))?.name ?? label(i))}</span>`).join('')
             + g.effects.map(ef => `<span class="tip-set-ef${n >= ef.n ? ' on' : ''}">${ef.n}세트: ${esc((Object.keys(ef.bonus) as BonusId[]).map(k => bonusLine(k, ef.bonus[k] ?? 0)).join(' · '))}</span>`).join('');
         }
         // 끼면 바뀌는 능력치: 오르면 ▲ 초록, 내리면 ▼ 빨강

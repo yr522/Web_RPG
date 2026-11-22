@@ -98,9 +98,10 @@ describe('아이템', () => {
     for (const id of SHOP_ITEMS) { expect(ITEMS[id]).toBeDefined(); expect(ITEMS[id].price).toBeGreaterThan(0); }
     for (const it of START_ITEMS) expect(ITEMS[it.id]).toBeDefined();
   });
-  it('장비는 등급이 맞음, 장비가 아닌 건 부위·능력치가 없음', () => {
+  it('장비는 등급이 맞음, 장비가 아닌 건 부위·능력치가 없음 (도구는 무기 칸·내구도·종류)', () => {
     for (const [id, d] of Object.entries(ITEMS)) {
       if (d.kind === 'equip') expect(d.part, id).toBeDefined();
+      else if (d.kind === 'tool') { expect(d.part, id).toBe('weapon'); expect(d.dur, id).toBeGreaterThan(0); expect(d.tool, id).toBeDefined(); expect(d.bonus, id).toBeUndefined(); }
       else { expect(d.part, id).toBeUndefined(); expect(d.bonus, id).toBeUndefined(); }
     }
   });

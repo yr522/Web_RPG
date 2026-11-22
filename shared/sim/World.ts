@@ -4,7 +4,8 @@ import { GROUND_Y, MAPS, type MapDef, type MapId } from '../data/maps';
 import { GIDUNG, SKILLS, WARRIOR_CHAIN, DOWN_TIME, COMBO, HINT, PASSIVE, unlockLevel, CLASSES, DEFENSE } from '../data/classes';
 import { ELEMENTS, REACTIONS, STRONG_AGAINST, reactionKey, type Element } from '../data/elements';
 import { FIREWORK, POTION, POTIONS, dropChance, itemDef, potionIds, type PotionKind } from '../data/items';
-import { BAG_FULL, addItem, countItem, equipBonus, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
+import { BAG_FULL, addItem, countItem, equipBonus, hasWeapon, heldTool, putBagEntry, removeItem, type BagEntry } from '../rules/inventory';
+import { GATHER, GATHER_NODES } from '../data/gather';
 import { rollOptions } from '../rules/gear';
 import { questDef, type QuestDef } from '../data/quests';
 import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnGather, questsOnKill, questsOnVisit, readyQuestIds } from '../rules/quests';
@@ -53,6 +54,8 @@ export class World implements SkillWorld {
   tornadoes: Tornado[] = [];
   traps: Trap[] = [];
   fireworks: Firework[] = [];
+  /** 채집물 (맵 gathers). t > 0 = 캔 뒤 다시 생기기까지 남은 시간 (그동안 안 보임) */
+  gathers: { id: number; x: number; y: number; node: string; t: number }[] = [];
   private timers: { t: number; fn: () => void; owner: PlayerState }[] = [];
   time = 0;
   readonly rng: Rng;
@@ -95,6 +98,7 @@ export class World implements SkillWorld {
       // 맵에 들어올 때는 정예 없음 (정해 둔 자리만). 정예 뽑기는 죽고 다시 나올 때부터
       if (sp.elite) this.makeElite(e, sp.elite);
     }
+    this.gathers = (this.map.gathers ?? []).map((g, id) => ({ id, x: g.x, y: g.y ?? GROUND_Y, node: g.node, t: 0 }));
     if (this.map.waves) { this.cleared = false; this.spawnWave(0); }
     if (this.map.orb) this.orb = { x: this.map.orb.x, y: this.map.orb.y, t: 0, aimT: 0, track: 0, locked: false, dir: null };
     this.rubbleT = this.range(GOLEM_NORMAL.rubbleEvery);
@@ -206,6 +210,7 @@ export class World implements SkillWorld {
     this.stepTornadoes(dt);
     this.stepTraps(dt);
     this.fireworks = this.fireworks.filter(f => (f.t += dt) < FIREWORK.fuse + FIREWORK.rise + FIREWORK.burst);
+    for (const g of this.gathers) if (g.t > 0) g.t = Math.max(0, g.t - dt);
     this.stepWaves(dt);
     this.stepOrb(dt);
     this.stepTimers(dt);
@@ -268,6 +273,8 @@ export class World implements SkillWorld {
     for (const key of cmd.skillPressed) {
       const bound = p.data.skillKeys[key];
       if (!bound) continue;
+      // 맞는 무기가 없으면(맨손·채집 도구) Z 말고는 못 씀
+      if (key !== 'Z' && !hasWeapon(p.data)) continue;
       const name = keySkill(p.data, key), a = p.action;
       if (!name) { this.warn(p, `Lv ${unlockLevel(p.data.cls, bound)}에 배울 수 있어`); continue; }
       // 원소 기둥 토네이도가 제자리에 있을 때 한 번 더 누르면 바라보는 방향으로 지면을 따라 움직이기 시작
@@ -299,7 +306,7 @@ export class World implements SkillWorld {
     }
     // 기본기(기본 공격·일섬·마력탄) 키를 누르고 있으면 연타
     if (!p.action && p.lockT <= 0 && p.hurt <= 0) {
-      const z = cmd.skillHeld.map(k => keySkill(p.data, k)).find(n => n && cs.auto.includes(n));
+      const z = cmd.skillHeld.filter(k => k === 'Z' || hasWeapon(p.data)).map(k => keySkill(p.data, k)).find(n => n && cs.auto.includes(n));
       if (z) this.tryStart(p, z, true);
     }
 
@@ -369,6 +376,7 @@ export class World implements SkillWorld {
   }
 
   private tryStart(p: PlayerState, name: string, silent = false) {
+    if (name === 'gather') return this.startGather(p, silent);
     const sk = SKILLS[name], cs = CLASS_SKILLS[p.data.cls];
     const can = cs.can[name]?.(this, p);
     if (can !== undefined && can !== true) { if (!silent) this.warn(p, can); return false; }
@@ -399,7 +407,7 @@ export class World implements SkillWorld {
 
   // SkillWorld 구현 (스킬 코드가 쓰는 것들)
   private skillMult(p: PlayerState, skill: string) {
-    return skill === 'basic' ? 1 : 1 + 0.1 * (skillLevel(p.data, skill) - 1);
+    return skill === 'basic' || skill === 'punch' ? 1 : 1 + 0.1 * (skillLevel(p.data, skill) - 1);
   }
   addHB(p: PlayerState, h: HitboxSpec) {
     this.hitboxes.push({
@@ -614,7 +622,7 @@ export class World implements SkillWorld {
     // 치명타 (궁수 패시브)
     const critLv = passiveLv(p.data, 'crit');
     const crit = this.rng() < PASSIVE.crit.chance * critLv + p.stats.crit;
-    let base = p.stats.atk * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
+    let base = (h.skill === 'punch' ? p.stats.punchAtk : p.stats.atk) * h.coef * h.sm * (h.chain ? 1 + this.comboBonus(p) : 1) * (0.92 + this.rng() * 0.16) * weak * (1 + res) * (crit ? PASSIVE.crit.mult : 1) * (1 + (MONSTERS[e.mob].boss ? p.stats.boss : p.stats.mob));
     // 그림자 화살: 잃은 HP 비례 추가 피해
     if (h.exec) base += Math.min((e.maxHp - e.hp) * h.exec.pct, p.stats.atk * h.exec.cap) * h.sm;
     // 정예 강철: 받는 피해 감소
@@ -1362,6 +1370,52 @@ export class World implements SkillWorld {
     p.data.flags[`got_${o.id}`] = 1;
     this.float(o.x, (o.y ?? GROUND_Y) - 40, `+${itemDef(o.item)?.name ?? o.item}`, '#ffffff', 15, 0.8);
     for (const q of questsOnGather(p.data, o.item)) this.questReady(p, q);
+  }
+
+  // ===================== 채집 =====================
+  /** 캘 수 있는 가까운 채집물 (발 높이가 맞아야, 다시 생기는 중이면 없음) */
+  gatherNear(p: PlayerState) {
+    let best: (typeof this.gathers)[number] | null = null;
+    for (const g of this.gathers) {
+      const d = Math.abs(g.x - cx(p));
+      if (g.t > 0 || d > GATHER.range || Math.abs(g.y - (p.y + p.h)) > 30) continue;
+      if (!best || d < Math.abs(best.x - cx(p))) best = g;
+    }
+    return best;
+  }
+
+  /** Z [채집]: 도구에 맞는 채집물 앞에서 GATHER.time 초 → 1개, 내구도 −1 */
+  private startGather(p: PlayerState, silent: boolean) {
+    const tool = heldTool(p.data), g = this.gatherNear(p);
+    if (!tool || !g || !p.onGround) return false;
+    const node = GATHER_NODES[g.node];
+    if (itemDef(tool.id)?.tool !== node.tool) {
+      if (!silent) this.warn(p, `${node.tool === 'herb' ? '낫' : '곡괭이'}이 필요해`);
+      return false;
+    }
+    p.vx = 0;
+    p.action = {
+      name: 'gather', t: 0, dur: GATHER.time,
+      events: [{ at: GATHER.time - 0.02, fn: () => this.finishGather(p, g, tool) }],
+      end: () => { p.lockT = 0.1; },
+      update: () => { p.vx = 0; },
+    };
+    return true;
+  }
+
+  private finishGather(p: PlayerState, g: (typeof this.gathers)[number], tool: BagEntry) {
+    if (g.t > 0) return;
+    const item = GATHER_NODES[g.node].item;
+    if (!addItem(p.data, item)) return this.warn(p, BAG_FULL);
+    g.t = GATHER.respawn;
+    this.float(g.x, g.y - 40, `+${itemDef(item)?.name ?? item}`, '#ffffff', 15, 0.8);
+    for (const q of questsOnGather(p.data, item)) this.questReady(p, q);
+    tool.dur = Math.max(0, (tool.dur ?? 1) - 1);
+    if (tool.dur > 0) return;
+    // 내구도 0: 파괴 (장비 칸에서 빠짐) → 대장장이 수리 또는 새로 사기
+    tool.broken = true;
+    if (p.data.equip.weapon === tool.uid) delete p.data.equip.weapon;
+    this.float(cx(p), p.y - 30, `${itemDef(tool.id)?.name ?? tool.id} 파괴`, '#ff8a7a', 16, 1.2);
   }
 
   /** 근처 포탈 (화면에서 "↑ 이동" 말풍선용) */

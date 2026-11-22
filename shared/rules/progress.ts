@@ -2,8 +2,8 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { COIN_SHOP, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
+import { COIN_SHOP, NPC_SHOPS, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { BAG_FULL, hasWeapon, heldTool, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
 import { craftCollect, craftOrder } from './craft';
 import { alchemyCollect, alchemyOrder } from './alchemy';
@@ -42,6 +42,8 @@ export type MenuAction =
   | { type: 'alchemy'; recipe: string; n: number }
   | { type: 'alchemyCollect' }
   | { type: 'coinBuy'; item: string }
+  /** 대화 NPC 상점에서 골드로 1개 사기 (NPC_SHOPS) */
+  | { type: 'npcBuy'; npc: string; item: string }
   | { type: 'unequip'; slot: EquipSlot }
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
@@ -78,6 +80,7 @@ export interface ActionResult {
 }
 
 const fail = (msg: string): ActionResult => ({ ok: false, msg });
+const Z_FIXED = 'Z는 기본 공격 자리야';
 
 export const learned = (s: SaveData, id: string) => id in s.learned;
 export const skillLevel = (s: SaveData, id: string) => s.skillLevels[id] ?? 1;
@@ -89,6 +92,9 @@ export const skillLevel = (s: SaveData, id: string) => s.skillLevels[id] ?? 1;
 export function keySkill(s: SaveData, key: SlotKey): string | null {
   const id = s.skillKeys[key];
   if (!id) return null;
+  // Z(기본 공격): 채집 도구를 끼면 채집, 맞는 무기가 없으면 주먹질
+  if (key === 'Z' && heldTool(s)) return 'gather';
+  if (key === 'Z' && !hasWeapon(s)) return 'punch';
   if (learned(s, id)) return id;
   return id === CLASSES[s.cls].skills[0] ? 'basic' : null;
 }
@@ -194,6 +200,15 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       addItem(s, c.item, 1);
       return { ok: true, msg: `${itemDef(c.item)?.name ?? c.item} 구매!` };
     }
+    case 'npcBuy': {
+      const it = NPC_SHOPS[a.npc]?.includes(a.item as ItemId) ? itemDef(a.item) : undefined;
+      if (!it?.price) return fail('살 수 없는 물건이야');
+      if (s.gold < it.price) return fail('골드가 부족해');
+      if (!canAdd(s, a.item, 1)) return fail(BAG_FULL);
+      s.gold -= it.price;
+      addItem(s, a.item, 1);
+      return { ok: true, msg: `${it.name} 구매!` };
+    }
     case 'sell': {
       const r = sellItem(s, a.index, a.n);
       return typeof r === 'string' ? fail(r) : { ok: true, msg: `+${r.gold} G` };
@@ -247,6 +262,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
     }
     case 'bindSkill': {
       if (!SLOT_KEYS.includes(a.key) || !classActiveIds(s.cls).includes(a.skill)) return fail('등록할 수 없어');
+      if (a.key === 'Z' || a.skill === CLASSES[s.cls].skills[0]) return fail(Z_FIXED);
       if (!learned(s, a.skill)) return fail('배운 스킬만 등록할 수 있어');
       for (const k of SLOT_KEYS) if (s.skillKeys[k] === a.skill) delete s.skillKeys[k];
       s.skillKeys[a.key] = a.skill;
@@ -254,11 +270,13 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
     }
     case 'unbindKey': {
       if (!SLOT_KEYS.includes(a.key)) return fail('없는 키야');
+      if (a.key === 'Z') return fail(Z_FIXED);
       delete s.skillKeys[a.key];
       return { ok: true };
     }
     case 'swapKeys': {
       if (!SLOT_KEYS.includes(a.from) || !SLOT_KEYS.includes(a.to)) return fail('없는 키야');
+      if (a.from === 'Z' || a.to === 'Z') return fail(Z_FIXED);
       const f = s.skillKeys[a.from], t = s.skillKeys[a.to];
       if (t) s.skillKeys[a.from] = t; else delete s.skillKeys[a.from];
       if (f) s.skillKeys[a.to] = f; else delete s.skillKeys[a.to];

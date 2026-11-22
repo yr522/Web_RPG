@@ -1,11 +1,12 @@
 // 장비 한 개(가방 칸)의 능력치 · 부가효과 굴리기 · 대장장이(강화·수리·옵션). 화면은 모른다.
-import { itemDef, itemGrade, type BonusId, type EquipSlot } from '../data/items';
+import { isGear, itemDef, itemGrade, type BonusId, type EquipSlot } from '../data/items';
 import {
   ENHANCE, ENHANCE_MAX, ENHANCE_PROTECT, OPTIONS, OPTION_POOL, OPT_CHANCE, OPT_MAX, OPT_MAX_TIER, OPT_UP_COST, REROLL_COST,
   enhanceMult, repairCost, type OptionId,
 } from '../data/gear';
 import { countItem, equipBonus, equippedSlot, removeItem, type BagEntry } from './inventory';
 import { REPAIR_INGOT, enhanceIngot } from '../data/craft';
+import { GATHER } from '../data/gather';
 import type { SaveData } from '../sim/save';
 
 export type Rng = () => number;
@@ -77,8 +78,12 @@ const fail = (msg: string): Res => ({ ok: false, msg });
 
 export function findGear(s: SaveData, uid: number) {
   const e = s.bag.find(x => x?.uid === uid) ?? null;
-  return e && itemDef(e.id)?.kind === 'equip' ? e : null;
+  return e && isGear(itemDef(e.id)) ? e : null;
 }
+
+/** 강화·옵션은 장비만 (도구는 수리만) */
+const isTool = (e: BagEntry) => itemDef(e.id)?.kind === 'tool';
+const NOT_FOR_TOOL = '도구는 수리만 할 수 있어';
 
 function pay(s: SaveData, cost: number) {
   if (s.gold < cost) return false;
@@ -89,6 +94,7 @@ function pay(s: SaveData, cost: number) {
 export function enhance(s: SaveData, uid: number, protect: boolean, rng: Rng): Res {
   const e = findGear(s, uid);
   if (!e) return fail('장비가 없어');
+  if (isTool(e)) return fail(NOT_FOR_TOOL);
   if (e.broken) return fail('먼저 수리해야 해');
   const lv = e.enh ?? 0;
   if (lv >= ENHANCE_MAX) return fail('최대 강화야');
@@ -113,6 +119,13 @@ export function enhance(s: SaveData, uid: number, protect: boolean, rng: Rng): R
 export function repair(s: SaveData, uid: number): Res {
   const e = findGear(s, uid);
   if (!e?.broken) return fail('파괴된 장비가 아니야');
+  // 도구: 골드만, 내구도 가득
+  if (isTool(e)) {
+    if (!pay(s, GATHER.repair)) return fail('골드가 부족해');
+    delete e.broken;
+    e.dur = itemDef(e.id)?.dur ?? 1;
+    return { ok: true, msg: '수리 완료' };
+  }
   if (countItem(s, REPAIR_INGOT.item) < REPAIR_INGOT.n) return fail(`${itemDef(REPAIR_INGOT.item)?.name ?? REPAIR_INGOT.item} ${REPAIR_INGOT.n}개가 필요해`);
   if (!pay(s, repairCost(e.enh ?? 0))) return fail('골드가 부족해');
   removeItem(s, REPAIR_INGOT.item, REPAIR_INGOT.n);

@@ -39,6 +39,10 @@ export interface SkillDef {
 
 export const SKILLS: Record<string, SkillDef> = {
   basic: { name: '기본 공격', cd: 0, mp: 0, elements: [] },
+  // 맞는 무기가 없을 때 Z (shared/sim/skills/punch.ts)
+  punch: { name: '주먹질', cd: 0, mp: 0, elements: [] },
+  // 채집 도구를 끼면 Z (World.startGather)
+  gather: { name: '채집', cd: 0, mp: 0, elements: [] },
   ilseom: { name: '일섬', cd: 0, mp: 0, elements: ALL_ELEMENTS },
   wolcham: { name: '월참', cd: 2.5, mp: 9, elements: ['fire', 'water', 'light'] },
   jilpung: { name: '질풍참', cd: 3, mp: 3, elements: ['fire', 'light'] },
@@ -212,6 +216,9 @@ export const PASSIVE = {
 export const COMBO = { window: 0.9, bonus: 0.2 };
 
 /** 스킬 슬롯 키. Z A S D = 직업 스킬 4개, Q W E = 추가 슬롯(용도 미정) */
+/** 주먹질: 검사 기본 공격과 같은 시간·배율 (임시). 공격력은 근력으로 */
+export const PUNCH = { dur: 0.2, hitAt: 0.08, coef: 0.6, lock: 0.16 };
+
 export const SLOT_KEYS = ['Z', 'A', 'S', 'D', 'Q', 'W', 'E'] as const;
 export type SlotKey = (typeof SLOT_KEYS)[number];
 /** 직업 스킬 슬롯별 해금 레벨 (Z A S D) */

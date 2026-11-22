@@ -7,7 +7,7 @@
 //   { choices: [ { label, reply } ] } → 선택지. 고르면 reply 대사들이 이어서 나온다
 //   { do: 효과 }                       → 화면에 안 보이고 효과만 (퀘스트 주기·보고, 플래그 바꾸기, 물건·골드 주고받기)
 //   { cutscene: '컷신 id' }            → 대화창을 닫고 컷신 재생 (cutscenes.ts)
-//   { open: 'coinShop' }               → 대화창을 닫고 그 창을 엶 (주화 상점 등)
+//   { open: 'coinShop' }               → 대화창을 닫고 그 창을 엶 (주화 상점 등). 'npcShop' = 이 NPC 의 골드 상점 (items.ts NPC_SHOPS)
 // 대사가 끝나면 창이 닫히고, 다시 말을 걸면 처음부터.
 //
 // 상황별 대사: talks 에 { when: 조건, steps: 대사 } 를 위에서부터 검사해서 처음 맞는 것을 쓴다.
@@ -31,7 +31,7 @@ export type DialogueStep =
   | { choices: { label: string; reply: DialogueStep[] }[] }
   | { do: Effect }
   | { cutscene: string }
-  | { open: 'coinShop' };
+  | { open: 'coinShop' | 'npcShop' };
 
 export type Cond =
   /** 플래그 값 비교 (없는 플래그 = 0) */
@@ -361,6 +361,12 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     tint: 0x3a3048,
   },
   // 교수님 (특수 NPC): 이야기 대사가 있으면 교수님 메뉴 대신 대화창
+  // 세발토끼 채집가 (2026-11-22, 채집 공간 포탈 옆): '세발토끼' 조직. 채집 도구 상점
+  gatherer: {
+    name: '세발토끼 채집가',
+    icon: '🐇',
+    dialogue: [{ choices: [{ label: '거래하기', reply: [{ open: 'npcShop' }] }] }],
+  },
   // 대장장이의 딸 (2026-11-21): 대장장이 옆, 대화만 (준비 중)
   smith_daughter: {
     name: '대 장부',
