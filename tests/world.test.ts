@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { World, TICK } from '../shared/sim/World';
 import { MONSTERS } from '../shared/data/monsters';
 import { DEFENSE } from '../shared/data/classes';
-import { addItem, takeBagEntry, toggleEquip } from '../shared/rules/inventory';
+import { addItem, countItem, takeBagEntry, toggleEquip } from '../shared/rules/inventory';
+import { GROUND_Y } from '../shared/data/maps';
+import { ITEMS } from '../shared/data/items';
+import { GATHER } from '../shared/data/gather';
+import { keySkill } from '../shared/rules/progress';
+import { repair } from '../shared/rules/gear';
 import { newSave } from '../shared/sim/save';
 import type { Enemy, PlayerState } from '../shared/sim/entities';
 import { emptyCommand } from '../shared/sim/types';
@@ -421,5 +426,65 @@ describe('인벤토리에서 바닥에 버리기', () => {
     const idx = s.bag.findIndex(e => e?.id === 'slime_armor');
     toggleEquip(s, idx);
     expect(takeBagEntry(s, idx)).toBeNull();
+  });
+});
+
+describe('채집 (2026-11-22)', () => {
+  /** 채집 공간에서 도구를 끼고 node 종류 채집물 앞에 섬 */
+  function gatherSetup(tool: 'sickle' | 'pickaxe', node: 'blue_herb' | 'tin') {
+    const w = new World('gather_test', 1);
+    const s = newSave('t', 'mage', 'M');
+    addItem(s, tool);
+    toggleEquip(s, s.bag.findIndex(e => e?.id === tool));
+    const g = w.gathers.find(o => o.node === node && o.y === GROUND_Y) ?? w.gathers.find(o => o.node === node)!;
+    const p = w.addPlayer('p', s, g.x - 14, undefined, undefined, g.y);
+    run(w, 0.3);
+    return { w, s, p, g };
+  }
+  const pressZ = (w: World) => w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Z'] }]]));
+
+  it('도구를 끼면 Z 가 채집, 맞는 채집물 앞에서 1개 얻고 내구도 −1, 채집물은 잠깐 사라짐', () => {
+    const { w, s, g } = gatherSetup('sickle', 'blue_herb');
+    expect(keySkill(s, 'Z')).toBe('gather');
+    pressZ(w); run(w, 1);
+    expect(countItem(s, 'blue_herb')).toBe(1);
+    expect(s.bag.find(e => e?.id === 'sickle')?.dur).toBe(ITEMS.sickle.dur! - 1);
+    expect(g.t).toBeGreaterThan(0);
+    pressZ(w); run(w, 1);
+    expect(countItem(s, 'blue_herb')).toBe(1);
+    run(w, GATHER.respawn);
+    expect(g.t).toBe(0);
+  });
+  it('도구 종류가 안 맞으면 못 캠', () => {
+    const { w, s } = gatherSetup('sickle', 'tin');
+    pressZ(w); run(w, 1);
+    expect(countItem(s, 'tin')).toBe(0);
+  });
+  it('내구도 0 이면 파괴되고 장비 칸에서 빠짐 → Z 는 주먹질, 대장장이 수리로 내구도 가득', () => {
+    const { w, s, g } = gatherSetup('pickaxe', 'tin');
+    const e = s.bag.find(x => x?.id === 'pickaxe')!;
+    e.dur = 1;
+    pressZ(w); run(w, 1);
+    expect(countItem(s, 'tin')).toBe(1);
+    expect(e.broken).toBe(true);
+    expect(s.equip.weapon).toBeUndefined();
+    expect(keySkill(s, 'Z')).toBe('punch');
+    expect(g.t).toBeGreaterThan(0);
+    s.gold = GATHER.repair;
+    expect(repair(s, e.uid!).ok).toBe(true);
+    expect(e.dur).toBe(ITEMS.pickaxe.dur);
+    expect(s.gold).toBe(0);
+  });
+  it('맞는 무기가 없으면 Z 말고 다른 스킬은 못 씀', () => {
+    const w = new World('field', 1);
+    const s = newSave('t', 'warrior', 'M');
+    s.learned.wolcham = 'fire'; s.learned.ilseom = 'fire';
+    const p = w.addPlayer('p', s, 600);
+    run(w, 0.3);
+    toggleEquip(s, s.bag.findIndex(e => e?.id === 'plain_sword'));
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['A'] }]]));
+    expect(p.action).toBeNull();
+    w.step(new Map([['p', { ...emptyCommand(), skillPressed: ['Z'] }]]));
+    expect(p.action?.name).toBe('punch');
   });
 });

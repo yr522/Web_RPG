@@ -101,8 +101,8 @@ const SWING_SHOW = 0.07;
 
 interface Pose { sheet: SheetName; frame: number }
 
-/** 공격 그림 줄: 주먹질은 직업 상관없이 검사 공격 모션 */
-const attackSheet = (me: PlayerState): SheetName => (me.action?.name === 'punch' ? 'sword' : ATTACK_SHEET[me.data.cls]);
+/** 공격 그림 줄: 주먹질·채집은 직업 상관없이 검사 공격 모션 */
+const attackSheet = (me: PlayerState): SheetName => (me.action?.name === 'punch' || me.action?.name === 'gather' ? 'sword' : ATTACK_SHEET[me.data.cls]);
 
 /** 공격 중 그림. 공격 중이 아니면 null */
 function attackPose(me: PlayerState): Pose | null {

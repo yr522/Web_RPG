@@ -23,6 +23,7 @@ const DROP_LOCK_TINT = 0xff9a9a;
 
 import { ICON_URLS } from '../ui/icons';
 import { FIREWORK, itemDef } from '@shared/data/items';
+import { GATHER_NODES } from '@shared/data/gather';
 import { VFX, createVfxAnims, preloadVfx, vfxKey } from './vfx';
 import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
@@ -1278,6 +1279,19 @@ export class GameScene extends Phaser.Scene implements Stage {
       const y = (o.y ?? GROUND_Y) - 6 - 3 * (1 + Math.sin(this.time.now / 250 + o.x));
       g.fillStyle(0xffffff, 0.95).fillRect(o.x - 10, y - 24, 20, 24);
       g.lineStyle(2, 0x3a3a3a, 1).strokeRect(o.x - 10, y - 24, 20, 24);
+    }
+    // 채집물 (임시 그림): 풀 = 푸른 덤불, 광석 = 회색 바위. 캔 뒤 다시 생기기 전엔 안 보임
+    for (const o of s.world.gathers) {
+      if (o.t > 0) continue;
+      const n = GATHER_NODES[o.node];
+      if (!n) continue;
+      if (n.tool === 'herb') {
+        g.fillStyle(0x2f6a3a).fillRect(o.x - 3, o.y - 18, 6, 18);
+        g.fillStyle(n.color).fillCircle(o.x - 9, o.y - 20, 7).fillCircle(o.x + 9, o.y - 20, 7).fillCircle(o.x, o.y - 28, 7);
+      } else {
+        g.fillStyle(0x55595f).fillRect(o.x - 20, o.y - 22, 40, 22);
+        g.fillStyle(n.color).fillRect(o.x - 15, o.y - 30, 30, 10).fillRect(o.x - 8, o.y - 16, 10, 8);
+      }
     }
   }
 

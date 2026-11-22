@@ -330,7 +330,7 @@ export class InventoryWindow {
   private useBag(index: number, id: string) {
     const d = itemDef(id);
     if (!d) return;
-    if (d.kind === 'equip') {
+    if (d.kind === 'equip' || d.kind === 'tool') {
       const r = this.session.act({ type: 'equip', index });
       if (r.ok) this.showEquip();
       return this.result(r);

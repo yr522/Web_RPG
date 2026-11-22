@@ -2,7 +2,8 @@
 // 버튼은 session.act() 로 행동을 요청만 하고, 결과를 다시 그린다.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classSkillIds, unlockLevel } from '@shared/data/classes';
 import { ELEMENTS, type Element } from '@shared/data/elements';
-import { COIN_SHOP, GRADES, ITEMS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
+import { COIN_SHOP, GRADES, ITEMS, NPC_SHOPS, SHOP_ITEMS, itemGrade, sellPrice } from '@shared/data/items';
+import { GATHER } from '@shared/data/gather';
 import { countItem, equippedSlot } from '@shared/rules/inventory';
 import { questTitle } from '@shared/data/quests';
 import { settings, setSettings } from '../settings';
@@ -251,6 +252,28 @@ export class NpcDialog {
     }
   }
 
+  /** 대화 NPC 골드 상점 (NPC_SHOPS, 세발토끼 채집가 등) */
+  openNpcShop(id: string) {
+    const npc = TALK_NPCS[id];
+    const box = this.frame(npc.name, NPC_PORTRAIT[id] ?? null, npc.icon);
+    this.refresh = () => {
+      const b = this.body!, s = this.session.save;
+      b.innerHTML = '';
+      b.appendChild(el('p', 'line', `<span class="gold">💰 ${s.gold} G</span>`));
+      for (const item of NPC_SHOPS[id] ?? []) {
+        const it = ITEMS[item], card = el('div', 'card shop'), price = it.price ?? 0;
+        card.appendChild(itemIcon(item));
+        card.appendChild(el('div', 'grow', `<b>${esc(it.name)}</b> <span class="gold">${price} G</span><br><span class="note">${esc(it.desc)}${it.dur ? ` · 내구도 ${it.dur}` : ''} · 가진 개수 ${countItem(s, item)}</span>`));
+        const btn = el('button', 'sm go', '1개', () => this.act({ type: 'npcBuy', npc: id, item })) as HTMLButtonElement;
+        btn.disabled = s.gold < price;
+        card.appendChild(btn);
+        b.appendChild(card);
+      }
+    };
+    this.refresh();
+    this.host.open(box, () => { this.refresh = null; });
+  }
+
   /** 대장장이: 강화 · 수리 · 옵션(칸 강화·재설정) */
   openSmith() {
     const box = this.frame('대 장장이', smithPortrait, '🔨');
@@ -318,7 +341,7 @@ export class NpcDialog {
         // 컷신: 대화창을 닫고 재생
         if ('cutscene' in step) { cutscene = step.cutscene; this.host.close(); return; }
         // 다른 창 열기 (주화 상점 등)
-        if ('open' in step) { this.host.close(); if (step.open === 'coinShop') this.openCoinShop(); return; }
+        if ('open' in step) { this.host.close(); if (step.open === 'coinShop') this.openCoinShop(); else if (step.open === 'npcShop') this.openNpcShop(id); return; }
         line = step.line;
         nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
         render();
@@ -472,7 +495,9 @@ export class NpcDialog {
     if (view === 'craft') return this.renderCraft(b);
     // 고를 수 있는 장비
     const fits = (e: BagEntry) => view === 'repair' ? !!e.broken : view === 'option' ? !!e.opts?.length : !e.broken;
-    const list = s.bag.filter((e): e is BagEntry => !!e && e.uid !== undefined && itemDef(e.id)?.kind === 'equip' && fits(e));
+    // 도구는 수리 탭에만
+    const kindOk = (e: BagEntry) => itemDef(e.id)?.kind === 'equip' || (view === 'repair' && itemDef(e.id)?.kind === 'tool');
+    const list = s.bag.filter((e): e is BagEntry => !!e && e.uid !== undefined && kindOk(e) && fits(e));
     const grid = el('div', 'smith-items');
     for (const e of list) {
       const cell = el('div', 'inv-cell has smith-cell' + (e.uid === pick ? ' sel' : ''), '', () => choose(e.uid!));
@@ -509,7 +534,9 @@ export class NpcDialog {
         if (t.boom > 0) row.appendChild(btn('파괴 방지 강화', t.cost * ENHANCE_PROTECT, { type: 'smithEnhance', uid, protect: true }, 'sm', enhanceIngot(lv)));
       }
     } else if (view === 'repair') {
-      row.appendChild(btn('수리', repairCost(lv), { type: 'smithRepair', uid }, 'sm go', REPAIR_INGOT));
+      // 도구: 골드만 (GATHER.repair)
+      if (d.kind === 'tool') row.appendChild(btn('수리', GATHER.repair, { type: 'smithRepair', uid }));
+      else row.appendChild(btn('수리', repairCost(lv), { type: 'smithRepair', uid }, 'sm go', REPAIR_INGOT));
     } else {
       (e.opts ?? []).forEach((o, i) => {
         const r = el('div', 'smith-opt');

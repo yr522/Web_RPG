@@ -41,6 +41,8 @@ export const SKILLS: Record<string, SkillDef> = {
   basic: { name: '기본 공격', cd: 0, mp: 0, elements: [] },
   // 맞는 무기가 없을 때 Z (shared/sim/skills/punch.ts)
   punch: { name: '주먹질', cd: 0, mp: 0, elements: [] },
+  // 채집 도구를 끼면 Z (World.startGather)
+  gather: { name: '채집', cd: 0, mp: 0, elements: [] },
   ilseom: { name: '일섬', cd: 0, mp: 0, elements: ALL_ELEMENTS },
   wolcham: { name: '월참', cd: 2.5, mp: 9, elements: ['fire', 'water', 'light'] },
   jilpung: { name: '질풍참', cd: 3, mp: 3, elements: ['fire', 'light'] },

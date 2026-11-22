@@ -19,13 +19,17 @@ export const bonusText = (b: Partial<Record<BonusId, number>>) =>
   (Object.keys(b) as BonusId[]).map(k => bonusLine(k, b[k] ?? 0)).join(' · ');
 
 /** 인벤토리 탭 종류 */
-export type ItemKind = 'equip' | 'use' | 'etc';
+export type ItemKind = 'equip' | 'use' | 'etc' | 'tool';
 export const ITEM_TABS: { id: 'all' | ItemKind; label: string }[] = [
   { id: 'all', label: '전체' },
   { id: 'equip', label: '장비' },
   { id: 'use', label: '소비' },
   { id: 'etc', label: '기타' },
+  { id: 'tool', label: '도구' },
 ];
+
+/** 채집 종류: 풀(낫) · 광석(곡괭이) */
+export type GatherKind = 'herb' | 'ore';
 
 /** 장비 칸 (반지는 2칸) */
 export type EquipSlot = 'hat' | 'ring1' | 'necklace' | 'weapon' | 'ring2' | 'top' | 'gloves' | 'bottom' | 'shoes';
@@ -68,7 +72,13 @@ export interface ItemDef {
   grade?: Grade;
   /** 낄 수 있는 직업 (없으면 모든 직업) */
   cls?: ClassId[];
+  /** 채집 도구 (kind 'tool'): 캘 수 있는 종류 · 최대 내구도 (한 번 캘 때마다 1, 0 이면 파괴) */
+  tool?: GatherKind;
+  dur?: number;
 }
+
+/** 칸마다 하나씩(uid) 있는 물건: 장비 · 도구 */
+export const isGear = (d: ItemDef | undefined) => d?.kind === 'equip' || d?.kind === 'tool';
 
 /** 이 직업이 낄 수 있는 장비인지 (장비가 아니면 false) */
 export const canWear = (d: ItemDef | undefined, cls: ClassId) => !!d?.part && (!d.cls || d.cls.includes(cls));
@@ -159,12 +169,21 @@ const ITEM_LIST = {
   // 슬라임류(슬라임·원소 슬라임) 드롭 장비
   slime_armor: { name: '슬라임 갑옷', kind: 'equip', desc: bonusText({ def: 4, hp: 10 }), icon: '🛡️', img: 'equipment/armor/slime_armor', part: 'top', bonus: { def: 4, hp: 10 }, sell: 100 },
   slime_ring: { name: '슬라임 반지', kind: 'equip', desc: bonusText({ hp: 15, mp: 10 }), icon: '💍', img: 'equipment/ring/slime_ring', part: 'ring', bonus: { hp: 15, mp: 10 }, sell: 100 },
+  // ---- 채집 (2026-11-22) ----
+  // 도구: 무기 칸에 낌 → Z 가 [채집]. 세발토끼 채집가가 팖 (TOOL_SHOP)
+  sickle: { name: '낫', kind: 'tool', desc: '풀을 캐는 도구', icon: '🌾', part: 'weapon', tool: 'herb', dur: 30, price: 200, sell: 50 },
+  pickaxe: { name: '곡괭이', kind: 'tool', desc: '광석을 캐는 도구', icon: '⛏️', part: 'weapon', tool: 'ore', dur: 30, price: 200, sell: 50 },
+  blue_herb: { name: '푸른나비초', kind: 'etc', icon: '🌿', desc: '', sell: 2 },
+  tin: { name: '주석', kind: 'etc', icon: '🪨', desc: '', sell: 3 },
   // 처음 무기 (캐릭터 만들 때 직업에 맞게 하나 끼워 줌, START_WEAPON)
   plain_sword: { name: '평범한 검', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🗡️', part: 'weapon', bonus: { atk: 3 }, cls: ['warrior'], sell: 5 },
   plain_staff: { name: '평범한 스태프', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🪄', part: 'weapon', bonus: { atk: 3 }, cls: ['mage'], sell: 5 },
   plain_bow: { name: '평범한 활', kind: 'equip', desc: bonusText({ atk: 3 }), icon: '🏹', part: 'weapon', bonus: { atk: 3 }, cls: ['archer'], sell: 5 },
   // 마법 골렘 드롭 세트 (GEAR_SETS.golem)
-  golem_weapon: { name: '마법 골렘의 핵', kind: 'equip', desc: bonusText({ atk: 12, str: 2 }), icon: '🗡️', part: 'weapon', bonus: { atk: 12, str: 2 }, grade: 'rare', sell: 300 },
+  // 무기는 직업마다 (드롭은 직업 상관없이 셋 중 하나, 2026-11-22)
+  golem_sword: { name: '마법 골렘의 검', kind: 'equip', desc: bonusText({ atk: 12, str: 2 }), icon: '🗡️', part: 'weapon', bonus: { atk: 12, str: 2 }, grade: 'rare', cls: ['warrior'], sell: 300 },
+  golem_staff: { name: '마법 골렘의 스태프', kind: 'equip', desc: bonusText({ atk: 12, int: 2 }), icon: '🪄', part: 'weapon', bonus: { atk: 12, int: 2 }, grade: 'rare', cls: ['mage'], sell: 300 },
+  golem_bow: { name: '마법 골렘의 활', kind: 'equip', desc: bonusText({ atk: 12, dex: 2 }), icon: '🏹', part: 'weapon', bonus: { atk: 12, dex: 2 }, grade: 'rare', cls: ['archer'], sell: 300 },
   golem_gloves: { name: '마법 골렘의 손', kind: 'equip', desc: bonusText({ atk: 3, def: 6 }), icon: '🧤', part: 'gloves', bonus: { atk: 3, def: 6 }, grade: 'rare', sell: 300 },
   test_ring: { name: '테스트 반지', kind: 'equip', desc: '모든 능력치 +1', icon: '💍', img: ARMOR_IMG, price: 200, bulk: [1], part: 'ring', bonus: { str: 1, dex: 1, int: 1 } },
 } satisfies Record<string, ItemDef>;
@@ -199,6 +218,9 @@ export const COIN_SHOP: { item: ItemId; coin: ItemId; price: number }[] = [
  * 예: 1% 짜리에 +50% · +100% → 1% × 2.5 = 2.5%
  */
 export const dropChance = (base: number, bonusPct: number) => Math.min(1, base * (1 + bonusPct / 100));
+
+/** 대화 NPC 상점 (골드로 사기, 대사의 { open: 'npcShop' }) */
+export const NPC_SHOPS: Record<string, ItemId[]> = { gatherer: ['sickle', 'pickaxe'] };
 
 /** 매점 모리가 파는 물건 (보이는 순서) */
 export const SHOP_ITEMS: ItemId[] = [

@@ -2,8 +2,8 @@
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
 import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
-import { COIN_SHOP, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
-import { BAG_FULL, hasWeapon, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
+import { COIN_SHOP, NPC_SHOPS, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
+import { BAG_FULL, hasWeapon, heldTool, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
 import { setTitle } from './achievements';
 import { craftCollect, craftOrder } from './craft';
 import { alchemyCollect, alchemyOrder } from './alchemy';
@@ -42,6 +42,8 @@ export type MenuAction =
   | { type: 'alchemy'; recipe: string; n: number }
   | { type: 'alchemyCollect' }
   | { type: 'coinBuy'; item: string }
+  /** 대화 NPC 상점에서 골드로 1개 사기 (NPC_SHOPS) */
+  | { type: 'npcBuy'; npc: string; item: string }
   | { type: 'unequip'; slot: EquipSlot }
   /** 가방 칸 옮기기 (물건이 있으면 자리 바꿈) */
   | { type: 'moveItem'; from: number; to: number }
@@ -90,7 +92,8 @@ export const skillLevel = (s: SaveData, id: string) => s.skillLevels[id] ?? 1;
 export function keySkill(s: SaveData, key: SlotKey): string | null {
   const id = s.skillKeys[key];
   if (!id) return null;
-  // Z(기본 공격): 맞는 무기가 없으면 주먹질
+  // Z(기본 공격): 채집 도구를 끼면 채집, 맞는 무기가 없으면 주먹질
+  if (key === 'Z' && heldTool(s)) return 'gather';
   if (key === 'Z' && !hasWeapon(s)) return 'punch';
   if (learned(s, id)) return id;
   return id === CLASSES[s.cls].skills[0] ? 'basic' : null;
@@ -196,6 +199,15 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       removeItem(s, c.coin, c.price);
       addItem(s, c.item, 1);
       return { ok: true, msg: `${itemDef(c.item)?.name ?? c.item} 구매!` };
+    }
+    case 'npcBuy': {
+      const it = NPC_SHOPS[a.npc]?.includes(a.item as ItemId) ? itemDef(a.item) : undefined;
+      if (!it?.price) return fail('살 수 없는 물건이야');
+      if (s.gold < it.price) return fail('골드가 부족해');
+      if (!canAdd(s, a.item, 1)) return fail(BAG_FULL);
+      s.gold -= it.price;
+      addItem(s, a.item, 1);
+      return { ok: true, msg: `${it.name} 구매!` };
     }
     case 'sell': {
       const r = sellItem(s, a.index, a.n);

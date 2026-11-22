@@ -250,7 +250,7 @@ describe('세트 효과', () => {
   });
   it('골렘 세트: 공격력 5 · 보스 피해 10%', () => {
     const s = newSave('t', 'warrior', 'M');
-    addItem(s, 'golem_weapon'); addItem(s, 'golem_gloves');
+    addItem(s, 'golem_sword'); addItem(s, 'golem_gloves');
     s.bag.forEach((e, i) => { if (e) toggleEquip(s, i); });
     expect(equipBonus(s).atk).toBe(12 + 3 + 5);
     expect(deriveStats(s).boss).toBeCloseTo(0.1);
