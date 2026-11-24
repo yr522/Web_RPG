@@ -4,7 +4,7 @@ import { CLASSES, CREATE_STAT_POINTS, NAME_MAX, START_STAT, type ClassId, type S
 import { createSave, type Gender, type SaveData } from '@shared/sim/save';
 import { ATTACK_SHEET, CELL, FOOT_X, FOOT_Y, PARTS, PART_FILES, SHEETS, type SheetName } from '../scenes/PlayerAvatar';
 import { el, esc } from './Dialog';
-import warriorM from '../../../assets/temp/fighter_banner_M.png';
+import warriorM from '../../../assets/img/banner/swordsman_male_none_background.png';
 import warriorF from '../../../assets/temp/fighter_banner_F.png';
 import mageM from '../../../assets/img/banner/magician_male_none_background.png';
 import mageF from '../../../assets/img/banner/magician_female_none_background.png';

@@ -44,7 +44,7 @@ export type SheetName = keyof typeof SHEETS;
 
 /**
  * 직업별 얼굴·머리 (없는 것은 빼도 됨). 뼈대와 같은 칸 배치 (한 줄 6칸, 모션은 줄).
- * 그림에 없는 줄(모션)에서는 그 파츠만 숨김 → 검사는 기본 줄만 있어서 공격 중엔 뼈대만, 마법사 얼굴은 모든 모션(4줄).
+ * 그림에 없는 줄(모션)에서는 그 파츠만 숨김 → 검사·마법사 얼굴은 모든 모션(4줄), 검사 앞머리는 기본 줄만.
  * 레이어: 머리(뼈대) 위 → 얼굴 → 앞머리 → 앞팔 아래
  */
 export const LOOKS: Partial<Record<ClassId, { face?: string; hair?: string }>> = {
