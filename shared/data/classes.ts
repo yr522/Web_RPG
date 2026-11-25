@@ -248,4 +248,14 @@ export const MAGE_SHOT = {
 /** 마력탄 계수 (1.3 → 1.5, 2026-11-17 보스전에서 마법사가 약해서) */
 export const MADAN_COEF = 1.5;
 
-export const expNeed = (level: number) => 40 + (level - 1) * 25;
+/**
+ * 최대 레벨 (2026-11-25): 전직(ADVANCE.level 15) 전까지 14에서 멈춤. 15 이상인 예전 캐릭터는 레벨 그대로, 더 안 오름
+ */
+export const MAX_LEVEL = 14;
+/**
+ * 다음 레벨까지 필요한 경험치 (2026-11-25, 퀘스트 라인에 맞춤): [Lv1→2, Lv2→3, …, Lv13→14].
+ * 목표 구간: 튜토리얼 1~3 · 슬라임 사냥 3~5 · 마법공학의 유산 5~10 · 영주님의 생일잔치 10~12 · 사냥·일일 12~14 (확인: npm run curve)
+ */
+export const EXP_TABLE = [50, 90, 150, 220, 300, 400, 520, 660, 820, 1000, 1200, 1450, 1700];
+/** 이 레벨에서 다음 레벨까지 필요한 경험치 (최대 레벨 이상이면 표 마지막 값, 레벨은 안 오름) */
+export const expNeed = (level: number) => EXP_TABLE[Math.min(Math.max(level, 1), EXP_TABLE.length) - 1];

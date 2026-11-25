@@ -11,6 +11,7 @@ import type { SaveData } from '@shared/sim/save';
 import type { Store } from '@shared/store/Store';
 import type { MapId } from '@shared/data/maps';
 import type { Element } from '@shared/data/elements';
+import type { EliteAffix, MonsterId } from '@shared/data/monsters';
 import { applyAction, type ActionResult, type MenuAction } from '@shared/rules/progress';
 import { autoReport, isAuto, newlyReady, nightLocked, questReadyText } from '@shared/rules/quests';
 import { MAPS } from '@shared/data/maps';
@@ -51,7 +52,8 @@ export interface Session {
   /** 인벤토리 칸을 캐릭터 자리 바닥에 버리기 */
   dropBag(index: number, n?: number): boolean;
   /** 컷신: 이야기용 진짜 몬스터 만들기 (x = 가운데), 붙잡아 둔 몬스터 풀기 */
-  spawnStory(x: number, elem: Element | null, tag?: string): void;
+  spawnStory(x: number, elem: Element | null, tag?: string, mob?: MonsterId, elite?: EliteAffix[]): void;
+  holdAll(): void;
   releaseHeld(): void;
 }
 
@@ -155,7 +157,8 @@ export class LocalSession implements Session {
     void this.store.save(this.save);
     return true;
   }
-  spawnStory(x: number, elem: Element | null, tag?: string) { this.world.spawnStory(x, elem, tag); }
+  spawnStory(x: number, elem: Element | null, tag?: string, mob?: MonsterId, elite?: EliteAffix[]) { this.world.spawnStory(x, elem, tag, true, mob, elite); }
+  holdAll() { this.world.holdAll(); }
   releaseHeld() { this.world.releaseHeld(); }
 
   revive() { this.world.revive(this.playerId); }
@@ -201,9 +204,12 @@ export class LocalSession implements Session {
         if (ev.type === 'questReady' && ev.playerId === this.playerId) {
           const sc = questDef(ev.quest)?.readyScene;
           if (sc) {
-            const { hp, mp } = this.me();
-            this.enter(sc.map, sc.x, { hp, mp });
-            out.push({ type: 'mapEnter', playerId: this.playerId, map: sc.map });
+            // 이미 그 맵이면 옮기지 않고 컷신만 (합동 훈련실 등)
+            if (this.world.mapId !== sc.map) {
+              const { hp, mp } = this.me();
+              this.enter(sc.map, sc.x, { hp, mp });
+              out.push({ type: 'mapEnter', playerId: this.playerId, map: sc.map });
+            }
             out.push({ type: 'cutscene', id: sc.cutsceneFor?.[this.save.cls] ?? sc.cutscene });
             break;
           }

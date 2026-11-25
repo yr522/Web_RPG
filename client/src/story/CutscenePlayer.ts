@@ -2,7 +2,9 @@
 // 플레이어는 진짜 입력 대신 이 재생기가 만든 명령(걷기·앉기·점프·공격)으로 움직인다 → 게임 규칙 그대로 움직임.
 // NPC·연출용 몬스터는 화면에서만 움직인다 (컷신이 끝나면 NPC 는 제자리로, 연출용 몬스터는 사라짐).
 // fight 단계: 연출용 몬스터를 그 자리에서 진짜 몬스터로 바꾼다 → 컷신이 끝나면 싸움 시작.
-import { CUTSCENES, CUTSCENE, type CutStep, type CutX, type Motion, type Who } from '@shared/data/cutscenes';
+import { CUTSCENES, CUTSCENE, type CutStep, type CutX, type FxKind, type Motion, type Who } from '@shared/data/cutscenes';
+import { resolveWho } from '@shared/data/npcs';
+import type { EliteAffix, MonsterId } from '@shared/data/monsters';
 import { emptyCommand, type Command } from '@shared/sim/types';
 import type { Element } from '@shared/data/elements';
 import type { Session } from '../session/LocalSession';
@@ -20,7 +22,19 @@ export interface Stage {
   actorPose(who: string, motion: Motion | null): void;
   actorFace(who: string, dir: 1 | -1): void;
   actorElem(who: string): Element | null;
-  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1): void;
+  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1, mob?: MonsterId, elite?: EliteAffix[]): void;
+  /** 연출용 몬스터의 종류·정예 특성 (fight 때 같은 것으로) */
+  actorMob(who: string): { mob?: MonsterId; elite?: EliteAffix[] } | null;
+  /** 그 자리로 바로 옮김 */
+  actorPlace(who: string, x: number, face?: 1 | -1): void;
+  /** 화면 어둡게(1)/밝게(0), time 초 동안 */
+  fadeTo(v: number, time: number): void;
+  /** 안내 팝업 (닫힐 때까지) */
+  notice(text: string): Promise<void>;
+  /** 화면 색 (null = 원래대로) */
+  setTint(t: 'sunset' | null): void;
+  /** 임시 연출 */
+  cutFx(kind: FxKind, x: number, toX: number | null, y: number | null): void;
   mobRemove(id: string): void;
   /** 컷신이 끝나면: NPC 제자리, 연출용 몬스터 없앰 */
   resetActors(): void;
@@ -72,9 +86,14 @@ export class CutscenePlayer {
     const steps = CUTSCENES[id];
     if (!steps || this.running) return;
     this.running = true;
+    // 컷신 동안 몬스터는 가만히 (끝나면 releaseHeld)
+    this.session.holdAll();
+    const cls = this.session.save.cls;
     try {
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
+        // 직업마다 다른 단계
+        if (step.cls && !step.cls.includes(cls)) continue;
         // 이야기 효과 (플래그 등): 세션이 데이터에서 직접 찾아 적용
         if ('do' in step) { this.session.act({ type: 'cutDo', cut: id, step: i }); continue; }
         const done = this.run(step);
@@ -86,6 +105,8 @@ export class CutscenePlayer {
       this.held = { move: 0, down: false };
       this.input.locked = false;
       this.stage.setUi(true);
+      this.stage.setTint(null);
+      this.stage.fadeTo(0, 0.3);
       this.stage.camTo(null, 1, 0.5);
       this.stage.resetActors();
       this.session.releaseHeld();
@@ -106,26 +127,45 @@ export class CutscenePlayer {
   private me() { return this.session.me(); }
   private meX() { const p = this.me(); return p.x + p.w / 2; }
 
-  private xOf(x: CutX): number | null {
-    if (typeof x === 'number') return x;
-    if (x === 'player') return this.meX();
-    return this.stage.actorX(x);
+  /** 'cls:<직업>' → 'player' 또는 'npc:<동급생>' */
+  private w(who: Who): Who {
+    const r = resolveWho(who, this.session.save.cls);
+    return (r === 'player' || r.includes(':') ? r : `npc:${r}`) as Who;
   }
 
-  private async run(step: CutStep): Promise<void> {
+  private xOf(x: CutX): number | null {
+    if (typeof x === 'number') return x;
+    const who = this.w(x);
+    if (who === 'player') return this.meX();
+    return this.stage.actorX(who);
+  }
+
+  private async run(raw: CutStep): Promise<void> {
+    const step = this.fixWho(raw);
+    if ('place' in step) { const x = this.xOf(step.place.x); if (x !== null) this.stage.actorPlace(step.place.who, x, step.place.face); return; }
+    if ('fade' in step) { const t = step.time ?? CUTSCENE.fadeTime; this.stage.fadeTo(step.fade === 'out' ? 1 : 0, t); await this.sleep(t); return; }
+    if ('notice' in step) { await this.stage.notice(step.notice); return; }
+    if ('tint' in step) { this.stage.setTint(step.tint); return; }
+    if ('fx' in step) {
+      const x = this.xOf(step.fx.at);
+      const to = step.fx.to === undefined ? null : this.xOf(step.fx.to);
+      if (x !== null) this.stage.cutFx(step.fx.kind, x, to, step.fx.y ?? null);
+      return;
+    }
     if ('lock' in step) { this.input.locked = step.lock; return; }
     if ('ui' in step) { this.stage.setUi(step.ui); return; }
     if ('talk' in step) { await this.talk(step.talk); return; }
     if ('mob' in step) {
       const x = this.xOf(step.mob.x);
-      if (x !== null) this.stage.mobSpawn(step.mob.id, step.mob.elem ?? null, x, step.mob.face ?? -1);
+      if (x !== null) this.stage.mobSpawn(step.mob.id, step.mob.elem ?? null, x, step.mob.face ?? -1, step.mob.mob, step.mob.elite);
       return;
     }
     if ('remove' in step) { if (step.remove.startsWith('mob:')) this.stage.mobRemove(step.remove.slice(4)); return; }
     if ('fight' in step) {
       const who = step.fight.who, x = this.stage.actorX(who);
       if (x === null || !who.startsWith('mob:')) return;
-      this.session.spawnStory(x, this.stage.actorElem(who), step.fight.tag);
+      const m = this.stage.actorMob(who);
+      this.session.spawnStory(x, this.stage.actorElem(who), step.fight.tag, m?.mob, m?.elite);
       this.stage.mobRemove(who.slice(4));
       return;
     }
@@ -182,6 +222,19 @@ export class CutscenePlayer {
       }
       await this.playerPose(motion, time);
     }
+  }
+
+  /** 단계 안의 who 를 'cls:' 없이 바꿈 */
+  private fixWho(st: CutStep): CutStep {
+    const f = <T extends { who: Who }>(o: T): T => ({ ...o, who: this.w(o.who) });
+    if ('walk' in st) return { ...st, walk: f(st.walk) };
+    if ('pose' in st) return { ...st, pose: f(st.pose) };
+    if ('face' in st) return { ...st, face: f(st.face) };
+    if ('say' in st) return { ...st, say: f(st.say) };
+    if ('place' in st) return { ...st, place: f(st.place) };
+    if ('fight' in st) return { ...st, fight: f(st.fight) };
+    if ('remove' in st) return { ...st, remove: this.w(st.remove) };
+    return st;
   }
 
   private async playerPose(motion: Motion, time?: number) {

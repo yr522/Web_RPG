@@ -280,3 +280,46 @@ export class PlayerAvatar {
     scene.tweens.add({ targets: c, alpha: 0, duration: life * 1000, onComplete: () => c.destroy() });
   }
 }
+
+/** 동급생 그림의 상태 */
+export type ClassmateMode = 'idle' | 'walk' | 'jump' | 'crouch';
+
+/**
+ * 동급생 NPC·같이 싸우는 동급생: 그 직업 플레이어 그림 (피부·얼굴·앞머리·공격 모션 그대로).
+ * 진짜 플레이어 상태 대신 가짜 상태를 만들어 PlayerAvatar 에 넘긴다 (2026-11-25)
+ */
+export class ClassAvatar {
+  readonly av: PlayerAvatar;
+  private atkT = -1;
+  private readonly fake: { data: { cls: ClassId }; action: { name: string; t: number; events?: { at: number; done: boolean }[] } | null; lockT: number; hurt: number; onGround: boolean; vx: number; downT: number; crouch: boolean; face: number };
+
+  constructor(scene: Phaser.Scene, readonly cls: ClassId) {
+    this.av = new PlayerAvatar(scene);
+    this.fake = { data: { cls }, action: null, lockT: 0, hurt: 0, onGround: true, vx: 0, downT: 0, crouch: false, face: 1 };
+  }
+
+  get root() { return this.av.root; }
+
+  /** 공격 모션 한 번 */
+  attack() { this.atkT = 0; }
+
+  update(dt: number, x: number, y: number, face: 1 | -1, mode: ClassmateMode) {
+    const f = this.fake;
+    f.face = face; f.onGround = mode !== 'jump'; f.crouch = mode === 'crouch'; f.vx = mode === 'walk' ? 100 : 0;
+    f.action = null; f.lockT = 0;
+    if (this.atkT >= 0) {
+      this.atkT += dt;
+      const t = this.atkT;
+      if (this.cls === 'archer') {
+        if (t < 0.28) f.action = { name: 'draw', t };
+        else if (t < 0.45) f.action = { name: 'recover', t };
+        else this.atkT = -1;
+      } else {
+        if (t < 0.24) f.action = { name: 'atk', t, events: [{ at: 0.12, done: t >= 0.12 }] };
+        else if (t < 0.4) f.lockT = 0.1;
+        else this.atkT = -1;
+      }
+    }
+    this.av.update(dt, f as unknown as PlayerState, x, y);
+  }
+}

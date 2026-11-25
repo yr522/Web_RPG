@@ -25,12 +25,14 @@ import { ICON_URLS } from '../ui/icons';
 import { FIREWORK, itemDef } from '@shared/data/items';
 import { GATHER_NODES } from '@shared/data/gather';
 import { VFX, createVfxAnims, preloadVfx, vfxKey } from './vfx';
-import { AVATAR_HEAD, AVATAR_SCALE, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
+import { AVATAR_HEAD, AVATAR_SCALE, ClassAvatar, PlayerAvatar, makeStaticAvatar, poseStaticAvatar, preloadAvatar } from './PlayerAvatar';
 import { CutscenePlayer, type Stage } from '../story/CutscenePlayer';
-import type { Motion } from '@shared/data/cutscenes';
+import type { FxKind, Motion } from '@shared/data/cutscenes';
+import type { ClassId } from '@shared/data/classes';
+import type { EliteAffix } from '@shared/data/monsters';
 import { QUESTS } from '@shared/data/quests';
 import { companionNpc, npcPlace, questTarget } from '@shared/rules/quests';
-import { mapNpcs, mapPickups, mapPortals, npcMark, offersQuest, selfMark, type QuestMark } from '@shared/rules/story';
+import { checkCond, mapNpcs, mapPickups, mapPortals, npcMark, offersQuest, selfMark, type QuestMark } from '@shared/rules/story';
 import { nextPortal } from '@shared/rules/route';
 import { SpeechBubble } from './SpeechBubble';
 import { NPC_BUBBLE_RANGE, TALK_NPCS } from '@shared/data/npcs';
@@ -80,6 +82,8 @@ export interface SceneDeps {
   chooseBoss: (boss: string, text?: string) => void;
   /** 대화 NPC 대화창 (닫힐 때까지 기다림) — 컷신의 talk 단계 */
   talk: (npc: string) => Promise<void>;
+  /** 안내 팝업 (닫힐 때까지) — 컷신의 notice 단계 */
+  notice: (text: string) => Promise<void>;
 }
 
 /**
@@ -96,7 +100,17 @@ interface Actor {
   jumpT: number | null;
   /** 그림 크기 배율 (대화 NPC 의 scale, 없으면 1) */
   scale?: number;
+  /** 동급생: 그 직업 플레이어 그림 (root 는 이 그림의 root) */
+  av?: ClassAvatar;
+  atkDone?: boolean;
+  /** 연출용 몬스터 종류·정예 특성 (fight 때 같은 것으로) */
+  mob?: MonsterId;
+  elite?: EliteAffix[];
 }
+/** 컷신 임시 연출 (fx 단계): 종류, 자리, 지난 시간 */
+interface CutFx { kind: FxKind; x: number; to: number | null; y: number | null; t: number; life: number }
+/** 컷신 fx 길이 (초) */
+const CUT_FX_LIFE: Record<FxKind, number> = { boom: 0.7, smoke: 2.2, pulse: 1.2, paper: 1.0, flag: 0.9, arrow: 0.35 };
 /** 컷신 점프: 높이(px), 시간(초) / 연출용 몬스터 머리 높이 (말풍선 위치) */
 const ACTOR_JUMP = { h: 50, time: 0.5 };
 const MOB_HEAD = 46;
@@ -190,6 +204,13 @@ export class GameScene extends Phaser.Scene implements Stage {
   /** 땅에 떨어진 물건 그림 (id → 아이콘) */
   private dropSprites = new Map<string, { item: string; obj: Phaser.GameObjects.Image | Phaser.GameObjects.Text }>();
   private fade = 1;
+  /** 컷신 화면 어둡기 (fade 단계): 지금 값, 목표, 초당 변화 */
+  private cutFade = { v: 0, to: 0, speed: 1 };
+  private cutTint: 'sunset' | null = null;
+  private cutFxs: CutFx[] = [];
+  private cutG!: Phaser.GameObjects.Graphics;
+  /** 같이 싸우는 동급생 그림 (ally id → 그림·이름표) */
+  private allyViews = new Map<string, { av: ClassAvatar; label: Phaser.GameObjects.Text; swung: boolean }>();
   /** 세로로 긴 맵의 카메라 위쪽 y (맵에 들어오면 다시 맞춤) */
   private camYNow: number | null = null;
   private mapSig = '';
@@ -231,6 +252,7 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.projG = this.add.graphics().setDepth(6.5);
     this.player = new PlayerAvatar(this).setDepth(5);
     this.guideG = this.add.graphics().setDepth(7.2);
+    this.cutG = this.add.graphics().setDepth(6.8);
     this.cut = new CutscenePlayer(this, this.deps.session, this.deps.input, this.deps.talk);
     this.nameTag = this.text('', 11, '#fff').setOrigin(0.5, 0).setDepth(6);
     this.titleTag = this.text('', 10, '#ffe066').setOrigin(0.5, 0).setDepth(6).setVisible(false);
@@ -400,6 +422,15 @@ export class GameScene extends Phaser.Scene implements Stage {
         // 침대: 그림은 배경에 있음. 눈에 안 보이는 NPC (클릭·↑ 자리만)
         continue;
       }
+      if (talk?.avatar) {
+        // 동급생: 그 직업 플레이어 그림
+        const av = new ClassAvatar(this, talk.avatar), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
+        av.update(0, x, y, -1, 'idle');
+        this.mapLayer.add(av.root);
+        this.mapLayer.add(label);
+        this.actors.set(`npc:${n.id}`, { kind: 'npc', root: av.root, label, elem: null, home: x, x, face: -1, to: null, speed: 0, pose: null, t: 0, jumpT: null, av });
+        continue;
+      }
       if (talk) {
         // 대화 NPC: 임시로 뼈대 그림, 플레이어 쪽(왼쪽)을 봄
         const root = makeStaticAvatar(this, x, y, -1), label = this.text(talk.name, 12, '#fff').setOrigin(0.5, 0).setPosition(x, y + 6);
@@ -465,6 +496,11 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.camYNow = null;
     this.fade = 1;
     this.placeCompanion();
+    for (const v of this.allyViews.values()) { v.av.root.destroy(); v.label.destroy(); }
+    this.allyViews.clear();
+    // 들어오면 나오는 컷신 (맵 enterScene)
+    const sc = (map.enterScene ?? []).find(e => checkCond(save, e.when));
+    if (sc && !this.cut.running) this.time.delayedCall(50, () => this.playCutscene(sc.cutscene));
   }
 
   /** 지금 보이는 NPC·포탈 목록 (퀘스트 진행으로 바뀌면 맵을 다시 그림) */
@@ -591,6 +627,8 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.applyTimeOfDay(pal);
     this.drawPortals();
     this.drawEnemies(dt);
+    this.drawAllies(dt);
+    this.drawCutFx(dt);
     this.drawFx(dt);
     this.drawCombat(px, py);
 
@@ -647,7 +685,11 @@ export class GameScene extends Phaser.Scene implements Stage {
     this.fade = Math.max(0, this.fade - dt * 2.5);
     this.overlay.clear();
     if (pal.phase === 2 && !session.world.map.indoor) this.overlay.fillStyle(0x0a0a32, 0.18).fillRect(0, 0, this.viewW, VIEW_H);
-    if (this.fade > 0) this.overlay.fillStyle(0x000000, this.fade).fillRect(0, 0, this.viewW, VIEW_H);
+    if (this.cutTint === 'sunset') this.overlay.fillStyle(0xff8a3a, 0.2).fillRect(0, 0, this.viewW, VIEW_H);
+    const cf = this.cutFade;
+    if (cf.v !== cf.to) cf.v = cf.to > cf.v ? Math.min(cf.to, cf.v + cf.speed * dt) : Math.max(cf.to, cf.v - cf.speed * dt);
+    const dark = Math.max(this.fade, cf.v);
+    if (dark > 0) this.overlay.fillStyle(0x000000, dark).fillRect(0, 0, this.viewW, VIEW_H);
 
     hud.update(session);
   }
@@ -721,12 +763,98 @@ export class GameScene extends Phaser.Scene implements Stage {
   actorFace(who: string, dir: 1 | -1) { const a = this.actors.get(who); if (a) a.face = dir; }
   actorElem(who: string) { return this.actors.get(who)?.elem ?? null; }
 
-  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1) {
+  mobSpawn(id: string, elem: Element | null, x: number, face: 1 | -1, mob?: MonsterId, elite?: EliteAffix[]) {
     this.mobRemove(id);
-    const root = this.add.sprite(x, GROUND_Y + 1, elem ? 'slime_gray' : 'slime', 0).setOrigin(0.5, 1).setScale(SLIME_DRAW * MONSTERS[elem ? 'slime_elem' : 'slime'].h).setDepth(4);
+    const m: MonsterId = mob ?? (elem ? 'slime_elem' : 'slime');
+    const slime = m === 'slime' || m === 'slime_elem';
+    const h = MONSTERS[m].h * (elite?.length ? ELITE.size : 1);
+    const root = this.add.sprite(x, GROUND_Y + 1, mobTexture(m, elem), 0).setOrigin(0.5, 1).setDepth(4);
+    root.setScale(slime ? SLIME_DRAW * h : h / root.frame.height);
     if (elem) root.setTint(hex(ELEMENTS[elem].color));
-    const label = this.text(elem ? `${ELEMENTS[elem].name} 슬라임` : '슬라임', 11, '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
-    this.actors.set(`mob:${id}`, { kind: 'mob', root, label, elem, home: x, x, face, to: null, speed: 0, pose: null, t: 0, jumpT: null });
+    const base = elem ? `${ELEMENTS[elem].name} 슬라임` : MONSTERS[m].name;
+    const name = elite?.length ? `정예 ${elite.map(a => ELITE.affixes[a].name).join('·')} ${base}` : base;
+    const label = this.text(name, 11, elite?.length ? ELITE.color : '#ffffff').setStroke('#000', 2).setOrigin(0.5, 0).setDepth(4);
+    this.actors.set(`mob:${id}`, { kind: 'mob', root, label, elem, home: x, x, face, to: null, speed: 0, pose: null, t: 0, jumpT: null, mob, elite });
+  }
+  actorMob(who: string) { const a = this.actors.get(who); return a ? { mob: a.mob, elite: a.elite } : null; }
+  actorPlace(who: string, x: number, face?: 1 | -1) {
+    const a = this.actors.get(who);
+    if (!a) return;
+    a.x = x; a.to = null;
+    if (face) a.face = face;
+  }
+  fadeTo(v: number, time: number) { this.cutFade.to = v; this.cutFade.speed = time > 0 ? Math.abs(v - this.cutFade.v) / time : 99; }
+  notice(text: string) { return this.deps.notice(text); }
+  setTint(t: 'sunset' | null) { this.cutTint = t; }
+  cutFx(kind: FxKind, x: number, toX: number | null, y: number | null) {
+    this.cutFxs.push({ kind, x, to: toX, y, t: 0, life: CUT_FX_LIFE[kind] });
+    if (kind === 'boom') this.shake = Math.max(this.shake, 9);
+  }
+
+  /** 컷신 임시 연출 (코드로 그린 그림, 나중에 그림이 오면 바꿈) */
+  private drawCutFx(dt: number) {
+    const g = this.cutG;
+    g.clear();
+    this.cutFxs = this.cutFxs.filter(f => (f.t += dt) < f.life);
+    for (const f of this.cutFxs) {
+      const k = f.t / f.life, y = f.y ?? GROUND_Y - 40;
+      if (f.kind === 'boom') {
+        const r = 20 + 90 * Math.sqrt(k);
+        g.fillStyle(0xffe08a, 0.8 * (1 - k)).fillCircle(f.x, y, r * 0.6);
+        g.fillStyle(0xff7a2a, 0.6 * (1 - k)).fillCircle(f.x, y, r);
+        g.lineStyle(4, 0xfff4c0, 1 - k).strokeCircle(f.x, y, r * 1.1);
+      } else if (f.kind === 'smoke') {
+        for (let i = 0; i < 6; i++) {
+          const a = i * 1.05 + f.x * 0.01, d = 20 + 60 * k;
+          g.fillStyle(0x2a2630, 0.55 * (1 - k)).fillCircle(f.x + Math.cos(a) * d, y - 30 * k - Math.abs(Math.sin(a)) * d * 0.6, 22 + 26 * k);
+        }
+      } else if (f.kind === 'pulse') {
+        for (let i = 0; i < 3; i++) {
+          const kk = (k * 1.5 + i / 3) % 1;
+          g.lineStyle(3, 0xc0182a, 0.8 * (1 - kk)).strokeCircle(f.x, y, 10 + 70 * kk);
+        }
+        g.fillStyle(0x5a0a18, 0.25 * (1 - k)).fillCircle(f.x, y, 46);
+      } else if (f.kind === 'paper') {
+        // 종이 몇 장이 위로 흩날림 (to 가 있으면 한 장은 그쪽으로)
+        for (let i = 0; i < 5; i++) {
+          const px = f.x + (i - 2) * 26 * k + Math.sin(f.t * 9 + i) * 6, py = y - 70 * Math.sin(Math.PI * Math.min(1, k + i * 0.05));
+          g.fillStyle(0xf4efe0, 1 - k * 0.6).fillRect(px - 6, py - 4, 12, 9);
+        }
+        if (f.to !== null) {
+          const px = f.x + (f.to - f.x) * k, py = y - 60 * Math.sin(Math.PI * k) - 10;
+          g.fillStyle(0xffffff).fillRect(px - 7, py - 5, 14, 10);
+        }
+      } else if (f.kind === 'flag') {
+        // 불붙은 깃발이 천장에서 떨어짐
+        const py = 40 + (y - 40) * k * k;
+        g.fillStyle(0x7a2a3a).fillRect(f.x - 14, py - 34, 28, 34);
+        g.fillStyle(0xffb030, 0.9).fillTriangle(f.x - 12, py - 34, f.x + 12, py - 34, f.x + Math.sin(f.t * 30) * 4, py - 52);
+      } else if (f.kind === 'arrow') {
+        const to = f.to ?? f.x + 300, px = f.x + (to - f.x) * k, py = y - 50 * k;
+        g.lineStyle(3, 0xe8e0c0).lineBetween(px - 18 * Math.sign(to - f.x || 1), py + 4, px, py);
+        g.fillStyle(0xd0d0e0).fillCircle(px, py, 3);
+      }
+    }
+  }
+
+  /** 같이 싸우는 동급생 (World.allies): 그 직업 플레이어 그림 + 이름표 */
+  private drawAllies(dt: number) {
+    const { world } = this.deps.session;
+    const live = new Set<string>();
+    for (const a of world.allies) {
+      live.add(a.id);
+      let v = this.allyViews.get(a.id);
+      if (!v) {
+        v = { av: new ClassAvatar(this, a.cls as ClassId), label: this.text(TALK_NPCS[a.npc]?.name ?? a.npc, 12, '#fff').setOrigin(0.5, 0).setDepth(4.9), swung: false };
+        v.av.root.setDepth(4.9);
+        this.allyViews.set(a.id, v);
+      }
+      if (a.swing > 0 && !v.swung) v.av.attack();
+      v.swung = a.swing > 0;
+      v.av.update(dt, a.x, GROUND_Y, a.face, a.walking ? 'walk' : 'idle');
+      v.label.setPosition(a.x, GROUND_Y + 6);
+    }
+    for (const [id, v] of this.allyViews) if (!live.has(id)) { v.av.root.destroy(); v.label.destroy(); this.allyViews.delete(id); }
   }
   mobRemove(id: string) {
     const a = this.actors.get(`mob:${id}`);
@@ -772,6 +900,10 @@ export class GameScene extends Phaser.Scene implements Stage {
       }
       if (mob) {
         (a.root as Phaser.GameObjects.Sprite).setFrame(frame).setPosition(a.x, y + 1).setFlipX(a.face > 0);
+      } else if (a.av) {
+        if (a.pose === 'attack' && !a.atkDone) { a.av.attack(); a.atkDone = true; }
+        if (a.pose !== 'attack') a.atkDone = false;
+        a.av.update(dt, a.x, y, a.face, a.jumpT !== null ? 'jump' : a.to !== null ? 'walk' : a.pose === 'crouch' ? 'crouch' : 'idle');
       } else {
         const root = a.root as Phaser.GameObjects.Container;
         root.setPosition(a.x, y).setScale(AVATAR_SCALE * a.face * (a.scale ?? 1), AVATAR_SCALE * (a.scale ?? 1));
@@ -1442,6 +1574,21 @@ export class GameScene extends Phaser.Scene implements Stage {
       r(4, 11, 9, 9, '#2a1e10'); r(5, 12, 7, 7, '#b04838'); r(5, 15, 7, 1, '#e0c070');
       r(0, 15, 2, 2, '#e0c070'); r(15, 15, 2, 2, '#e0c070');
       r(7, 20, 3, 12, '#2a1e10'); r(8, 20, 1, 12, '#8a6038');
+    });
+    // 훈련 인형 (튜토리얼 · 훈련실, 2026-11-25 임시): 나무 마네킹 + 가슴의 마력 룬, 받침대 없이 두 다리로 걸음. 왼쪽을 봄
+    make('training_doll', 20, 32, (r, f) => {
+      const ol = '#2a1c10', wood = '#b88a52', dark = '#8a6234', rune = f === 2 ? '#e0f0ff' : '#6ab8ff';
+      // 머리 (둥근 나무 + 외눈 룬)
+      r(6, 0, 8, 7, ol); r(7, 1, 6, 5, wood); r(7, 1, 6, 1, '#d0a46a'); r(7, 3, 2, 2, rune);
+      r(9, 7, 2, 2, ol);
+      // 몸통 (가슴 룬, 묶은 띠)
+      r(4, 9, 12, 11, ol); r(5, 10, 10, 9, wood); r(5, 15, 10, 1, dark); r(8, 11, 4, 3, rune);
+      // 팔 (공격 준비면 앞으로)
+      const arm = f === 2 ? -3 : 0;
+      r(1 + arm, 10, 3, 8, ol); r(2 + arm, 11, 1, 6, dark); r(16, 10, 3, 8, ol); r(17, 11, 1, 6, dark);
+      // 다리
+      const k = f === 1 ? 2 : 0;
+      r(6 - k, 20, 3, 12, ol); r(11 + k, 20, 3, 12, ol); r(7 - k, 20, 1, 11, dark); r(12 + k, 20, 1, 11, dark);
     });
     // 마법 골렘: 큰 돌 몸 + 가운데 마력 결정
     make('golem', 58, 88, (r, f) => {

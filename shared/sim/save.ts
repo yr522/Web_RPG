@@ -83,7 +83,8 @@ export function newSave(name: string, cls: ClassId, gender: Gender): SaveData {
     stats: { str: START_STAT, dex: START_STAT, int: START_STAT }, statPts: 0,
     learned: {}, skillLevels: {}, skillPts: 0, skillKeys: defaultSkillKeys(cls),
     bag: emptyBag(), equip: {}, nextUid: 1,
-    map: 'school',
+    // 2026-11-25: 새 캐릭터는 학교 홀에서 시작 (튜토리얼 입학식)
+    map: 'school_hall',
     quests: {}, questPins: [], questSeq: 0, flags: {}, attendedCycle: -1, timeOffset: 0, kills: 0,
     mobKills: {}, achievements: [], title: null, storage: emptyStorage(), dailyDay: '', craft: { queue: [], t0: 0 }, alchemy: { queue: [] },
   };
