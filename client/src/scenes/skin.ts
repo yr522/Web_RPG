@@ -1,6 +1,7 @@
 // 피부색: 뼈대 그림(회색 몸)을 피부색으로 바꿔 칠함. 회색 밝기(그림자·하이라이트)는 그대로 살리고, 검은 테두리는 그대로.
 // 뼈대 기본 회색 = 164 (조금 밝은 168 · 어두운 159·142 도 섞여 있음) → 피부색 × (밝기 / 164)
 import type { ClassId } from '@shared/data/classes';
+import { EYE_SHADE } from '@shared/data/looks';
 
 /** 직업별 피부색 (2026-11-21 유저 검사 스케치 #F5C8A5). 없으면 뼈대 회색 그대로 */
 export const SKIN: Partial<Record<ClassId, string>> = {
@@ -31,10 +32,7 @@ export function skinCanvas(img: CanvasImageSource & { width: number; height: num
   return c;
 }
 
-/** 눈동자 그림 기본 회색 (swordsman_eyes.png 눈동자 = 19) */
-const EYE_GRAY = 19;
-
-/** 눈동자 색 입히기: 순수 검정(테두리)은 그대로, 나머지 회색은 고른 색 (밝은 회색일수록 흰색 쪽으로) */
+/** 눈동자 색 입히기: 순수 검정(테두리)은 그대로, 나머지 회색은 밝기 구간(EYE_SHADE)대로 고른 색 */
 export function eyeCanvas(img: CanvasImageSource & { width: number; height: number }, hex: string): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = img.width; c.height = img.height;
@@ -46,8 +44,13 @@ export function eyeCanvas(img: CanvasImageSource & { width: number; height: numb
     if (!p[i + 3]) continue;
     const r = p[i];
     if (r !== p[i + 1] || r !== p[i + 2] || r === 0) continue;
-    const dark = Math.min(1, r / EYE_GRAY), light = Math.max(0, Math.min(1, (r - EYE_GRAY) / 160));
-    for (let k = 0; k < 3; k++) p[i + k] = Math.round(col[k] * dark + (255 - col[k]) * light);
+    const sh = EYE_SHADE.find(z => r <= z.upTo)!;
+    const v = col.map(x => x * sh.bright);
+    const gray = (v[0] + v[1] + v[2]) / 3;
+    for (let k = 0; k < 3; k++) {
+      const s = gray + (v[k] - gray) * sh.sat;
+      p[i + k] = Math.round(s + (255 - s) * sh.white);
+    }
   }
   ctx.putImageData(d, 0, 0);
   return c;
