@@ -367,6 +367,12 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     icon: '🐇',
     dialogue: [{ choices: [{ label: '거래하기', reply: [{ open: 'npcShop' }] }] }],
   },
+  // 성형사 (2026-11-25, 테스트): 말 걸면 성형 창 (얼굴·눈동자 색). 창 여는 건 client main.ts
+  surgeon: {
+    name: '성형사',
+    icon: '💄',
+    dialogue: [],
+  },
   // 대장장이의 딸 (2026-11-21): 대장장이 옆, 대화만 (준비 중)
   smith_daughter: {
     name: '대 장부',

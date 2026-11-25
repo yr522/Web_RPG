@@ -1037,3 +1037,8 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 
 /* 장비창 Looks(치장) 탭: 헤어·얼굴 칸 그림 */
 .look-ico { width: calc(var(--ico) * 1.15); height: calc(var(--ico) * 1.15); }
+
+/* 성형 창 */
+.bt-row { grid-template-columns: repeat(8, var(--cell)); }
+.bt-row .inv-cell { cursor: pointer; }
+.bt-color.on { outline: calc(2 * var(--s)) solid var(--c-brown); outline-offset: calc(1 * var(--s)); }

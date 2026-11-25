@@ -216,7 +216,7 @@ export const MAPS: Record<MapId, MapDef> = {
     bgTime: { imgs: ['school_morning', 'school_day', 'school_night'], groundY: 584 },
     platforms: [],
     portals: [{ x: 90, to: 'school', toX: SCHOOL_TOWN_X - 100, label: '마법 학교' }],
-    npcs: [{ id: 'masha', x: 620 }, { id: 'sebastian', x: 1150 }, { id: 'choir_kid', x: 1360 }, { id: 'firework_master', x: 1560 }],
+    npcs: [{ id: 'surgeon', x: 380 }, { id: 'masha', x: 620 }, { id: 'sebastian', x: 1150 }, { id: 'choir_kid', x: 1360 }, { id: 'firework_master', x: 1560 }],
     signs: [],
     spawns: [],
   },

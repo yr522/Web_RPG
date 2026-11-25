@@ -12,8 +12,8 @@ import { decorateGear, itemIcon } from './icons';
 import { ItemTip } from './ItemTip';
 import { clampToStage } from './stage';
 import { SLOT_ICONS, gradeBorder } from './InventoryWindow';
-import { LOOKS, PART_FILES } from '../scenes/PlayerAvatar';
-import { SKIN, skinCanvas } from '../scenes/skin';
+import { faceOf } from '../scenes/PlayerAvatar';
+import { headIcon } from './lookIcon';
 import type { ClassId } from '@shared/data/classes';
 import walkBody from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
 import walkHead from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
@@ -30,7 +30,6 @@ const LOOK_GRID: (LookSlot | null)[] = [
   null, 'bottom', 'shoes',
 ];
 /** 헤어·얼굴 칸 그림: 칸(96) 안의 머리 부분만 잘라서 (x, y, 크기) */
-const HEAD_CROP = { x: 28, y: 38, size: 40 };
 
 /** 장비창 칸 배치 (시안 순서, null = 빈 자리) */
 const EQUIP_GRID: (EquipSlot | null)[] = [
@@ -50,7 +49,7 @@ export class EquipWindow {
   private tab: 'armor' | 'looks' = 'armor';
   private tabBtns: HTMLButtonElement[] = [];
   /** 헤어·얼굴 칸 그림 (직업마다 한 번 만듦) */
-  private lookIcons = new Map<string, string>();
+  private iconVer = 0;
 
   constructor(private session: Session, private hud: Hud) {
     const panel = el('div', 'inv-panel inv-equip');
@@ -121,7 +120,7 @@ export class EquipWindow {
   update() {
     if (!this.isOpen) return;
     const s = this.session.save;
-    const sig = JSON.stringify([s.bag, s.equip, this.tab, s.cls, this.lookIcons.size]);
+    const sig = JSON.stringify([s.bag, s.equip, this.tab, s.cls, this.iconVer, s.face, s.eyeColor]);
     if (sig === this.sig) return;
     this.sig = sig;
     this.render();
@@ -185,27 +184,12 @@ export class EquipWindow {
     }
   }
 
-  /** 헤어 칸 = 헤어만, 얼굴 칸 = 피부색 머리 + 얼굴 (첫 칸 = 기본 자세). 그림이 없는 직업은 null */
+  /** 헤어 칸 = 헤어만, 얼굴 칸 = 피부색 머리 + 얼굴 + 눈동자. 그림이 없으면 null */
   private lookIcon(cls: ClassId, slot: 'hair' | 'face'): string | null {
-    const look = LOOKS[cls], own = look?.[slot];
-    if (!look || !own) return null;
-    const key = `${cls}:${slot}`, got = this.lookIcons.get(key);
-    if (got !== undefined) return got || null;
-    this.lookIcons.set(key, '');
-    const srcs = slot === 'hair' ? [own] : [PART_FILES.head, own];
-    void Promise.all(srcs.map(src => new Promise<HTMLImageElement>(res => { const im = new Image(); im.onload = () => res(im); im.src = src; }))).then(ims => {
-      const { x, y, size } = HEAD_CROP, c = document.createElement('canvas');
-      c.width = c.height = size;
-      const ctx = c.getContext('2d')!;
-      ims.forEach((im, i) => {
-        const skin = slot === 'face' && i === 0 && SKIN[cls] ? skinCanvas(im, SKIN[cls]!) : im;
-        ctx.drawImage(skin, x, y, size, size, 0, 0, size, size);
-      });
-      this.lookIcons.set(key, c.toDataURL());
-      this.sig = '';
-      this.update();
-    });
-    return null;
+    const done = () => { this.iconVer++; this.sig = ''; this.update(); };
+    if (slot === 'hair') return headIcon(cls, 'hair', done);
+    const f = faceOf(this.session.save);
+    return f ? headIcon(cls, { face: f, eye: this.session.save.eyeColor }, done) : null;
   }
 
   /** 칸 하나: 설명 띄우기 + 우클릭(두 번 터치)으로 해제 */
