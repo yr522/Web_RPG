@@ -908,7 +908,9 @@ div.qw-label { display: block; margin-top: calc(4 * var(--s)); }
 .pwin { right: auto; left: 50%; transform: translate(-50%, -50%); }
 .pwin.moved { transform: none; }
 .pw-body { flex: none; display: flex; gap: calc(4 * var(--s)); box-sizing: border-box; color: var(--c-brown); }
-.codex .pw-body { height: calc(300 * var(--s)); }
+.codex .pw-body, .notice .pw-body { height: calc(300 * var(--s)); }
+.nt-date { color: var(--c-latte); font-size: .85em; }
+.nt-line { margin: 0 0 calc(2 * var(--s)); }
 .qw-item.unknown { opacity: .55; }
 .cx-count { font-weight: 700; padding: calc(2 * var(--s)) calc(4 * var(--s)); }
 .cx-pic { width: calc(96 * var(--s)); height: calc(96 * var(--s)); background-repeat: no-repeat; background-position: 0 0; image-rendering: pixelated;

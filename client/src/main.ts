@@ -18,6 +18,7 @@ import { showSelectScreen } from './ui/SelectScreen';
 import { pickTalk } from '@shared/rules/story';
 import { setupMobileGate } from './ui/MobileGate';
 import { showLoading } from './ui/Loading';
+import { NoticeWindow } from './ui/NoticeWindow';
 import { CodexWindow } from './ui/CodexWindow';
 import { AchieveWindow } from './ui/AchieveWindow';
 import { BeautyWindow } from './ui/BeautyWindow';
@@ -105,6 +106,9 @@ async function boot() {
   const achieveWindow = new AchieveWindow(session, hud);
   const storageWindow = new StorageWindow(session, hud);
   const beautyWindow = new BeautyWindow(session, hud);
+  const noticeWindow = new NoticeWindow();
+  npcDialog.onCodex = () => codexWindow.toggle();
+  npcDialog.onAchieve = () => achieveWindow.toggle();
   hud.onUpdate.push(() => codexWindow.update(), () => achieveWindow.update(), () => storageWindow.update(), () => beautyWindow.update());
   hud.onUpdate.push(() => charWindow.update());
   // 메뉴가 아닌 NPC 창(대화·상점·대장장이·창고)은 맵이 바뀌면 자동으로 닫힘
@@ -129,8 +133,7 @@ async function boot() {
     else if (id === 'quest') questWindow.toggle();
     else if (id === 'skill') skillWindow.toggle();
     else if (id === 'boss') npcDialog.openBoss();
-    else if (id === 'codex') codexWindow.toggle();
-    else if (id === 'achieve') achieveWindow.toggle();
+    else if (id === 'notice') noticeWindow.toggle();
     else if (id === 'home') { if (!session.returnHome()) hud.toast('이미 학교에 있어'); }
     // Esc 메뉴: 캐릭터 선택으로 (저장하고 처음 화면으로)
     else npcDialog.openMenu(() => { void store.save(session.save).then(() => location.reload()); });
@@ -141,7 +144,7 @@ async function boot() {
     if (code === 'KeyU') hud.onMenu('equip');
     if (code === 'KeyJ') craftWindow.toggle();
     if (code === 'KeyK') hud.onMenu('skill');
-    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (craftWindow.isOpen) craftWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (beautyWindow.isOpen) beautyWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else hud.onMenu('menu'); }
+    if (code === 'Escape') { if (charWindow.isOpen) charWindow.close(); else if (equipWindow.isOpen) equipWindow.close(); else if (invWindow.isOpen) invWindow.close(); else if (craftWindow.isOpen) craftWindow.close(); else if (questWindow.isOpen) questWindow.close(); else if (skillWindow.isOpen) skillWindow.close(); else if (storageWindow.isOpen) storageWindow.close(); else if (beautyWindow.isOpen) beautyWindow.close(); else if (codexWindow.isOpen) codexWindow.close(); else if (achieveWindow.isOpen) achieveWindow.close(); else if (noticeWindow.isOpen) noticeWindow.close(); else hud.onMenu('menu'); }
   };
 
   const layout = canvasLayout();

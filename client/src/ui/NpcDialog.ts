@@ -169,6 +169,9 @@ export class NpcDialog {
 
   /** 메뉴의 [제작] → 제작 창 */
   onCraft = () => {};
+  /** 메뉴의 [도감]·[업적] → 각 창 */
+  onCodex = () => {};
+  onAchieve = () => {};
 
   /** Esc 메뉴 */
   openMenu(onCharSelect: () => void) {
@@ -178,6 +181,8 @@ export class NpcDialog {
     const opts = el('div', 'opts');
     opts.appendChild(el('button', 'opt', '설정', () => { this.host.close(); this.openSettings(); }));
     opts.appendChild(el('button', 'opt', '제작', () => { this.host.close(); this.onCraft(); }));
+    opts.appendChild(el('button', 'opt', '도감', () => { this.host.close(); this.onCodex(); }));
+    opts.appendChild(el('button', 'opt', '업적', () => { this.host.close(); this.onAchieve(); }));
     opts.appendChild(el('button', 'opt', '🧪 테스트용 기능', () => { this.host.close(); this.openTest(); }));
     opts.appendChild(el('button', 'opt', '캐릭터 선택', () => { this.host.close(); onCharSelect(); }));
     body.appendChild(opts);
