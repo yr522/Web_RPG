@@ -12,17 +12,20 @@ import { autoReport, isAuto, newlyReady, questReadyText, questState, questsOnGat
 import { mapNpcs, mapPickups, mapPortals } from '../rules/story';
 import { DIFFICULTIES, type Difficulty } from '../data/bosses';
 import { type EliteAffix } from '../data/monsters';
-import { MONSTERS, MONSTER_AI, SLIME_AI, SNAIL_AI, SLOW_DEBUFF, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, type MonsterId } from '../data/monsters';
+import { MONSTERS, MONSTER_AI, SLIME_AI, SNAIL_AI, SLOW_DEBUFF, CHARGER_AI, FLYER_AI, GOLEM_AI, GOLEM_NORMAL, GOLEM_HARD, BOSS_ORB, ELITE, ELITE_AFFIXES, DUMMY, COIN, ITEM_DROP, expGapMult, type MonsterId } from '../data/monsters';
 import { stepBody, overlaps, JUMP_VELOCITY, type Bounds, type Solid } from './physics';
 import { emptyCommand, type Command, type EntityId, type Fx, type GameEvent } from './types';
 import { deriveStats, type DerivedStats, type SaveData } from './save';
 import { gainExp, keySkill, learned, passiveLv, skillKeyOf, skillLevel } from '../rules/progress';
-import type { Attack, Coin, Enemy, Firework, Hitbox, PlayerState, Projectile, Rect, Tornado, Trap, Vortex } from './entities';
+import type { Ally, Attack, Coin, Enemy, Firework, Hitbox, PlayerState, Projectile, Rect, Tornado, Trap, Vortex } from './entities';
 import type { HitboxSpec, ProjSpec, SkillWorld } from './skills/types';
 import { CLASS_SKILLS } from './skills';
 import { CHARGE_SKILLS, startGrapple } from './skills/archer';
 import { mulberry32, type Rng } from './rng';
 import { HIT_COMBO, comboExpMult } from '../data/combo';
+import { ALLY, ALLY_AI } from '../data/allies';
+import { CLASSMATE } from '../data/npcs';
+import type { ClassId } from '../data/classes';
 
 export type { PlayerState, Enemy, Coin, Projectile, Vortex, Tornado, Trap } from './entities';
 export const TICK = 1 / 60;
@@ -47,6 +50,8 @@ export class World implements SkillWorld {
   readonly solids: Solid[];
   readonly players = new Map<EntityId, PlayerState>();
   readonly enemies: Enemy[] = [];
+  /** 같이 싸우는 동급생 (맵 allies) */
+  allies: Ally[] = [];
   coins: Coin[] = [];
   hitboxes: Hitbox[] = [];
   projectiles: Projectile[] = [];
@@ -95,6 +100,7 @@ export class World implements SkillWorld {
     for (const sp of this.map.spawns) {
       const e = this.spawnEnemy(sp.mob, sp.x, sp.elem ?? null, sp.y);
       e.once = sp.once;
+      e.tag = sp.tag;
       // 맵에 들어올 때는 정예 없음 (정해 둔 자리만). 정예 뽑기는 죽고 다시 나올 때부터
       if (sp.elite) this.makeElite(e, sp.elite);
     }
@@ -114,6 +120,11 @@ export class World implements SkillWorld {
       lastHit: null, hits: 0, hitsT: 0, combo: 0, cbWindow: 0, invT: 0, downT: 0, hurt: 0, stunT: 0, slowT: 0, crouch: false, buffT: 0, chainArrow: null, ropeTo: null,
     };
     this.players.set(id, p);
+    // 동급생 (내 직업이 아닌 둘): 플레이어 뒤에
+    if (this.map.allies && !this.allies.length) {
+      const others = (Object.keys(CLASSMATE) as ClassId[]).filter(c => c !== data.cls);
+      this.allies = others.map((cls, i) => ({ id: `a${i}`, cls, npc: CLASSMATE[cls], x: x - ALLY_AI.follow * (i + 1), face: 1, cd: 0.5 + i * 0.4, swing: 0, walking: false }));
+    }
     // 가기 퀘스트: 이 맵에 들어오면 완료
     for (const q of questsOnVisit(data, this.mapId)) this.questReady(p, q);
     return p;
@@ -173,15 +184,18 @@ export class World implements SkillWorld {
    * 이야기용 몬스터: 컷신이 그 자리에 진짜 몬스터를 만든다. 한 번만 나오고, held 면 컷신이 끝날 때까지 가만히.
    * x = 가운데. 만든 몬스터 id 를 돌려준다.
    */
-  spawnStory(x: number, elem: Element | null, tag?: string, held = true) {
-    const mob: MonsterId = elem ? 'slime_elem' : 'slime';
-    const e = this.spawnEnemy(mob, x - MONSTERS[mob].w / 2, elem);
+  spawnStory(x: number, elem: Element | null, tag?: string, held = true, mob?: MonsterId, elite?: EliteAffix[]) {
+    const m: MonsterId = mob ?? (elem ? 'slime_elem' : 'slime');
+    const e = this.spawnEnemy(m, x - MONSTERS[m].w / 2, elem);
     e.tag = tag; e.held = held; e.once = true;
+    if (elite?.length) { this.makeElite(e, elite); e.x = x - e.w / 2; e.y = GROUND_Y - e.h; }
     return e.id;
   }
 
   /** 붙잡아 둔 몬스터 풀기 (컷신 끝) */
   releaseHeld() { for (const e of this.enemies) e.held = false; }
+  /** 컷신 동안 몬스터를 모두 붙잡아 둠 (끝나면 releaseHeld) */
+  holdAll() { for (const e of this.enemies) if (!e.dead) e.held = true; }
 
   private spawnEnemy(mob: MonsterId, x: number, elem: Element | null, y?: number) {
     const def = MONSTERS[mob];
@@ -204,6 +218,7 @@ export class World implements SkillWorld {
     this.time += dt;
     for (const p of this.players.values()) this.stepPlayer(p, commands.get(p.id) ?? emptyCommand(), dt);
     this.stepEnemies(dt);
+    this.stepAllies(dt);
     this.stepHitboxes(dt);
     this.stepProjectiles(dt);
     this.stepVortices(dt);
@@ -682,6 +697,65 @@ export class World implements SkillWorld {
     if (e.hp <= 0 && !e.dead) this.kill(e, p);
   }
 
+  /**
+   * 동급생: 가까운 몬스터에게 다가가 쿨마다 한 대 (고정 피해, 잡으면 경험치는 플레이어).
+   * 몬스터가 없거나 컷신으로 붙잡혀 있으면 플레이어 뒤를 따라감
+   */
+  private stepAllies(dt: number) {
+    if (!this.allies.length) return;
+    const p = this.players.values().next().value as PlayerState | undefined;
+    this.allies.forEach((a, i) => {
+      a.cd = Math.max(0, a.cd - dt);
+      a.swing = Math.max(0, a.swing - dt);
+      a.walking = false;
+      const st = ALLY[a.cls];
+      let target: Enemy | null = null, best = ALLY_AI.sight;
+      for (const e of this.enemies) {
+        if (e.dead || e.held || MONSTERS[e.mob].ai === 'dummy') continue;
+        const d = Math.abs(cx(e) - a.x);
+        if (d < best) { best = d; target = e; }
+      }
+      let goal: number | null = null;
+      if (target) {
+        const tx = cx(target), d = tx - a.x;
+        a.face = d >= 0 ? 1 : -1;
+        if (Math.abs(d) > st.range) goal = tx - a.face * st.range * 0.8;
+        else if (a.cd <= 0 && a.swing <= 0) this.allyHit(a, target);
+      } else if (p) {
+        const want = cx(p) - p.face * ALLY_AI.follow * (i + 1);
+        if (Math.abs(want - a.x) > 24) goal = want;
+        else a.face = p.face as 1 | -1;
+      }
+      if (goal !== null && a.swing <= 0) {
+        const d = goal - a.x, step = st.speed * dt;
+        a.x += Math.sign(d) * Math.min(Math.abs(d), step);
+        a.face = d >= 0 ? 1 : -1;
+        a.walking = true;
+      }
+      a.x = Math.max(this.bounds.l + 20, Math.min(this.bounds.r - 20, a.x));
+    });
+  }
+
+  private allyHit(a: Ally, e: Enemy) {
+    const st = ALLY[a.cls];
+    a.cd = st.every; a.swing = ALLY_AI.swing;
+    const d = Math.max(1, Math.round(st.dmg * (0.92 + this.rng() * 0.16) * (e.elite?.includes('iron') ? ELITE.affixes.iron.taken : 1)));
+    e.hp -= d;
+    const col = a.cls === 'mage' ? '#c8b8ff' : a.cls === 'archer' ? '#b8f0a0' : '#ffd8a0';
+    this.float(cx(e), e.y - 8, `${d}`, col, 17);
+    // 원거리: 날아가는 선 (임시 연출)
+    if (a.cls !== 'warrior') this.fx({ kind: 'line', x1: a.x, y1: GROUND_Y - 34, x2: cx(e), y2: cy(e), color: col, w: a.cls === 'mage' ? 4 : 2, life: 0.18 });
+    else this.fx({ kind: 'ring', x: cx(e), y: cy(e), color: col, r0: 6, r1: 30, life: 0.2 });
+    if (!MONSTERS[e.mob].boss && !e.elite?.includes('iron')) { e.vx = a.face * ALLY_AI.kb; e.stun = Math.max(e.stun, 0.15); }
+    if (e.elite?.includes('rage') && !e.raged && e.hp > 0 && e.hp < e.maxHp * ELITE.affixes.rage.below) {
+      e.raged = true; e.speed *= ELITE.affixes.rage.speed;
+      this.float(cx(e), e.y - 30, '분노!', '#ff5040', 20, 1.0);
+    }
+    this.events.push({ type: 'hit', enemyId: e.id, heavy: false, reaction: false });
+    const p = this.players.values().next().value as PlayerState | undefined;
+    if (e.hp <= 0 && !e.dead && p) this.kill(e, p);
+  }
+
   private kill(e: Enemy, p: PlayerState) {
     e.dead = true; e.deadT = 0; e.bleed = null; e.root = 0;
     if (e.seed) this.burstSeed(e);
@@ -725,8 +799,8 @@ export class World implements SkillWorld {
     this.events.push({ type: 'kill', playerId: p.id, enemyId: e.id, tag: e.tag });
     const def = MONSTERS[e.mob];
     const em = e.elite ? ELITE.exp : 1;
-    const r = gainExp(s, Math.round(def.exp * this.diff.exp * em * comboExpMult(p.hits)));
-    this.float(cx(e), e.y - 46, r.msg!, '#9ef0a0', 14, 1.0);
+    const r = gainExp(s, Math.round(def.exp * this.diff.exp * em * comboExpMult(p.hits) * expGapMult(s.level, def.level)));
+    if (r.msg) this.float(cx(e), e.y - 46, r.msg, '#9ef0a0', 14, 1.0);
     if (r.banner) {
       this.events.push({ type: 'banner', playerId: p.id, text: r.banner, color: '#ffe066' });
       this.fx({ kind: 'ring', x: cx(p), y: cy(p), color: '#ffe066', r0: 10, r1: 120, life: 0.6 });

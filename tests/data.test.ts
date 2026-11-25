@@ -32,7 +32,7 @@ function stepsErrors(steps: DialogueStep[], where: string, out: string[]) {
   for (const st of steps) {
     if ('do' in st) { const e = effectOk(st.do); if (e) out.push(`${where}: 없는 ${e}`); }
     if ('cutscene' in st && !CUTSCENES[st.cutscene]) out.push(`${where}: 없는 컷신 ${st.cutscene}`);
-    if ('line' in st && st.who && st.who !== 'player' && !npcExists(st.who)) out.push(`${where}: 없는 NPC ${st.who}`);
+    if ('line' in st && st.who && st.who !== 'player' && !st.who.startsWith('cls:') && !npcExists(st.who)) out.push(`${where}: 없는 NPC ${st.who}`);
     if ('choices' in st) for (const ch of st.choices) stepsErrors(ch.reply, where, out);
   }
 }
@@ -169,7 +169,7 @@ describe('대화 NPC · 컷신', () => {
       for (const st of steps as CutStep[]) {
         if ('do' in st && typeof st.do === 'object') { const e = effectOk(st.do); if (e) bad.push(`${id}: 없는 ${e}`); }
         if ('talk' in st && !npcExists(st.talk)) bad.push(`${id}: 대화 ${st.talk}`);
-        for (const k of ['walk', 'pose', 'face', 'say'] as const) if (k in st) who((st as unknown as Record<string, { who: string }>)[k].who, id);
+        for (const k of ['walk', 'pose', 'face', 'say', 'place', 'fight'] as const) if (k in st) who((st as unknown as Record<string, { who: string }>)[k].who, id);
       }
     }
     expect(bad).toEqual([]);
@@ -178,7 +178,8 @@ describe('대화 NPC · 컷신', () => {
     const bad: string[] = [];
     for (const id of mapIds) {
       const m = MAPS[id];
-      const conds = [...m.portals.map(p => p.when), ...m.npcs.map(n => n.when), m.becomes?.when].filter((c): c is Cond => !!c);
+      const conds = [...m.portals.map(p => p.when), ...m.npcs.map(n => n.when), m.becomes?.when, ...(m.enterScene ?? []).map(e => e.when)].filter((c): c is Cond => !!c);
+      for (const e of m.enterScene ?? []) if (!CUTSCENES[e.cutscene]) bad.push(`${id}: 컷신 ${e.cutscene}`);
       for (const c of conds) for (const q of condRefs(c, { quests: [], items: [] }).quests) if (!questDef(q)) bad.push(`${id}: ${q}`);
     }
     expect(bad).toEqual([]);

@@ -71,7 +71,30 @@ export interface TalkNpcDef {
   scale?: number;
   /** 이 NPC 가 줄 퀘스트가 있으면(지금 대사에 퀘스트 주기가 있으면) 길 안내 화살표가 이 NPC 를 가리킴 */
   guide?: boolean;
+  /** 그 직업 플레이어 그림으로 (동급생). 없으면 임시 뼈대 그림 */
+  avatar?: ClassId;
 }
+
+/** 튜토리얼(입학식)을 끝냈거나, 튜토리얼이 생기기 전에 미니 챕터를 시작한 캐릭터 (2026-11-25) */
+export const TUT_DONE: Cond = { any: [{ quest: 'tu7', state: 'done' }, { not: { quest: 'mg2', state: 'none' } }, { not: { quest: 'mgm2', state: 'none' } }] };
+
+/** 직업별 동급생 NPC (튜토리얼부터 같이 다니는 셋 중 내가 아닌 둘) */
+export const CLASSMATE: Record<ClassId, string> = { warrior: 'warrior_friend', mage: 'mage_friend', archer: 'archer_friend' };
+/** 'cls:<직업>' 화자 → 내 직업이면 'player', 아니면 그 직업 동급생 NPC id. 다른 화자는 그대로 */
+export function resolveWho(who: string, cls: ClassId): string {
+  if (!who.startsWith('cls:')) return who;
+  const c = who.slice(4) as ClassId;
+  return c === cls ? 'player' : CLASSMATE[c];
+}
+
+/** 튜토리얼 제3막: 인형 폭주 뒤 공통 대사 (검사 독백 / 검사 동급생의 외침 다음) */
+const BERSERK: DialogueStep[] = [
+  { line: '이런, 노후된 인형에 마력이 역류했나?! 제어판이 먹통이야! 신입생들, 뒤로 물러나라!', who: 'kyla' },
+  { line: '마력 출력이 갑자기 치솟고 있어! 조심해, 방금 전이랑 단단함이 달라!', who: 'cls:mage' },
+  { line: '물러나긴 늦었어, 이미 이쪽을 노리고 있잖아! 셋이서 한 번에 밀어붙이자!', who: 'cls:archer' },
+  { do: { quest: 'report', id: 'tu6' } },
+  { do: { quest: 'give', id: 'tu7' } },
+];
 
 /** 플레이어가 이 거리(월드 px) 안으로 들어오면 말풍선이 뜬다 */
 export const NPC_BUBBLE_RANGE = 220;
@@ -91,13 +114,17 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
   // ---- 마법공학의 유산 (대사는 줄거리만 알 수 있게 넣은 임시) ----
   // 동급생 마법사: 어느 맵에 서 있는지는 maps.ts 의 npcs (퀘스트 진행에 따라 자리를 옮김)
   mage_friend: {
-    name: '마법사 동급생',
+    name: '동급생 마법사',
     icon: '🔮',
+    avatar: 'mage',
     dialogue: [{ line: '하암… 요즘 통 잠을 못 자서 그런가, 머리가 멍해.' }],
     talks: [
-      // 1. 사연 듣기 → 2. 숲 둘러보기
+      // 튜토리얼 (입학식): 벌청소 보고 → 노을 장면 / 그 밖에는 말 없음
+      { when: { quest: 'tu2', state: 'ready' }, steps: [{ cutscene: 'tu_sunset' }] },
+      { when: { not: TUT_DONE }, steps: [] },
+      // 1. 사연 듣기 → 2. 숲 둘러보기 (2026-11-25: Lv 3 → 5, 튜토리얼을 끝낸 뒤)
       {
-        when: { all: [{ level: { gte: 3 } }, { quest: 'mg2', state: 'none' }] },
+        when: { all: [{ level: { gte: 5 } }, { quest: 'mg2', state: 'none' }] },
         steps: [
           { line: '하암… 아, 미안. 요즘 밤마다 이상한 소리가 들려서 잠을 하나도 못 잤어.' },
           { line: '속삭이는 소리 같기도 하고, 뭔가 덜컹거리는 소리 같기도 하고… 학교 뒤 숲 쪽에서 나는 것 같아.' },
@@ -209,9 +236,12 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
   warrior_friend: {
     name: '동급생 검사',
     icon: '⚔️',
-    tint: 0xe8b8a0,
+    avatar: 'warrior',
     dialogue: [{ line: '…하암. 수업 끝나면 바로 잘 거야.' }],
     talks: [
+      // 튜토리얼 (입학식, 마법사일 때 벌청소 보고 상대) / 그 밖에는 말 없음
+      { when: { all: [{ quest: 'tu2', state: 'ready' }, { cls: 'mage' }] }, steps: [{ cutscene: 'tu_sunset' }] },
+      { when: { not: TUT_DONE }, steps: [] },
       // 밤에 깨우기 → 숲으로
       {
         when: { quest: 'mgm5', state: 'ready' },
@@ -335,7 +365,8 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
     dialogue: [],
     talks: [
       {
-        when: { all: [{ cls: 'mage' }, { level: { gte: 3 } }, { quest: 'mgm2', state: 'none' }] },
+        // 2026-11-25: Lv 3 → 5, 튜토리얼을 끝낸 뒤
+        when: { all: [{ cls: 'mage' }, { level: { gte: 5 } }, { quest: 'mgm2', state: 'none' }, { quest: 'tu7', state: 'done' }] },
         steps: [
           { line: '(요즘 밤마다 학교 뒤 숲 쪽에서 속삭이는 소리가 들린다…)', who: 'player' },
           { line: '(덜컹거리는 소리도 섞여 있었어. 숲 깊은 곳 갈림길까지 한번 가 봐야겠다.)', who: 'player' },
@@ -350,6 +381,171 @@ export const TALK_NPCS: Record<string, TalkNpcDef> = {
           { do: { quest: 'report', id: 'mgm2' } },
           { do: { quest: 'give', id: 'mgm4' } },
         ],
+      },
+    ],
+  },
+  // ---- 튜토리얼: 입학식 (2026-11-25, 대사 = document/scenario 튜토리얼 시나리오) ----
+  // 동급생 궁수 (튜토리얼에서만, 궁수 플레이면 안 나옴)
+  archer_friend: {
+    name: '동급생 궁수',
+    icon: '🏹',
+    avatar: 'archer',
+    dialogue: [],
+  },
+  // 훈련교관 레온 (학교 홀, 기숙사 문 옆): 기초 생활 안내
+  leon: {
+    name: '훈련교관 레온',
+    icon: '📋',
+    tint: 0xa8b8d8,
+    guide: true,
+    dialogue: [],
+    talks: [
+      {
+        when: { all: [{ quest: 'tu2', state: 'done' }, { quest: 'tu3', state: 'none' }] },
+        steps: [
+          { line: '어이, 입학식 때 강당을 화려하게 장식했던 신입생들이군! 난 신입생 기초 안내를 맡은 훈련교관 레온이다.' },
+          { line: '본격적인 학과 수업에 들어가기 전에, 학교생활의 기본부터 익혀 두자. 먼저 가방(I)을 열어 기본 지급된 무기와 포션을 확인해 봐.' },
+          { line: '그리고 저쪽 오른쪽 끝 문이 너희가 지낼 기숙사 방이야. 밤이 되면 침대에서 휴식을 취할 수 있으니, 먼저 들러서 방 위치부터 확인하고 오도록!' },
+          { do: { quest: 'give', id: 'tu3' } },
+        ],
+      },
+      { when: { quest: 'tu3', state: 'active' }, steps: [{ line: '오른쪽 끝 문이 기숙사 방이다. 방 위치부터 확인하고 오도록!' }] },
+      {
+        when: { quest: 'tu3', state: 'ready' },
+        steps: [
+          { line: '좋아, 방 확인은 끝났군. 이제 학교 바깥 오른쪽 훈련동에 있는 훈련실로 이동해 봐. 거기 있는 카일라 교관님이 기초 전투를 가르쳐 주실 거다.' },
+          { do: { quest: 'report', id: 'tu3' } },
+          { do: { quest: 'give', id: 'tu4' } },
+        ],
+      },
+    ],
+  },
+  // 훈련교관 카일라 (훈련실 · 합동 훈련실): 실전 기초
+  kyla: {
+    name: '훈련교관 카일라',
+    icon: '🔥',
+    tint: 0xe0a088,
+    guide: true,
+    dialogue: [],
+    talks: [
+      {
+        when: { quest: 'tu4', state: 'ready' },
+        steps: [
+          { line: '늦었군, 신입생! 난 실전 기초를 담당하는 훈련교관 카일라다. 입학식 때 소란을 피운 만큼 몸놀림도 쓸만한지 어디 한 번 볼까?' },
+          { line: '기본 공격은 Z 키, 배운 스킬은 스킬 창(K)을 열어 원하는 단축키에 등록할 수 있다. 앞에 있는 훈련 인형을 상대로 기초 타격 연습부터 실시해!' },
+          { do: { quest: 'report', id: 'tu4' } },
+          { do: { quest: 'give', id: 'tu5' } },
+        ],
+      },
+      {
+        when: { quest: 'tu5', state: 'ready' },
+        steps: [
+          { line: '흠, 자세는 나쁘지 않군. 마침 다른 학과 신입생들도 도착했으니, 바로 3인 1조 합동 연습 전투로 넘어가겠다! 각자 위치로 서라!' },
+          { do: { quest: 'report', id: 'tu5' } },
+          { do: { quest: 'give', id: 'tu6' } },
+        ],
+      },
+      // 합동 훈련실: 폭주한 인형을 잡은 뒤 (컷신 tu_end 에서)
+      {
+        when: { quest: 'tu7', state: 'ready' },
+        steps: [
+          { line: '하아, 하아…… 무사하냐, 너희들?! 제어 장치가 고장 나서 하마터면 큰일 날 뻔했구나. 신입생 셋이서 저 출력을 제압하다니 대단하다!' },
+          { line: '후우…… 방금 그 마력 파동 봤어?! 단순 오작동이 아니었던 것 같은데, 진짜 실전 같았다니까!', who: 'cls:mage' },
+          { line: '……덕분에 신입생 첫날부터 죽을 뻔했네. 그래도 셋이 합 맞춘 것치곤 호흡이 나쁘지 않았어.', who: 'cls:archer' },
+          { line: '……다친 데 없으면 됐어. 너희 둘 덕분에 수월하게 막았네.', who: 'cls:warrior' },
+          { line: '헤헤, 이제 우리 진짜 같은 팀 같지 않아? 앞으로 무슨 일 생기면 꼭 서로 부르기다!', who: 'cls:mage' },
+          { line: '……이상한 사고만 안 치면 생각해 볼게.', who: 'cls:archer' },
+          { do: { quest: 'report', id: 'tu7' } },
+        ],
+      },
+    ],
+  },
+  // 입학식 강당 (tu1 동안만)
+  lord: { name: '펌블턴 경', icon: '👑', tint: 0xe8d08a, dialogue: [] },
+  prof_sword: { name: '검술과 바르크 교수', icon: '⚔️', tint: 0xc89a8a, dialogue: [] },
+  prof_magic: { name: '마법학과 엘린 교수', icon: '🔮', tint: 0xb0a0e0, dialogue: [] },
+  prof_bow: { name: '궁술과 시엘 교수', icon: '🏹', tint: 0xa0d0a8, dialogue: [] },
+  student: { name: '신입생', icon: '🎒', tint: 0x9aa0b0, scale: 0.95, dialogue: [] },
+  // 장면 대화 (컷신의 talk 로만 엶, 맵에 없음). 화자는 대사마다 who
+  tut_scene: {
+    name: '',
+    icon: '🏫',
+    dialogue: [],
+    talks: [
+      // 장면 1. 학교 홀 — 첫 충돌
+      {
+        when: { quest: 'tu1', state: 'none' },
+        steps: [
+          { line: '으아앗! 죄, 죄송합니다!! 앞을 못 보고 그만…… 어엇?! 선배님?!', who: 'cls:mage' },
+          { line: '……어깨 부딪힌 건 난데 왜 저쪽한테 사과하냐.', who: 'cls:archer' },
+          { line: '그, 그치만 인상이 너무 무서우셔서…… 앗! 가슴에 신입생 명찰! 같은 신입생이었구나!', who: 'cls:mage' },
+          { line: '……무섭다는 소리는 자주 들어. 괜찮아, 안 다쳤으면 됐어.', who: 'cls:warrior' },
+          { line: '하아…… 입학식 첫날부터 소란스럽네. 야, 거기 떨어진 종이. 네 거 아니냐?', who: 'cls:archer' },
+          { line: '헐! 내 신입생 대표 선서문! 큰일 날 뻔했네, 고마워! 난 마법학과 수석 입학생이야. 잘 부탁해!', who: 'cls:mage' },
+          { line: '수석 입학생이 복도를 전력 질주하다 부딪히고 다니냐…… 난 궁술과. 저쪽은 검술과 명찰이네.', who: 'cls:archer' },
+          { line: '……반가워. 식 시작할 시간 다 됐으니까, 얼른 강당으로 가자.', who: 'cls:warrior' },
+          { do: { quest: 'give', id: 'tu1' } },
+        ],
+      },
+      // 장면 2. 강당 — 폭발 뒤 (앞부분을 본 뒤: 플래그 tu_cer)
+      {
+        when: { all: [{ quest: 'tu1', state: 'ready' }, { flag: 'tu_cer', gte: 1 }] },
+        steps: [
+          { line: '쿨럭, 쿨럭! 어라…… 살아있네? 고마워, 나이스 캐치!', who: 'cls:mage' },
+          { line: '……무모한 짓 좀 하지 마. 다칠 뻔했잖아.', who: 'cls:warrior' },
+          { line: '……몸이 먼저 움직였네. 야, 너 수석 입학생 맞냐? 식장을 폭파시킬 셈이야?', who: 'cls:archer' },
+          { line: '오오오!! 보았는가, 교수진! 시작부터 불꽃 튀는 패기와 완벽한 협동심! 역시 우리 영지의 미래들이오!', who: 'lord' },
+          { line: '……영주님께서 저렇게 흡족해하시니 징계는 면했군.', who: 'prof_sword' },
+          { line: '하지만 소란을 피운 책임은 져야겠죠. 거기 세 학생, 입학식 끝난 뒤 학교 홀과 정원 뒷정리는 너희 몫입니다.', who: 'prof_magic' },
+          { line: '……전부 깔끔하게 치우고 돌아가도록.', who: 'prof_bow' },
+          { line: '에에엑?! 첫날부터 벌청소라니!', who: 'cls:mage' },
+          { line: '……내가 왜 휩쓸려서 청소를 해야 하는 건데.', who: 'cls:archer' },
+          { do: { quest: 'report', id: 'tu1' } },
+          { do: { quest: 'give', id: 'tu2' } },
+        ],
+      },
+      // 장면 2. 강당 — 폭발 전
+      {
+        when: { quest: 'tu1', state: 'ready' },
+        steps: [
+          { line: '에헴! 우리 가문이 되살린 이 유서 깊은 마법학교에 입학한 신입생 여러분, 진심으로 환영하오! 자, 올해 수석 입학생의 기념 시연이 있겠소!', who: 'lord' },
+          { line: '(정석대로 기초 불꽃만 보여주면 너무 뻔하지! 부모님 여행 일지에서 본 원소 조합을 살짝만 섞어 볼까……!)', who: 'cls:mage' },
+          { line: '잠깐, 그 마력 배열은 아직 신입생이 다루기엔——', who: 'prof_magic' },
+          { do: { flag: 'tu_cer', set: 1 } },
+        ],
+      },
+      // 장면 3. 방과 후 학교 홀 (벌청소 보고)
+      {
+        when: { quest: 'tu2', state: 'ready' },
+        steps: [
+          { line: '후우, 드디어 끝났다! 둘 다 진짜 미안해. 나 때문에 첫날부터 고생만 시키고……', who: 'cls:mage' },
+          { line: '괜찮아. 혼자 멍하니 있는 것보다 움직이는 게 나았어.', who: 'cls:warrior' },
+          { line: '……뭐, 덕분에 사람 얼굴은 확실히 익혔네. 다음부턴 실험하기 전에 예고나 해. 피할 준비는 하게.', who: 'cls:archer' },
+          { line: '헤헤, 약속할게! 그 대신 내가 야외매점에서 간식 쏠게! 학과는 달라도 앞으로 자주 보자!', who: 'cls:mage' },
+          { do: { quest: 'report', id: 'tu2' } },
+        ],
+      },
+      // 제3막 1. 합동 배치 (합동 훈련실에 처음 들어옴)
+      {
+        when: { all: [{ quest: 'tu6', state: 'active' }, { flag: 'tu_joint', lt: 1 }] },
+        steps: [
+          { line: '신입생 기초 실전 평가를 시작한다! 학과 구분 없이 3인 1조로 편성했으니, 서로 호흡을 맞춰 마법으로 움직이는 훈련 인형들을 제압해 봐라!', who: 'kyla' },
+          { line: '우와! 또 우리 셋이 한 조야! 이거 완전 운명 아니야?!', who: 'cls:mage' },
+          { line: '……제비뽑기 운이 지지리도 없는 거겠지. 얌전히 기본기만 맞춰서 빨리 끝내자.', who: 'cls:archer' },
+          { line: '……좋아. 내가 앞에서 시선을 끌 테니까, 뒤에서 지원해 줘.', who: 'cls:warrior' },
+          { do: { flag: 'tu_joint', set: 1 } },
+        ],
+      },
+      // 제3막 2. 폭주 (검사로 할 때: 손끝 독백)
+      {
+        when: { all: [{ quest: 'tu6', state: 'ready' }, { cls: 'warrior' }] },
+        steps: [
+          { line: '……어? 방금 손끝이 왜 이렇게 차가웠지……?', who: 'player' } as DialogueStep,
+        ].concat(BERSERK),
+      },
+      {
+        when: { quest: 'tu6', state: 'ready' },
+        steps: [{ line: '……?! 잠깐, 저 인형 상태가 이상해!', who: 'cls:warrior' } as DialogueStep].concat(BERSERK),
       },
     ],
   },

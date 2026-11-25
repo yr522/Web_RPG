@@ -6,28 +6,44 @@ import { CUTSCENES } from '../shared/data/cutscenes';
 import { MAPS, type MapId } from '../shared/data/maps';
 import { expNeed, type ClassId } from '../shared/data/classes';
 import { questDef } from '../shared/data/quests';
-import { applyEffect, mapNpcs, mapPickups, npcMark, pickTalk } from '../shared/rules/story';
+import { applyEffect, checkCond, mapNpcs, mapPickups, npcMark, pickTalk } from '../shared/rules/story';
 import { World } from '../shared/sim/World';
 import { GROUND_Y } from '../shared/data/maps';
 import { ADVANCE, ADVANCE_LINES } from '../shared/data/advance';
 import { advanceLine } from '../shared/rules/advance';
-import { acceptQuest, profQuests, autoReport, companionNpc, nightLocked, questState, questsOnKill, questsOnVisit } from '../shared/rules/quests';
+import { acceptQuest, profQuests, autoReport, companionNpc, nightLocked, questState, questsOnGather, questsOnKill, questsOnVisit } from '../shared/rules/quests';
 import { addItem, countItem, removeItem } from '../shared/rules/inventory';
 import { applyAction, gainExp } from '../shared/rules/progress';
 import { PHASE_MS } from '../shared/sim/clock';
 import { newSave, type SaveData } from '../shared/sim/save';
 
-const STORY = ['mg2', 'mg4', 'mgm2', 'mgm4', 'mgm5', 'mg5', 'mg6', 'mg7', 'mg9', 'mg10', 'mg11', 'mg12', 'mg13'];
+const TUT = ['tu1', 'tu2', 'tu3', 'tu4', 'tu5', 'tu6', 'tu7'];
+const STORY = [...TUT, 'mg2', 'mg4', 'mgm2', 'mgm4', 'mgm5', 'mg5', 'mg6', 'mg7', 'mg9', 'mg10', 'mg11', 'mg12', 'mg13'];
 const PHASE_NOW = [PHASE_MS * 0.5, PHASE_MS * 1.5, PHASE_MS * 2.5];
 
 /** 대사를 위에서부터: 효과는 적용, 실패하면 거기서 멈춤 (게임과 같음), 컷신은 그 안의 효과까지 */
 function play(s: SaveData, steps: DialogueStep[]): boolean {
   for (const st of steps) {
     if ('do' in st && !applyEffect(s, st.do).ok) return false;
-    if ('cutscene' in st) for (const c of CUTSCENES[st.cutscene] ?? []) if ('do' in c) applyEffect(s, c.do);
+    if ('cutscene' in st) playCut(s, st.cutscene);
     if ('choices' in st && !play(s, st.choices[0].reply)) return false;
   }
   return true;
+}
+
+/** 컷신: 그 직업 단계만, 효과 적용 + 대화(talk)는 그 NPC 대사까지 */
+function playCut(s: SaveData, id: string) {
+  for (const c of CUTSCENES[id] ?? []) {
+    if (c.cls && !c.cls.includes(s.cls)) continue;
+    if ('do' in c) applyEffect(s, c.do);
+    if ('talk' in c) { const pk = pickTalk(s, c.talk); if (pk && pk.talk >= 0) play(s, pk.steps); }
+  }
+}
+
+/** 맵에 들어가면 나오는 컷신 (enterScene) */
+function enterScenes(s: SaveData, map: MapId) {
+  const sc = (MAPS[map].enterScene ?? []).find(e => checkCond(s, e.when));
+  if (sc) playCut(s, sc.cutscene);
 }
 
 /** 보고할 수 있게 된 퀘스트의 장면 (골렘 → 결정체 컷신) */
@@ -37,8 +53,8 @@ function readyScenes(s: SaveData, seen: Set<string>) {
     if (!q.readyScene || seen.has(id) || questState(s, id) !== 'ready') continue;
     seen.add(id);
     const cut = q.readyScene.cutsceneFor?.[s.cls] ?? q.readyScene.cutscene;
-    for (const c of CUTSCENES[cut]) if ('do' in c) applyEffect(s, c.do);
     s.map = q.readyScene.map;
+    playCut(s, cut);
   }
 }
 
@@ -47,7 +63,8 @@ function doGoals(s: SaveData) {
   for (const id of STORY) {
     if (questState(s, id) !== 'active') continue;
     for (const g of questDef(id)!.goals) {
-      if (g.kind === 'visit') { s.map = g.map; questsOnVisit(s, g.map); }
+      if (g.kind === 'visit') { s.map = g.map; questsOnVisit(s, g.map); enterScenes(s, g.map); }
+      if (g.kind === 'gather') for (let i = 0; i < g.n; i++) { addItem(s, g.item, 1); questsOnGather(s, g.item); }
       if (g.kind === 'kill') for (let i = 0; i < g.n; i++) questsOnKill(s, g.mob ?? 'slime', g.tag);
       if (g.kind === 'collect') addItem(s, g.item, g.n);
       if (g.kind === 'level') while (s.level < g.n) gainExp(s, expNeed(s.level));
@@ -61,6 +78,8 @@ function playthrough(cls: ClassId) {
   const scenes = new Set<string>();
   for (let turn = 0; turn < 200 && questState(s, 'mg13') !== 'done'; turn++) {
     const before = JSON.stringify(s);
+    // 들어가면 나오는 장면 (학교 홀 입학식 첫 장면, 합동 훈련실 등)
+    for (const m of Object.keys(MAPS) as MapId[]) enterScenes(s, m);
     // 이야기 진행에 레벨이 필요한 대사가 있어서 (밤 침대 Lv 3 등) 조금씩 올려 둠
     if (s.level < 5) gainExp(s, expNeed(s.level));
     const phases = nightLocked(s) ? [PHASE_NOW[2]] : PHASE_NOW;
@@ -86,11 +105,14 @@ function playthrough(cls: ClassId) {
 }
 
 describe('마법사 처음 부분', () => {
-  it('Lv3 이 되면 내 머리 위 [?], 갈림길에 가면 [✔], 밤에 자면 동급생 검사를 깨우러, 깨우면 동행', async () => {
+  it('튜토리얼을 끝내고 Lv5 가 되면 내 머리 위 [?], 갈림길에 가면 [✔], 밤에 자면 동급생 검사를 깨우러, 깨우면 동행', async () => {
     const { selfMark } = await import('../shared/rules/story');
     const s = newSave('t', 'mage', 'M');
     expect(selfMark(s)).toBeNull();
-    while (s.level < 3) gainExp(s, expNeed(s.level));
+    while (s.level < 5) gainExp(s, expNeed(s.level));
+    // 튜토리얼 전에는 안 뜸
+    expect(selfMark(s)).toBeNull();
+    s.quests.tu7 = { active: false, counts: [], done: true };
     expect(selfMark(s)).toBe('!');
     play(s, pickTalk(s, 'self')!.steps);
     expect(questState(s, 'mgm2')).toBe('active');

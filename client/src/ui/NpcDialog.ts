@@ -10,7 +10,8 @@ import { settings, setSettings } from '../settings';
 import { CRAFT, RECIPES, REPAIR_INGOT, SMITH_SHOP, enhanceIngot, recipeDef } from '@shared/data/craft';
 import { craftStatus } from '@shared/rules/craft';
 import { profQuests, questProgressText, questState } from '@shared/rules/quests';
-import { TALK_NPCS, type DialogueStep } from '@shared/data/npcs';
+import { CLASSMATE, TALK_NPCS, resolveWho, type DialogueStep } from '@shared/data/npcs';
+import type { ClassId } from '@shared/data/classes';
 import { checkCond, pickTalk } from '@shared/rules/story';
 import { BOSSES, DIFFICULTIES, DIFFICULTY_ORDER, bossDef } from '@shared/data/bosses';
 import { PHASES, PHASE_MS, timeInfo } from '@shared/sim/clock';
@@ -32,13 +33,22 @@ import gathererPortrait from '../../../assets/img/portrait/rabbit_gatherer.png';
 import mashaPortrait from '../../../assets/img/portrait/masha.png';
 import sebastianPortrait from '../../../assets/img/portrait/sebastian_nautral.png';
 import smithDaughterPortrait from '../../../assets/img/portrait/blacksmith_daughter.png';
+import standSwordsman from '../../../assets/img/standing/swordsman/swordsman_male_neutral.jpg';
+import standMagician from '../../../assets/img/standing/magician/magician_female_neutral.png';
+import standArcher from '../../../assets/img/standing/archer/archer_male_neutral.png';
 
 /** 교수님 포트레이트 (assets/img/portrait). 검술과는 그림이 아직 없어서 빈 칸 */
 const PROF_PORTRAIT: Record<string, string | null> = { warrior: null, mage: teacherMagic, archer: teacherBow };
 const PROF_ICON: Record<string, string> = { warrior: '⚔️', mage: '🔮', archer: '🏹' };
 
 /** NPC 포트레이트 (교수님 빼고, 대화 NPC id → 그림) */
-const NPC_PORTRAIT: Record<string, string> = { shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait, masha: mashaPortrait, choir_kid: choirKidPortrait, gatherer: gathererPortrait, sebastian: sebastianPortrait };
+/** 직업별 스탠딩 (assets/img/standing, 기본 성별): 동급생·플레이어 대사 */
+const STANDING: Record<ClassId, string> = { warrior: standSwordsman, mage: standMagician, archer: standArcher };
+const NPC_PORTRAIT: Record<string, string> = {
+  // 동급생 = 그 직업 스탠딩, 강당의 교수님들 (검술과는 그림 없음)
+  [CLASSMATE.warrior]: standSwordsman, [CLASSMATE.mage]: standMagician, [CLASSMATE.archer]: standArcher,
+  prof_magic: teacherMagic, prof_bow: teacherBow,
+  shop: moriPortrait, smith: smithPortrait, smith_daughter: smithDaughterPortrait, masha: mashaPortrait, choir_kid: choirKidPortrait, gatherer: gathererPortrait, sebastian: sebastianPortrait };
 
 /** 교수님 메뉴에 나오는 퀘스트 */
 
@@ -108,6 +118,19 @@ export class NpcDialog {
     panel.appendChild(el('button', 'npc-x', '✕', () => this.host.close()));
     box.appendChild(panel);
     this.host.open(box);
+  }
+
+  /** 안내 팝업 (컷신 notice): 글 + 확인. 닫히면 끝 */
+  notice(text: string): Promise<void> {
+    const box = el('div', 'npc-dlg notice');
+    const panel = el('div', 'npc-panel'), body = el('div', 'npc-body');
+    body.appendChild(el('p', 'line', esc(text)));
+    const opts = el('div', 'opts');
+    opts.appendChild(el('button', 'opt', '확인', () => this.host.close()));
+    body.appendChild(opts);
+    panel.appendChild(body);
+    box.appendChild(panel);
+    return new Promise(resolve => this.host.open(box, () => resolve()));
   }
 
   /** 선택지만 있는 창 (갈 곳 고르는 포탈 등) */
@@ -299,10 +322,32 @@ export class NpcDialog {
     if (!npc || !pick) return Promise.resolve();
     // 교수님: 이름·초상화는 직업별 교수님
     const cls = this.session.save.cls, profName = CLASSES[cls].professor;
-    // 'self' = 내 혼잣말 (이름 자리에 내 이름)
-    const nameOf = (who: string) => (who === 'prof' ? profName : who === 'self' ? this.session.save.name : TALK_NPCS[who]?.name);
-    const box = this.frame(nameOf(id) ?? npc.name, id === 'prof' ? PROF_PORTRAIT[cls] : NPC_PORTRAIT[id] ?? null, id === 'prof' ? PROF_ICON[cls] : npc.icon);
+    // 'self' = 내 혼잣말 (이름 자리에 내 이름), 'cls:<직업>' = 내 직업이면 나, 아니면 그 직업 동급생
+    const nameOf = (raw: string) => {
+      const who = resolveWho(raw, cls);
+      return who === 'prof' ? profName : who === 'self' || who === 'player' ? this.session.save.name : TALK_NPCS[who]?.name;
+    };
+    // 화자별 그림: 나(혼잣말 포함) = 내 직업 스탠딩, 교수님 = 내 학과 교수님, 나머지 = NPC 그림
+    const picOf = (raw: string): string | null => {
+      const who = resolveWho(raw, cls);
+      if (who === 'player' || who === 'self') return STANDING[cls];
+      if (who === 'prof') return PROF_PORTRAIT[cls];
+      return NPC_PORTRAIT[who] ?? null;
+    };
+    const iconOf = (raw: string) => { const who = resolveWho(raw, cls); return who === 'prof' ? PROF_ICON[cls] : TALK_NPCS[who]?.icon ?? npc.icon; };
+    const box = this.frame(nameOf(id) ?? npc.name, picOf(id), iconOf(id));
     const body = this.body!, nameEl = box.querySelector<HTMLElement>('.npc-name')!;
+    const picEl = box.querySelector<HTMLElement>('.npc-portrait')!;
+    let shownPic = picOf(id), shownIcon = iconOf(id);
+    // 말하는 사람이 바뀌면 그림도 바꿈
+    const setPic = (who: string) => {
+      const p = picOf(who), ic = iconOf(who);
+      if (p === shownPic && (p || ic === shownIcon)) return;
+      shownPic = p; shownIcon = ic;
+      picEl.innerHTML = '';
+      if (p) { const img = el('img'); img.src = p; picEl.appendChild(img); }
+      else picEl.appendChild(el('div', 'npc-portrait-ph', `<span>${ic}</span><small>그림 준비 중</small>`));
+    };
     // 대사 하나 + 데이터 안 위치 (효과를 보낼 때 씀)
     type Item = { step: DialogueStep; path: number[] };
     let queue: Item[] = pick.steps.map((step, i) => ({ step, path: [i] }));
@@ -347,7 +392,8 @@ export class NpcDialog {
         // 다른 창 열기 (주화 상점 등)
         if ('open' in step) { this.host.close(); if (step.open === 'coinShop') this.openCoinShop(); else if (step.open === 'npcShop') this.openNpcShop(id); return; }
         line = step.line;
-        nameEl.textContent = step.who === 'player' ? this.session.save.name : (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
+        nameEl.textContent = (step.who && nameOf(step.who)) || nameOf(id) || npc.name;
+        setPic(step.who ?? id);
         render();
         return;
       }

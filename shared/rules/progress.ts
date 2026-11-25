@@ -1,6 +1,6 @@
 // 메뉴에서 하는 행동들 (상점, 퀘스트, 수업, 스킬 배우기, 능력치).
 // 화면은 SaveData 를 직접 고치지 않고 이 행동을 요청한다 → 나중에 서버가 같은 함수로 검사·처리.
-import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, type SlotKey, type StatId } from '../data/classes';
+import { CLASSES, SKILLS, SLOT_KEYS, MAX_SKILL_LEVEL, classActiveIds, classSkillIds, unlockLevel, expNeed, MAX_LEVEL, type SlotKey, type StatId } from '../data/classes';
 import type { Element } from '../data/elements';
 import { COIN_SHOP, NPC_SHOPS, EQUIP_SLOTS, ITEMS, SHOP_ITEMS, itemDef, type EquipSlot, type ItemDef, type ItemId } from '../data/items';
 import { BAG_FULL, hasWeapon, heldTool, addItem, canAdd, countItem, depositItem, equipTo, moveItem, removeItem, sellItem, sortBag, toggleEquip, unequip, withdrawItem } from './inventory';
@@ -137,14 +137,17 @@ export function nextLocked(s: SaveData): string | null {
 }
 
 export function gainExp(s: SaveData, n: number): ActionResult {
+  // 최대 레벨(이상)이면 경험치가 안 쌓임 (15 이상 예전 캐릭터도)
+  if (s.level >= MAX_LEVEL) return { ok: true };
   s.exp += n;
   let ups = 0;
-  while (s.exp >= expNeed(s.level)) {
+  while (s.level < MAX_LEVEL && s.exp >= expNeed(s.level)) {
     s.exp -= expNeed(s.level);
     s.level++;
     s.statPts += 3;
     ups++;
   }
+  if (s.level >= MAX_LEVEL) s.exp = 0;
   if (!ups) return { ok: true, msg: `+${n} EXP` };
   const opened = classSkillIds(s.cls).filter(id => !learned(s, id) && unlockLevel(s.cls, id) === s.level);
   const unlock = opened.length ? ` · 새 스킬 해금: ${opened.map(id => SKILLS[id].name).join(', ')}` : '';
@@ -365,6 +368,7 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
       }
       if (a.what === 'nextPhase') { s.timeOffset += timeInfo(nowMs).remain + 50; return { ok: true }; }
       if (a.what === 'gold') { s.gold += 1000; return { ok: true, msg: '+1000 G' }; }
+      if (s.level >= MAX_LEVEL) return fail(`최대 레벨 (Lv ${MAX_LEVEL})`);
       return gainExp(s, expNeed(s.level) - s.exp);
     }
   }

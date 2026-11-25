@@ -147,6 +147,8 @@ const ITEM_LIST = {
   rawhide: { name: '생가죽', kind: 'etc', icon: '🟤', img: 'item/material/rawhide', desc: '', sell: 4 },
   invitation: { name: '생일 초대장', kind: 'etc', icon: '💌', desc: '' },
   music_sheet: { name: '악보', kind: 'etc', icon: '🎼', desc: '' },
+  // 튜토리얼 벌청소 (학교 홀·마법 학교에 떨어진 것을 주움, 2026-11-25)
+  trash: { name: '쓰레기', kind: 'etc', icon: '🗑️', desc: '' },
   // 우클릭으로 사용: 서 있는 자리에 설치 → 3초 뒤 발사 (FIREWORK)
   firework: { name: '폭죽', kind: 'use', icon: '🎆', desc: '', price: 100, sell: 20 },
   honey: { name: '꿀', kind: 'etc', icon: '🍯', img: 'item/material/honey', desc: '꿀 슬라임에게서 얻은 달콤한 꿀', sell: 2 },
