@@ -15,6 +15,7 @@ import { applyEffect, findEffect, npcMark, pickTalk } from './story';
 import { CUTSCENES } from '../data/cutscenes';
 import { timeInfo } from '../sim/clock';
 import type { SaveData } from '../sim/save';
+import { isEyeColor, isFace } from '../data/looks';
 
 export type MenuAction =
   | { type: 'buy'; item: ItemId; n: number }
@@ -51,6 +52,8 @@ export type MenuAction =
   /** 개인 창고에 맡기기 (가방 index 칸) / 꺼내기 (창고 index 칸) */
   | { type: 'deposit'; index: number }
   | { type: 'withdraw'; index: number }
+  /** 외형 바꾸기 (성형사): 얼굴 / 눈동자 색 */
+  | { type: 'setLook'; face?: string; eyeColor?: string }
   /** 칭호 달기 (null = 떼기) */
   | { type: 'title'; id: string | null }
   /** 대장장이 제작: 맡기기 / 다 된 것 받기 / 형판 사기 */
@@ -322,6 +325,13 @@ export function applyAction(s: SaveData, a: MenuAction, nowMs: number, rng: () =
     case 'deposit': return depositItem(s, s.storage, a.index);
     case 'withdraw': return withdrawItem(s, s.storage, a.index);
     case 'title': return setTitle(s, a.id);
+    case 'setLook': {
+      if (a.face !== undefined && !isFace(a.face)) return { ok: false };
+      if (a.eyeColor !== undefined && !isEyeColor(a.eyeColor)) return { ok: false };
+      if (a.face !== undefined) s.face = a.face;
+      if (a.eyeColor !== undefined) s.eyeColor = a.eyeColor;
+      return { ok: true };
+    }
     case 'craftOrder': return craftOrder(s, a.recipe, Date.now());
     case 'craftCollect': return craftCollect(s, Date.now());
     case 'buyMold': {

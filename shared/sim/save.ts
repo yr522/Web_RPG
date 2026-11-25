@@ -37,6 +37,9 @@ export interface SaveData {
   equip: Partial<Record<EquipSlot, number>>;
   /** 다음에 새로 얻는 장비에 붙일 번호 */
   nextUid: number;
+  /** 얼굴 (없으면 직업 기본, looks.ts) · 눈동자 색 (없으면 그림 그대로) */
+  face?: string;
+  eyeColor?: string;
   map: MapId;
   /** 퀘스트 상태. done = 한 번이라도 끝냄 */
   quests: Record<string, QuestSave>;

@@ -8,8 +8,10 @@ import { DRAW_START_TIME } from '@shared/sim/skills/archer';
 import bodyUrl from '../../../assets/img/sprites/bones/player_bone_walk_body_true.png';
 import headUrl from '../../../assets/img/sprites/bones/player_bone_walk_head_true.png';
 import armUrl from '../../../assets/img/sprites/bones/player_bone_walk_front_arm_true.png';
-import { SKIN, skinCanvas } from './skin';
+import { SKIN, eyeCanvas, skinCanvas } from './skin';
+import { DEFAULT_FACE, FACES, isFace, type FaceId } from '@shared/data/looks';
 import swordsmanFace from '../../../assets/img/sprites/players/faces/001_swordsman/swordsman_face.png';
+import swordsmanEyes from '../../../assets/img/sprites/players/faces/001_swordsman/swordsman_eyes.png';
 import swordsmanHair from '../../../assets/img/sprites/players/hairs/001_swordsman/swordsman_hair.png';
 import magicianFace from '../../../assets/img/sprites/players/faces/002_magician/magician_face.png';
 
@@ -47,11 +49,32 @@ export type SheetName = keyof typeof SHEETS;
  * 그림에 없는 줄(모션)에서는 그 파츠만 숨김 → 검사·마법사 얼굴은 모든 모션(4줄), 검사 앞머리는 기본 줄만.
  * 레이어: 머리(뼈대) 위 → 얼굴 → 앞머리 → 앞팔 아래
  */
-export const LOOKS: Partial<Record<ClassId, { face?: string; hair?: string }>> = {
-  warrior: { face: swordsmanFace, hair: swordsmanHair },
-  mage: { face: magicianFace },
+export const LOOKS: Partial<Record<ClassId, { hair?: string }>> = {
+  warrior: { hair: swordsmanHair },
 };
-const lookKey = (cls: ClassId, part: 'face' | 'hair') => `pl_look_${cls}_${part}`;
+const lookKey = (cls: ClassId, part: 'hair') => `pl_look_${cls}_${part}`;
+
+/** 얼굴 그림 (얼굴 + 눈동자 레이어). 마법사 얼굴은 레이어가 안 나뉘어서 눈동자 = 얼굴 그림 */
+export const FACE_FILES: Record<FaceId, { face: string; eyes: string }> = {
+  swordsman: { face: swordsmanFace, eyes: swordsmanEyes },
+  magician: { face: magicianFace, eyes: magicianFace },
+};
+export const faceKey = (f: FaceId) => `pl_face_${f}`;
+const eyesKey = (f: FaceId) => `pl_eyes_${f}`;
+/** 지금 얼굴: 고른 얼굴, 없으면 직업 기본 */
+export const faceOf = (d: { face?: string; cls: ClassId }): FaceId | undefined => (isFace(d.face) ? d.face : DEFAULT_FACE[d.cls]);
+/** 눈동자 색을 입힌 그림 (색마다 처음 쓸 때 만듦). 색 없으면 원래 그림 */
+function ensureEyes(scene: Phaser.Scene, f: FaceId, hex?: string): string {
+  if (!hex) return eyesKey(f);
+  const key = `${eyesKey(f)}_${hex}`;
+  if (scene.textures.exists(key)) return key;
+  const c = eyeCanvas(scene.textures.get(eyesKey(f)).getSourceImage() as HTMLImageElement, hex);
+  const tex = scene.textures.addCanvas(key, c)!;
+  const cols = Math.floor(c.width / CELL), rows = Math.floor(c.height / CELL);
+  for (let i = 0; i < cols * rows; i++) tex.add(i, 0, (i % cols) * CELL, Math.floor(i / cols) * CELL, CELL, CELL);
+  tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  return key;
+}
 
 /** 직업별 공격 그림 */
 export const ATTACK_SHEET: Record<ClassId, SheetName> = { warrior: 'sword', mage: 'staff', archer: 'bow' };
@@ -137,11 +160,12 @@ const followThrough = (sheet: SheetName): Pose => ({ sheet, frame: sheet === 'bo
 
 export function preloadAvatar(scene: Phaser.Scene) {
   for (const part of PARTS) scene.load.spritesheet(texKey(part), PART_FILES[part], { frameWidth: CELL, frameHeight: CELL });
-  for (const [cls, l] of Object.entries(LOOKS) as [ClassId, { face?: string; hair?: string }][]) {
-    for (const p of ['face', 'hair'] as const) {
-      const url = l[p];
-      if (url) scene.load.spritesheet(lookKey(cls, p), url, { frameWidth: CELL, frameHeight: CELL });
-    }
+  for (const [cls, l] of Object.entries(LOOKS) as [ClassId, { hair?: string }][]) {
+    if (l.hair) scene.load.spritesheet(lookKey(cls, 'hair'), l.hair, { frameWidth: CELL, frameHeight: CELL });
+  }
+  for (const f of FACES) {
+    scene.load.spritesheet(faceKey(f), FACE_FILES[f].face, { frameWidth: CELL, frameHeight: CELL });
+    scene.load.spritesheet(eyesKey(f), FACE_FILES[f].eyes, { frameWidth: CELL, frameHeight: CELL });
   }
 }
 
@@ -168,6 +192,7 @@ export class PlayerAvatar {
   /** 얼굴·앞머리 (직업 그림이 있을 때만 보임) */
   private face: Phaser.GameObjects.Sprite;
   private hair: Phaser.GameObjects.Sprite;
+  private eyes: Phaser.GameObjects.Sprite;
   private loop: LoopName = 'idle';
   private t = 0;
   /** 마지막으로 보여 준 공격 그림 (공격 직후 쉬는 시간 동안 유지) */
@@ -178,15 +203,17 @@ export class PlayerAvatar {
   constructor(scene: Phaser.Scene) {
     for (const part of PARTS) scene.textures.get(texKey(part)).setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (const cls of Object.keys(LOOKS) as ClassId[]) {
-      for (const p of ['face', 'hair'] as const) if (LOOKS[cls]?.[p]) scene.textures.get(lookKey(cls, p)).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      if (LOOKS[cls]?.hair) scene.textures.get(lookKey(cls, 'hair')).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
+    for (const f of FACES) for (const k of [faceKey(f), eyesKey(f)]) scene.textures.get(k).setFilter(Phaser.Textures.FilterMode.NEAREST);
     this.parts = PARTS.map(part => scene.add.sprite(0, 0, texKey(part), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL));
     this.face = scene.add.sprite(0, 0, texKey('head'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
+    this.eyes = scene.add.sprite(0, 0, texKey('head'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
     this.hair = scene.add.sprite(0, 0, texKey('head'), 0).setOrigin(FOOT_X / CELL, FOOT_Y / CELL).setVisible(false);
     // 컨테이너의 (0,0) = 발 기준점. 좌우 반전은 컨테이너 배율을 뒤집어서 기준점 그대로 뒤집는다.
-    // 순서: 몸 · 머리(뼈대) · 얼굴 · 앞머리 · 앞팔
+    // 순서: 몸 · 머리(뼈대) · 얼굴 · 눈동자 · 앞머리 · 앞팔
     const [body, head, arm] = this.parts;
-    this.root = scene.add.container(0, 0, [body, head, this.face, this.hair, arm]).setScale(AVATAR_SCALE);
+    this.root = scene.add.container(0, 0, [body, head, this.face, this.eyes, this.hair, arm]).setScale(AVATAR_SCALE);
   }
 
   /** 마지막 공격 그림 줄 (공격 뒤 쉬는 동안 그대로) */
@@ -219,12 +246,17 @@ export class PlayerAvatar {
       else sp.setFrame(cell);
     });
     // 얼굴·앞머리: 그 직업 그림이 있고, 그림에 이 모션 줄이 있을 때만
-    for (const p of ['face', 'hair'] as const) {
-      const sp = this[p], key = lookKey(cls, p);
-      const has = !!LOOKS[cls]?.[p] && this.root.scene.textures.get(key).has(String(cell));
+    const f = faceOf(me.data);
+    const layers: [Phaser.GameObjects.Sprite, string | null][] = [
+      [this.face, f ? faceKey(f) : null],
+      [this.eyes, f ? ensureEyes(this.root.scene, f, me.data.eyeColor) : null],
+      [this.hair, LOOKS[cls]?.hair ? lookKey(cls, 'hair') : null],
+    ];
+    for (const [sp, key] of layers) {
+      const has = !!key && this.root.scene.textures.get(key).has(String(cell));
       sp.setVisible(has);
       if (!has) continue;
-      if (sp.texture.key !== key) sp.setTexture(key, cell);
+      if (sp.texture.key !== key) sp.setTexture(key!, cell);
       else sp.setFrame(cell);
     }
     // 마법 쏘기 전(지팡이 1번 그림, 동작 중)에는 부들부들 떨림
