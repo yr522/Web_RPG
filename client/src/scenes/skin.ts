@@ -30,3 +30,25 @@ export function skinCanvas(img: CanvasImageSource & { width: number; height: num
   ctx.putImageData(d, 0, 0);
   return c;
 }
+
+/** 눈동자 그림 기본 회색 (swordsman_eyes.png 눈동자 = 19) */
+const EYE_GRAY = 19;
+
+/** 눈동자 색 입히기: 순수 검정(테두리)은 그대로, 나머지 회색은 고른 색 (밝은 회색일수록 흰색 쪽으로) */
+export function eyeCanvas(img: CanvasImageSource & { width: number; height: number }, hex: string): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const ctx = c.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
+  const col = [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  for (let i = 0; i < p.length; i += 4) {
+    if (!p[i + 3]) continue;
+    const r = p[i];
+    if (r !== p[i + 1] || r !== p[i + 2] || r === 0) continue;
+    const dark = Math.min(1, r / EYE_GRAY), light = Math.max(0, Math.min(1, (r - EYE_GRAY) / 160));
+    for (let k = 0; k < 3; k++) p[i + k] = Math.round(col[k] * dark + (255 - col[k]) * light);
+  }
+  ctx.putImageData(d, 0, 0);
+  return c;
+}
