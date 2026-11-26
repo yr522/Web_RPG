@@ -125,10 +125,13 @@ describe('던전', () => {
 });
 
 describe('훈련장 허수아비', () => {
-  it('학교에서 훈련장으로 오가는 포탈', async () => {
+  it('학교 → 훈련동 복도 → 개인 훈련장 (오가는 포탈)', async () => {
     const { MAPS } = await import('../shared/data/maps');
-    expect(MAPS.school.portals.some(p => p.to === 'training')).toBe(true);
-    expect(MAPS.training.portals.some(p => p.to === 'school')).toBe(true);
+    expect(MAPS.school.portals.some(p => p.to === 'training_wing')).toBe(true);
+    expect(MAPS.training_wing.portals.some(p => p.to === 'school')).toBe(true);
+    expect(MAPS.training_wing.portals.some(p => p.to === 'training')).toBe(true);
+    expect(MAPS.training.portals.some(p => p.to === 'training_wing')).toBe(true);
+    expect(MAPS.training.name).toBe('개인 훈련장');
   });
   it('안 움직이고, 안 죽고, 부딪혀도 피해 없음, 맞으면 초당 피해가 뜸', async () => {
     const { DUMMY } = await import('../shared/data/monsters');
@@ -365,7 +368,7 @@ describe('영주님의 생일잔치', () => {
   });
   it('고철은 녹슨 것 또는 쓸만한 것 하나만 (같이 안 떨어짐), 꿀 슬라임은 꿀', async () => {
     const { MONSTERS } = await import('../shared/data/monsters');
-    expect(MONSTERS.guard_a.drops!.filter(d => d.group === 'scrap').map(d => [d.item, d.chance])).toEqual([['scrap_rusty', 0.3], ['scrap_good', 0.05]]);
+    expect(MONSTERS.guard_a.drops!.filter(d => d.group === 'scrap').map(d => [d.item, d.chance])).toEqual([['scrap_rusty', 0.3], ['scrap_good', 0.15]]);
     expect(MONSTERS.guard_b.drops!.some(d => d.item === 'scrap_good')).toBe(true);
     expect(MONSTERS.honey_slime.drops).toEqual([{ item: 'honey', chance: 0.7 }]);
     const w = new World('guard_a', 3);
@@ -499,5 +502,24 @@ describe('NPC 상호작용 높이 (2026-11-22)', () => {
     expect(w.npcNear(p)).toBeNull();
     p.y = GROUND_Y - p.h; p.vy = 0;
     expect(w.npcNear(p)?.id).toBe('smith');
+  });
+});
+
+describe('튜토리얼 합동 훈련실: 같이 싸우는 동급생', () => {
+  it('내 직업이 아닌 둘이 나오고, 인형을 때려서 잡음 (경험치는 플레이어)', () => {
+    const w = new World('training_joint', 3);
+    const s = newSave('t', 'archer', 'M');
+    const p = w.addPlayer('p', s, 200);
+    expect(w.allies.map(a => a.cls).sort()).toEqual(['mage', 'warrior']);
+    const exp0 = s.exp;
+    // 플레이어는 가만히, 맞아도 안 죽게
+    for (let i = 0; i < 40 / TICK && w.enemies.some(e => !e.dead); i++) { p.hp = p.stats.maxHp; w.step(new Map()); }
+    expect(w.enemies.every(e => e.dead)).toBe(true);
+    expect(s.exp + s.level * 1000).toBeGreaterThan(exp0 + 1000);
+  });
+  it('다른 맵에는 동급생이 없음', () => {
+    const w = new World('training_room', 3);
+    w.addPlayer('p', newSave('t', 'archer', 'M'), 200);
+    expect(w.allies).toHaveLength(0);
   });
 });

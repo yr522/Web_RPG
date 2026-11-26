@@ -1,7 +1,8 @@
 // 가방·퀘스트·성장 규칙
 import { describe, expect, it } from 'vitest';
 import { BAG_SIZE } from '../shared/data/items';
-import { expNeed } from '../shared/data/classes';
+import { expNeed, MAX_LEVEL } from '../shared/data/classes';
+import { expGapMult } from '../shared/data/monsters';
 import { addItem, canAdd, countItem, equippedSlot, moveItem, removeItem, sortBag, toggleEquip } from '../shared/rules/inventory';
 import { acceptQuest, questState, questsOnKill, reportQuest, togglePin } from '../shared/rules/quests';
 import { applyAction, gainExp } from '../shared/rules/progress';
@@ -69,6 +70,33 @@ describe('성장', () => {
     expect(s.exp).toBe(5);
     expect(s.statPts).toBe(6);
     expect(r.fullHeal).toBe(true);
+  });
+  it('최대 레벨(14)에서 멈추고, 그 뒤 경험치는 안 쌓임', () => {
+    const s = fresh();
+    gainExp(s, 1e7);
+    expect(s.level).toBe(MAX_LEVEL);
+    expect(s.exp).toBe(0);
+    gainExp(s, 500);
+    expect(s.level).toBe(MAX_LEVEL);
+    expect(s.exp).toBe(0);
+  });
+  it('15 이상인 예전 캐릭터는 레벨·경험치 그대로, 더 안 오름', () => {
+    const s = fresh();
+    s.level = 22; s.exp = 300;
+    gainExp(s, 5000);
+    expect(s.level).toBe(22);
+    expect(s.exp).toBe(300);
+    expect(applyAction(s, { type: 'debug', what: 'level' } as never, 0).ok).toBe(false);
+  });
+  it('몬스터보다 레벨이 많이 높으면 경험치가 줄어듦', () => {
+    expect(expGapMult(5, 5)).toBe(1);
+    expect(expGapMult(8, 5)).toBe(1);
+    expect(expGapMult(10, 5)).toBeCloseTo(0.7);
+    expect(expGapMult(14, 1)).toBeCloseTo(0.1);
+    expect(expGapMult(14, undefined)).toBe(1);
+  });
+  it('새 캐릭터는 학교 홀에서 시작', () => {
+    expect(fresh().map).toBe('school_hall');
   });
   it('캐릭터 생성: 포인트를 넘게 나눠도 잘림', () => {
     const s = createSave('  ', 'mage', 'F', { str: 99, dex: 99, int: 99 });

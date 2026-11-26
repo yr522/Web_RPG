@@ -87,27 +87,60 @@ export const QUESTS: QuestDef[] = [
     id: ADVANCE.quest, name: '전직 시험', main: true, desc: '(임시) 마법 골렘을 쓰러뜨리고 교수님께 보고', giver: 'prof', minLevel: ADVANCE.level,
     goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {},
   },
-  // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시) ----
+  // ---- 튜토리얼: 입학식 (2026-11-25, document/scenario 튜토리얼 시나리오). 새 캐릭터가 학교 홀에 들어오면 시작. 목표 Lv 1 → 3 ----
+  // 장면 대화는 tut_scene (컷신 talk), 동급생 셋 = 내 직업 + 동급생 둘 (npcs.ts CLASSMATE)
+  {
+    id: 'tu1', name: '수석 입학생의 대소동', main: true, desc: '입학식이 열리는 강당으로 가자. (학교 홀 오른쪽 문)', giver: 'tut_scene', where: 'auditorium',
+    goals: [{ kind: 'visit', map: 'auditorium' }], reward: { exp: 10 },
+    readyScene: { map: 'auditorium', x: 120, cutscene: 'tu_cer' },
+  },
+  {
+    id: 'tu2', name: '첫날부터 벌청소', main: true, desc: '입학식에서 소란을 피운 벌로 학교 홀과 정원(학교 바깥)의 쓰레기를 치우자.', giver: 'mage_friend', where: 'school_hall',
+    goals: [{ kind: 'gather', item: 'trash', n: 5 }], reward: { exp: 15 },
+  },
+  {
+    id: 'tu3', name: '학교생활의 기본', main: true, desc: '학교 홀 오른쪽 끝 문으로 기숙사 방 위치를 확인하고 훈련교관 레온에게 돌아가자.', giver: 'leon',
+    goals: [{ kind: 'visit', map: 'dorm' }, { kind: 'talk', npc: 'leon' }], reward: { exp: 10 },
+  },
+  {
+    id: 'tu4', name: '실전 기초', main: true, desc: '학교 바깥 오른쪽 훈련동의 훈련실에서 훈련교관 카일라를 만나자.', giver: 'leon',
+    goals: [{ kind: 'talk', npc: 'kyla' }], reward: {},
+  },
+  {
+    id: 'tu5', name: '기초 타격 연습', main: true, desc: '훈련실의 훈련 인형을 상대로 기초 타격 연습. (기본 공격 Z, 스킬 창 K)', giver: 'kyla',
+    goals: [{ kind: 'kill', mob: 'training_doll', n: 3 }], reward: { exp: 15 },
+  },
+  {
+    id: 'tu6', name: '합동 연습 전투', main: true, desc: '훈련실 오른쪽 끝 합동 훈련실에서 3인 1조로 훈련 인형 제압.', giver: 'kyla', where: 'training_joint',
+    goals: [{ kind: 'kill', n: 3, tag: 'tu_doll' }], reward: { exp: 10 },
+    readyScene: { map: 'training_joint2', x: 420, cutscene: 'tu_berserk' },
+  },
+  {
+    id: 'tu7', name: '합동 훈련실의 폭주', main: true, desc: '마력이 역류해 폭주한 훈련 인형을 셋이서 제압하자.', giver: 'kyla', where: 'training_joint2',
+    goals: [{ kind: 'kill', n: 1, tag: 'tu_boss' }], reward: { exp: 40, gold: 100 },
+    readyScene: { map: 'training_joint2', x: 420, cutscene: 'tu_end' },
+  },
+  // ---- 미니 챕터: 마법공학의 유산 (보상·이름 임시). 2026-11-25: 목표 Lv 5~10 에 맞춰 단계마다 EXP 보상 (확인: npm run curve) ----
   // 검사·궁수: 동급생 마법사(mage_friend)가 퀘스트를 주고, 다 하면 마법사에게 가서 보고 → 마법사는 다음 맵으로 옮겨 가 있음 → 거기서 다음 퀘스트
   // 마법사: 처음(mgm2 숲 둘러보기 · mgm4 잠자기)은 혼자 — 내 머리 위 [?] 로 받고 [✔] 로 보고 (대화 NPC 'self').
   //   밤에 자다가 소리를 듣고 깸 → 학교 홀의 동급생 검사(warrior_friend)를 깨움(mgm5) → mg5 부터는 검사·궁수와 같은 퀘스트.
   //   mage_friend 가 나오는 자리(퀘스트 준 사람·보고·동행·지도)는 마법사에게 warrior_friend 로 바뀜 (FRIEND_SWAP)
   {
     id: 'mg2', name: '학교 뒤 숲 둘러보기', desc: '동급생이 밤 중의 이상한 소리를 들었다며 학교 뒤 숲을 살펴봐달라고 했다.', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
+    goals: [{ kind: 'visit', map: 'crossroad' }, { kind: 'talk', npc: 'mage_friend' }], reward: { exp: 50 },
   },
   {
     id: 'mg4', name: '밤에 잠자기', desc: '밤에 기숙사 방 침대에서 자기', giver: 'mage_friend',
-    goals: [{ kind: 'talk', npc: 'bed' }], reward: {},
+    goals: [{ kind: 'talk', npc: 'bed' }], reward: { exp: 50 },
   },
   // ---- 마법사 전용 처음 부분 ----
   {
     id: 'mgm2', name: '학교 뒤 숲 둘러보기', desc: '밤마다 학교 뒤 숲 쪽에서 이상한 소리가 들린다. 숲 깊은 곳 갈림길까지 가 보자.', giver: 'self',
-    goals: [{ kind: 'visit', map: 'crossroad' }], reward: {},
+    goals: [{ kind: 'visit', map: 'crossroad' }], reward: { exp: 50 },
   },
   {
     id: 'mgm4', name: '밤에 잠자기', desc: '밤에 기숙사 방 침대에서 자기', giver: 'self',
-    goals: [{ kind: 'talk', npc: 'bed' }], reward: {},
+    goals: [{ kind: 'talk', npc: 'bed' }], reward: { exp: 50 },
   },
   {
     id: 'mgm5', name: '동급생 깨우기', desc: '또 그 소리가 들린다. 혼자 가기엔 위험하다. 학교 홀의 동급생 검사를 깨우자.', giver: 'self', where: 'school_hall', nightLock: true,
@@ -115,67 +148,68 @@ export const QUESTS: QuestDef[] = [
   },
   {
     id: 'mg5', name: '동급생과 숲으로', desc: '밤의 숲 깊은 곳으로', giver: 'mage_friend',
-    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: {}, auto: true, nightLock: true, doneBanner: '"…접근하지 마라."',
+    goals: [{ kind: 'visit', map: 'guard_a_quiet' }], reward: { exp: 50 }, auto: true, nightLock: true, doneBanner: '"…접근하지 마라."',
     companion: { npc: 'mage_friend' },
   },
   {
     id: 'mg6', name: '길을 막는 기계 처치', desc: '경비기계A 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: {},
+    goals: [{ kind: 'kill', mob: 'guard_a', n: 5 }], reward: { exp: 100 },
   },
   {
     id: 'mg7', name: '길을 막는 기계 계속 처치', desc: '경비기계B 처치', giver: 'mage_friend',
-    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: {},
+    goals: [{ kind: 'kill', mob: 'guard_b', n: 4 }], reward: { exp: 150 },
   },
   {
     // 공방 입구에서 받음. 보고하면(템은 이때 씀) 공방 입구의 포탈이 열림
     id: 'mg9', name: '입구를 여는 장치', desc: '경비기계B 에게서 공방 퀘스트 템 얻기', giver: 'mage_friend',
-    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: {},
+    goals: [{ kind: 'collect', item: 'workshop_key', n: 1 }], reward: { exp: 150 },
   },
   {
     // 공방 안에서 받음. 지하는 갇히는 맵: 다 잡으면 마법사가 골렘 방 문 옆에 나타남 → 보고하고 골렘 퀘스트를 받으면 문이 열림
     id: 'mg10', name: '공방 지하', desc: '공방 지하의 경비기계 전부 처치', giver: 'mage_friend', where: 'under_trial',
-    goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: {},
+    goals: [{ kind: 'kill', mob: 'guard_c', n: 4 }, { kind: 'kill', mob: 'guard_d', n: 4 }], reward: { exp: 200 },
     doneBanner: '강력한 기운이 느껴진다',
   },
   {
     // 골렘을 잡는 순간 장면 전용 맵으로 옮겨 컷신(수상한 자가 결정체를 가져감) → 거기 서 있는 마법사에게 보고 (보스 메뉴의 마법 골렘 워프가 열림)
     id: 'mg11', name: '마법 골렘', desc: '마법공학의 유산, 마법 골렘 처치', giver: 'mage_friend', where: 'golem_room',
-    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: {},
+    goals: [{ kind: 'kill', mob: 'golem', n: 1 }], reward: { exp: 150 },
     readyScene: { map: 'golem_scene', x: 560, cutscene: 'mg_steal', cutsceneFor: { mage: 'mg_steal_w' } },
   },
   {
     // 12. 공방 윗층(공방 내부)에서 마법사와 후일담
     id: 'mg12', name: '놓쳐 버린 결정체', desc: '공방 윗층으로 돌아가 동급생과 이야기하기', giver: 'mage_friend', where: 'workshop',
-    goals: [{ kind: 'visit', map: 'workshop' }, { kind: 'talk', npc: 'mage_friend' }], reward: {},
+    goals: [{ kind: 'visit', map: 'workshop' }, { kind: 'talk', npc: 'mage_friend' }], reward: { exp: 50 },
   },
   {
     // 13. 학교로 돌아가 교수님께 보고 → 최종 보상 (임시: EXP·골드)
     id: 'mg13', name: '교수님께 보고', desc: '마법 학교의 교수님께 지금까지의 일을 보고하기', giver: 'mage_friend',
-    goals: [{ kind: 'talk', npc: 'prof' }], reward: { exp: 600, gold: 1500 },
+    goals: [{ kind: 'talk', npc: 'prof' }], reward: { exp: 400, gold: 1500 },
   },
 
   // ---- 영주님의 생일잔치 (2026-11-21, 마법공학의 유산을 다 끝내면 열림. 6개 중 일부, 대사·보상 임시) ----
   {
     id: 'bd1', name: '꿀케이크를 위해서라면...', desc: '마을의 마샤에게 꿀 50개 가져다주기. 꿀은 꿀 슬라임 서식지(원소 슬라임 서식지 왼쪽 위)의 꿀 슬라임에게서', giver: 'masha',
-    goals: [{ kind: 'collect', item: 'honey', n: 50 }], reward: { exp: 1000, gold: 800 }, where: 'honey_field',
+    goals: [{ kind: 'collect', item: 'honey', n: 50 }], reward: { exp: 100, gold: 800 }, where: 'honey_field',
   },
   {
     id: 'bd2', name: '영주님의 동상 제작 의뢰', desc: '대 장장이에게 쓸만한 고철 5개 가져다주기. 경비기계 A·B 가 가끔 떨어뜨림', giver: 'smith',
-    goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 800, gold: 3000 }, where: 'guard_a',
+    goals: [{ kind: 'collect', item: 'scrap_good', n: 5 }], reward: { exp: 100, gold: 3000 }, where: 'guard_a',
   },
 
+  // 2026-11-25: 생일잔치 목표 Lv 10~12. 사냥(꿀·고철) 경험치는 사람마다 달라서 레벨은 보상 EXP 로 맞춤 (확인: npm run curve)
   // 2026-11-21 유저 기획: 초대장 배달 · 날아간 악보 · 폭죽은 처음이지?(필수 아님, 반복). 보상 임시
   {
     id: 'bd3', name: '초대장 배달', giver: 'sebastian',
     desc: '영주의 집사 세바스찬은, 영주의 생일이 코앞인 이때 초대장을 직접 전달하러 왔다. 진즉 발송했지만 의문의 도적단에게 물자와 함께 초대장을 통째로 약탈 당했다고 한다.',
     start: { items: [{ id: 'invitation', n: 5 }] },
     goals: [{ kind: 'flags', flags: BD3_TARGETS.map(t => `bd3_${t}`), label: '초대장 전달 (대 장장이·마샤·합창단 꼬마·모리·폭죽 장인)' }],
-    reward: { exp: 900, gold: 1000 }, where: 'town',
+    reward: { exp: 200, gold: 1000 }, where: 'town',
   },
   {
     id: 'bd4', name: '날아간 악보', giver: 'choir_kid',
     desc: '이 꼬마는 영주의 생일 잔치에서 노래를 부르기로 예정되어 있다. 부끄러운 성격 때문에 아무도 없는 밤에 가도에서 혼자 노래를 불렀다. 그러자 노랫소리를 듣고 온 들짐승 무리가 나타나 가도를 점령해버렸다. 그 때 들짐승이 악보를 물고 가버렸다. 꼬마는 악보를 꼭 되찾아야 한다고 부탁한다.',
-    goals: [{ kind: 'gather', item: 'music_sheet', n: 5 }], reward: { exp: 900, gold: 800 }, where: 'road',
+    goals: [{ kind: 'gather', item: 'music_sheet', n: 5 }], reward: { exp: 100, gold: 800 }, where: 'road',
   },
   {
     id: 'bd_fw', name: '폭죽은 처음이지?', giver: 'firework_master',
@@ -186,7 +220,7 @@ export const QUESTS: QuestDef[] = [
   // ---- 교수님 일일 퀘스트 (2026-11-21, 예전 반복 퀘스트 q1·q2 대신. 범용 하나: 아무 몬스터나. 마릿수·보상 임시) ----
   {
     id: 'd_hunt', name: '오늘의 사냥', desc: '아무 몬스터나 50마리 처치', giver: 'prof', daily: true, minLevel: 1,
-    goals: [{ kind: 'kill', n: 50 }], reward: { exp: lv => 150 + lv * 25, items: [{ id: 'mission_coin', n: 5 }] },
+    goals: [{ kind: 'kill', n: 50 }], reward: { exp: lv => 40 + lv * 20, items: [{ id: 'mission_coin', n: 5 }] },
   },
   // ---- 이야기 장치 테스트용 (시나리오가 들어오면 지움) ----
   {
@@ -223,6 +257,7 @@ export const QUEST_PIN_MAX = 3;
 
 /** 이야기 챕터: 퀘스트 창에서 한 묶음으로 접고 펼침. 퀘스트 id 앞부분(prefix)으로 나눔 */
 export const QUEST_CHAPTERS: { id: string; name: string; prefix: string }[] = [
+  { id: 'tutorial', name: '입학식', prefix: 'tu' },
   { id: 'legacy', name: '마법공학의 유산', prefix: 'mg' },
   { id: 'birthday', name: '영주님의 생일잔치', prefix: 'bd' },
 ];

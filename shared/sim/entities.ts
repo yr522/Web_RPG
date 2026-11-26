@@ -84,6 +84,22 @@ export interface PlayerState extends Body {
   ropeTo: { x: number; y: number } | null;
 }
 
+/** 같이 싸우는 동급생 (맵 allies, 무적). x = 몸 가운데, 발은 땅 */
+export interface Ally {
+  id: EntityId;
+  cls: import('../data/classes').ClassId;
+  /** 이름·그림을 빌리는 동급생 NPC id */
+  npc: string;
+  x: number;
+  face: 1 | -1;
+  /** 다음 공격까지 (초) */
+  cd: number;
+  /** 공격 모션 남은 시간 (초, 0 = 공격 중 아님) */
+  swing: number;
+  /** 이번 틱에 걸었는지 */
+  walking: boolean;
+}
+
 export interface Enemy extends Body {
   id: EntityId;
   /** 몬스터 종류 (monsters.ts) */

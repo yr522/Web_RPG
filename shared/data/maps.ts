@@ -2,7 +2,7 @@
 // 학교에서 왼쪽으로 쭉 들어가는 구성: 학교 → 뒷숲 → 원소 슬라임 서식지 → 갈림길 → (가운데 포탈) 경비기계 A·B 지역 → 공방 입구
 import type { Element } from './elements';
 import type { MonsterId } from './monsters';
-import type { Cond } from './npcs';
+import { TUT_DONE, type Cond } from './npcs';
 export const GROUND_Y = 470;
 /** 슬라임 숲 배경 (학교 뒷숲·원소 슬라임 서식지). 1672×941, 바닥 풀 윗면이 위에서 768px */
 const FOREST_BG: { imgs: [string, string, string]; groundY: number } = { imgs: ['forest_morning', 'forest_day', 'forest_night'], groundY: 768 };
@@ -28,11 +28,13 @@ export interface Portal {
 export interface Npc { id: string; x: number; /** 발이 닿는 높이 (없으면 땅) */ y?: number; when?: Cond }
 export interface Sign { x: number; text: string }
 /** 몬스터 나오는 자리. elem = 원소 슬라임의 원소, y 가 없으면 땅 위 */
-export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[] }
+/** tag = 이름표 (퀘스트에서 이 자리 몬스터만 셀 때) */
+export interface Spawn { x: number; mob: MonsterId; elem?: Element; y?: number; once?: boolean; elite?: import('./monsters').EliteAffix[]; tag?: string }
 
 export type MapId = 'school' | 'field' | 'field2' | 'crossroad' | 'guard_a' | 'guard_b' | 'workshop_gate' | 'dorm' | 'guard_a_quiet' | 'workshop' | 'under_trial' | 'under_cleared' | 'under' | 'golem_room' | 'golem_scene'
   | 'school_hall' | 'school_hallway' | 'classroom_sword' | 'classroom_magic' | 'classroom_bow' | 'my_workshop' | 'road'
-  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field' | 'gather_test';
+  | 'dungeon1' | 'dungeon2' | 'dungeon3' | 'training' | 'town' | 'honey_field' | 'gather_test'
+  | 'auditorium' | 'training_wing' | 'training_room' | 'training_joint' | 'training_joint2';
 
 export interface MapDef {
   name: string;
@@ -80,6 +82,10 @@ export interface MapDef {
   gathers?: { x: number; y?: number; node: string }[];
   /** 던전 마지막 방: 다 잡으면 주는 보상 */
   clearReward?: { gold: number; exp: number };
+  /** 들어오면 컷신 (위에서부터 처음 맞는 것 하나). 컷신 안 효과로 조건이 바뀌게 해서 한 번만 나오게 */
+  enterScene?: { when: Cond; cutscene: string }[];
+  /** 동급생 둘(내 직업이 아닌 두 직업)이 같이 싸움 (무적, 수치 allies.ts) */
+  allies?: boolean;
   platforms: Platform[];
   portals: Portal[];
   npcs: Npc[];
@@ -91,6 +97,28 @@ export interface MapDef {
 const friend = (c: Cond): Cond => ({ all: [{ not: { cls: 'mage' } }, c] });
 /** 동급생 검사 (마법사에게만 보임, 동급생 마법사와 같은 자리) 가 서 있는 조건 */
 const wfriend = (c: Cond): Cond => ({ all: [{ cls: 'mage' }, c] });
+
+// ---- 튜토리얼 입학식 (2026-11-25) ----
+/** 튜토리얼 동급생 셋: 내 직업이 아닌 둘만 서 있음. 직업별 자리 [검사, 마법사, 궁수] */
+const trio = (xs: [number, number, number], c: Cond): Npc[] =>
+  (['warrior', 'mage', 'archer'] as const).map((cls, i) => ({ id: `${cls}_friend`, x: xs[i], when: { all: [{ not: { cls } }, c] } as Cond }));
+/** 입학식 동안 (강당에 영주님·교수님·신입생): 장면 2 ~ 벌청소 */
+const CEREMONY: Cond = { any: [{ quest: 'tu1', state: 'active' }, { quest: 'tu1', state: 'ready' }, { quest: 'tu2', state: 'active' }] };
+/** 튜토리얼 벌청소 쓰레기 (tu2 하는 동안만) */
+const trash = (id: string, x: number) => ({ id, x, item: 'trash', when: { quest: 'tu2', state: 'active' } as Cond });
+/** 훈련동 복도 문 자리: 개인 훈련장 · 훈련실 · 나중에 열 곳 */
+const WING_DOORS = [450, 850, 1180];
+/** 훈련실 맨 오른쪽: 합동 훈련실 포탈 */
+const ROOM_JOINT_X = 1320;
+/** 합동 훈련실 (튜토리얼 장면 맵) 공통: 동급생 둘이 같이 싸움, 카일라 교관, 나가면 훈련실 */
+const jointRoom = (spawns: Spawn[], scene?: { when: Cond; cutscene: string }): MapDef => ({
+  name: '합동 훈련실', width: 1200, indoor: true, bgColor: 0x2e2630, allies: true,
+  platforms: [],
+  portals: [{ x: 70, to: 'training_room', toX: ROOM_JOINT_X - 80, label: '훈련실' }],
+  npcs: [{ id: 'kyla', x: 200 }], signs: [], spawns,
+  respawn: { map: 'training_room', x: 200 },
+  enterScene: scene ? [scene] : undefined,
+});
 
 const slimes = (xs: [number, number?][]): Spawn[] => xs.map(([x, y]) => ({ x, mob: 'slime', y }));
 
@@ -180,7 +208,8 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: SCHOOL_TOWN_X, to: 'town', toX: 160, label: '마을' },
       // 학교 건물 정문 → 학교 홀
       { x: SCHOOL_DOOR_X, to: 'school_hall', toX: 80, label: '학교 홀' },
-      { x: SCHOOL_TRAINING_X, to: 'training', toX: 120, label: '훈련장' },
+      // 2026-11-25: 훈련장 → 훈련동 복도 (개인 훈련장 · 훈련실)
+      { x: SCHOOL_TRAINING_X, to: 'training_wing', toX: 90, label: '훈련동' },
     ],
     npcs: [
       { id: 'story_test', x: 340 }, { id: 'test', x: 500 }, { id: 'shop', x: 1160 }, { id: 'smith', x: 1400 },
@@ -188,12 +217,15 @@ export const MAPS: Record<MapId, MapDef> = {
       { id: 'smith_daughter', x: 1465 },
       // 떠돌이 상인 (2026-11-21): 학교 앞
       { id: 'wanderer', x: 880 },
-      { id: 'mage_friend', x: 680, when: friend({ quest: 'mg5', state: 'none' }) },
+      // 튜토리얼을 끝내야 서 있음 (미니 챕터 시작)
+      { id: 'mage_friend', x: 680, when: friend({ all: [{ quest: 'mg5', state: 'none' }, TUT_DONE] }) },
       // 미니 챕터를 끝내고 학교로 돌아옴
       { id: 'mage_friend', x: 680, when: friend({ quest: 'mg12', state: 'done' }) },
     ],
     signs: [{ x: 220, text: '← 학교 뒷숲' }],
     spawns: [],
+    // 튜토리얼 벌청소: 정원 쪽 쓰레기
+    pickups: [trash('trash4', 420), trash('trash5', 1540)],
   },
   field: {
     // 2026-11-18: 폭 1300 → 975 (3/4), 슬라임 5 → 10마리 (땅 5 · 발판 5). 오른쪽 입구 쪽은 비워 둠
@@ -344,10 +376,38 @@ export const MAPS: Record<MapId, MapDef> = {
       { x: HALL_ARCH_X, to: 'school_hallway', toX: 70, label: '학교 복도' },
       // 맨 오른쪽: 기숙사 (2026-11-20, 예전엔 학교 바깥 오른쪽 끝)
       // 2026-11-21: 기숙사 / 개인 공방 고르기
-      { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사', choose: [{ label: '기숙사', to: 'dorm', toX: 190 }, { label: '개인 공방', to: 'my_workshop', toX: 190 }] },
+      // 2026-11-25: 강당 추가 (입학식)
+      { x: HALL_DORM_X, to: 'dorm', toX: 190, label: '기숙사', choose: [{ label: '기숙사', to: 'dorm', toX: 190 }, { label: '개인 공방', to: 'my_workshop', toX: 190 }, { label: '강당', to: 'auditorium', toX: 120 }] },
     ],
-    // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기
-    npcs: [{ id: 'storage', x: 250 }, { id: 'warrior_friend', x: 1000, when: wfriend({ any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }) }],
+    // 동급생 검사 (마법사만): 평소엔 여기, 밤에 깨우러 옴(mgm5). 이야기를 끝내면 다시 여기 (튜토리얼을 끝낸 뒤)
+    npcs: [
+      { id: 'storage', x: 250 }, { id: 'warrior_friend', x: 1000, when: wfriend({ all: [TUT_DONE, { any: [{ quest: 'mg5', state: 'none' }, { quest: 'mg12', state: 'done' }] }] }) },
+      // 튜토리얼: 훈련교관 레온 (기숙사 문 옆)
+      { id: 'leon', x: 1180 },
+      // 튜토리얼 장면 1 (첫 충돌): 검사는 복도 쪽에서 걸어옴, 궁수는 기둥, 마법사는 부딪힌 자리 (창고지기와 안 겹치게 홀 가운데)
+      ...trio([620, 870, 760], { all: [{ any: [{ quest: 'tu1', state: 'none' }, { quest: 'tu1', state: 'active' }] }, { not: TUT_DONE }] }),
+      // 벌청소 하는 동안
+      ...trio([700, 820, 940], { any: [{ quest: 'tu2', state: 'active' }, { quest: 'tu2', state: 'ready' }] }),
+    ],
+    signs: [], spawns: [],
+    pickups: [trash('trash1', 380), trash('trash2', 600), trash('trash3', 1060)],
+    // 새 캐릭터(튜토리얼도 미니 챕터도 안 함): 입학식 첫 장면
+    enterScene: [{ when: { all: [{ quest: 'tu1', state: 'none' }, { quest: 'mg2', state: 'none' }, { quest: 'mgm2', state: 'none' }] }, cutscene: 'tu_open' }],
+  },
+  // 강당 (2026-11-25, 입학식. 배경 그림 없음): 학교 홀 오른쪽 포탈에서 고름. 입학식(tu1) 동안 영주님·교수님 셋·신입생
+  auditorium: {
+    name: '강당', width: 1400, indoor: true, safe: true, bgColor: 0x2a2233,
+    platforms: [],
+    portals: [{ x: 70, to: 'school_hall', toX: HALL_DORM_X - 80, label: '학교 홀' }],
+    npcs: [
+      { id: 'prof_sword', x: 950, when: CEREMONY },
+      { id: 'lord', x: 1080, when: CEREMONY },
+      { id: 'prof_magic', x: 1210, when: CEREMONY },
+      { id: 'prof_bow', x: 1330, when: CEREMONY },
+      ...[420, 520, 600].map(x => ({ id: 'student', x, when: CEREMONY })),
+      // 동급생: 검사 앞줄 · 마법사 단상 앞 · 궁수 뒷줄
+      ...trio([720, 860, 300], CEREMONY),
+    ],
     signs: [], spawns: [],
   },
   school_hallway: {
@@ -375,6 +435,8 @@ export const MAPS: Record<MapId, MapDef> = {
     npcs: [{ id: 'bed', x: 413 }],
     signs: [],
     spawns: [],
+    // 튜토리얼: 처음 들어오면 혼잣말
+    enterScene: [{ when: { all: [{ quest: 'tu3', state: 'active' }, { flag: 'tu_dorm', lt: 1 }] }, cutscene: 'tu_dorm' }],
   },
   // 개인 공방 (2026-11-21): 이 맵에서만 제작(J). 배경 school_workshop (기숙사와 같은 틀, 왼쪽 문 = 나가는 포탈)
   // 채집 공간 (임시, 2026-11-22): 배경 없음. 1·3층 = 푸른나비초, 2·4층 = 주석. 포탈 옆 세발토끼 채집가 (낫·곡괭이)
@@ -462,14 +524,46 @@ export const MAPS: Record<MapId, MapDef> = {
     // 쓰러지면 공방 지하 위쪽 (위 포탈 옆)
     respawn: { map: 'under_trial', x: UNDER.mid, y: UNDER.top },
   },
-  // ===== 훈련장: 허수아비를 때려 초당 피해를 재는 곳 (학교 맵 가운데 오른쪽 포탈). 안전 지대 =====
+  // ===== 개인 훈련장: 허수아비를 때려 초당 피해를 재는 곳 (2026-11-25 훈련장 → 개인 훈련장, 훈련동 복도에서). 안전 지대 =====
   training: {
-    name: '훈련장', width: 1300, safe: true,
+    name: '개인 훈련장', width: 1300, safe: true,
     platforms: [],
-    portals: [{ x: 70, to: 'school', toX: SCHOOL_TRAINING_X, label: '마법 학교' }],
+    portals: [{ x: 70, to: 'training_wing', toX: WING_DOORS[0], label: '훈련동 복도' }],
     npcs: [], signs: [],
     spawns: [{ x: 800, mob: 'dummy' }],
   },
+  // ===== 훈련동 (2026-11-25, 배경 그림 없음): 학교 바깥 훈련동 포탈 → 복도 → 개인 훈련장 · 훈련실 =====
+  training_wing: {
+    name: '훈련동 복도', width: 1300, indoor: true, safe: true, bgColor: 0x2b2620,
+    platforms: [],
+    portals: [
+      { x: 70, to: 'school', toX: SCHOOL_TRAINING_X, label: '마법 학교' },
+      { x: WING_DOORS[0], to: 'training', toX: 120, label: '개인 훈련장' },
+      { x: WING_DOORS[1], to: 'training_room', toX: 120, label: '훈련실' },
+      { x: WING_DOORS[2], to: 'training_wing', toX: WING_DOORS[2], label: '', closed: '지금은 들어갈 수 없다.' },
+    ],
+    npcs: [], signs: [], spawns: [],
+  },
+  // 훈련실 (배경 그림 없음): 훈련 인형(Lv 1~2) 상시. 튜토리얼 훈련교관 카일라. 오른쪽 끝 = 합동 훈련실 (튜토리얼 동안만)
+  training_room: {
+    name: '훈련실', width: 1400, indoor: true, bgColor: 0x30281f,
+    platforms: [],
+    portals: [
+      { x: 70, to: 'training_wing', toX: WING_DOORS[1], label: '훈련동 복도' },
+      { x: ROOM_JOINT_X, to: 'training_joint', toX: 200, label: '합동 훈련실', when: { quest: 'tu6', state: 'active' } },
+      { x: ROOM_JOINT_X, to: 'training_joint2', toX: 420, label: '합동 훈련실', when: { quest: 'tu7', state: 'active' } },
+    ],
+    npcs: [{ id: 'kyla', x: 250 }],
+    signs: [],
+    spawns: [450, 600, 750, 900, 1050, 1180].map(x => ({ x, mob: 'training_doll' as const })),
+    respawn: { map: 'training_room', x: 200 },
+  },
+  // 합동 훈련실 (튜토리얼 장면 맵): 1) 인형 3기 (처음 들어오면 카일라 설명) → 2) 폭주한 인형
+  training_joint: jointRoom(
+    [800, 950, 1100].map(x => ({ x, mob: 'training_doll' as const, once: true, tag: 'tu_doll' })),
+    { when: { all: [{ quest: 'tu6', state: 'active' }, { flag: 'tu_joint', lt: 1 }] }, cutscene: 'tu_joint' },
+  ),
+  training_joint2: jointRoom([{ x: 900, mob: 'training_doll_x', once: true, tag: 'tu_boss', elite: ['rage'] }]),
   // ===== 던전: 잊힌 공방 (공방 지하 바닥 왼쪽 포탈). 방 3개, 웨이브를 다 잡으면 다음 방 포탈이 열림. 왼쪽 포탈은 언제나 나가기 =====
   dungeon1: dungeonRoom('잊힌 공방 1', 'workshop', 716, 1164, undefined, 'dungeon2', [
     [{ x: 600, mob: 'guard_a' }, { x: 800, mob: 'guard_a' }, { x: 1000, mob: 'guard_a' }, { x: 900, mob: 'guard_d', y: GROUND_Y - 160 }],
@@ -484,7 +578,7 @@ export const MAPS: Record<MapId, MapDef> = {
   dungeon3: dungeonRoom('잊힌 공방 3', 'golem_room', 714, GOLEM_ROOM.width, GOLEM_ROOM.walk, null, [
     [{ x: 500, mob: 'guard_d', y: GROUND_Y - 160 }, { x: 750, mob: 'guard_d', y: GROUND_Y - 200 }, { x: 900, mob: 'guard_d', y: GROUND_Y - 150 }],
     [{ x: 780, mob: 'guard_boss', elite: ['iron', 'rage'] }, { x: 600, mob: 'guard_a' }, { x: 950, mob: 'guard_a' }],
-  ], { gold: 400, exp: 600 }),
+  ], { gold: 400, exp: 400 }),
   // 골렘을 처음 잡은 순간 옮겨 오는 장면 전용 맵 (골렘 방과 같은 모습, 골렘 없음): 수상한 자가 결정체를 가져감 (컷신 mg_steal)
   golem_scene: {
     name: '???', width: GOLEM_ROOM.width, indoor: true, walk: GOLEM_ROOM.walk, bgColor: 0x15121e, bg: { img: 'golem_room', groundY: 714 }, orb: { x: GOLEM_ROOM.mid, y: 150 }, safe: true,
@@ -509,6 +603,7 @@ export const MAP_BGM: Partial<Record<MapId, string>> = {
   town: 'Noblesse nostalgia', school: 'Noblesse nostalgia', school_hall: 'Noblesse nostalgia', school_hallway: 'Noblesse nostalgia',
   classroom_sword: 'Noblesse nostalgia', classroom_magic: 'Noblesse nostalgia', classroom_bow: 'Noblesse nostalgia',
   dorm: 'Noblesse nostalgia', my_workshop: 'Noblesse nostalgia', training: 'Noblesse nostalgia',
+  auditorium: 'Noblesse nostalgia', training_wing: 'Noblesse nostalgia', training_room: 'Noblesse nostalgia', training_joint: 'Noblesse nostalgia', training_joint2: 'Noblesse nostalgia',
   // 슬라임 사냥터 3개
   field: 'MoonlightShadow', field2: 'MoonlightShadow', honey_field: 'MoonlightShadow', road: 'MoonlightShadow',
   // 공방 안 전부 (던전 잊힌 공방 포함)
