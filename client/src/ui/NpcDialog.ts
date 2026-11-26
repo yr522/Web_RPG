@@ -33,7 +33,7 @@ import gathererPortrait from '../../../assets/img/portrait/rabbit_gatherer.png';
 import mashaPortrait from '../../../assets/img/portrait/masha.png';
 import sebastianPortrait from '../../../assets/img/portrait/sebastian_nautral.png';
 import smithDaughterPortrait from '../../../assets/img/portrait/blacksmith_daughter.png';
-import standSwordsman from '../../../assets/img/standing/swordsman/swordsman_male_neutral.jpg';
+import standSwordsman from '../../../assets/img/standing/swordsman/swordsman_male_neutral.png';
 import standMagician from '../../../assets/img/standing/magician/magician_female_neutral.png';
 import standArcher from '../../../assets/img/standing/archer/archer_male_neutral.png';
 
